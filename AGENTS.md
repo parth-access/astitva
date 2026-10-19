@@ -7,3 +7,15 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Astitva project rules
+
+Read `README.md` and `docs/DECISIONS.md` first.
+
+- Money is integer paise (`src/lib/money.ts`). Never use floats for amounts.
+- Only `src/modules/inventory/service.ts` may change `product_variants.on_hand`. Every change writes one `inventory_movements` row in the same transaction.
+- Every status change goes through a machine in `src/modules/orders/machines.ts`.
+- Never trust the browser for price, stock or payment status. Re-price on the server.
+- Never select supplier, acquisition cost or internal ref in storefront code (`src/modules/catalog`).
+- Schema changes: edit `src/db/schema.ts`, run `npm run db:generate`, read the SQL, commit it.
+- Run `npm run check` before committing. Integration tests need `DATABASE_URL_TEST` and wipe that database.

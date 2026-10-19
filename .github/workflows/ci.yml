@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: astitva
+          POSTGRES_PASSWORD: astitva
+          POSTGRES_DB: astitva_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U astitva"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://astitva:astitva@localhost:5432/astitva_test
+      DATABASE_URL_TEST: postgres://astitva:astitva@localhost:5432/astitva_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - run: npm run typecheck
+      - run: npm run lint
+      # Integration tests rebuild the test database from ./drizzle, including the 50-buyer race.
+      - run: npm test
+      # Migrate + seed so the build can prerender the catalogue.
+      - run: npm run db:migrate && npm run db:seed
+      - run: npm run build

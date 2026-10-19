@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Astitva
 
-## Getting Started
+E-commerce platform for **Astitva — Your True Form**, Krishna's womenswear brand. One Next.js app, one Postgres database.
 
-First, run the development server:
+The specification is the revised PRD (Astitva PRD Review and Revised Specification). Decisions that differ from it are in [`docs/DECISIONS.md`](docs/DECISIONS.md).
+
+## Status
+
+| Milestone | State |
+| --- | --- |
+| M0 Foundation: repo, schema, tokens, CI-ready scripts | Done |
+| M1 Catalogue: read-only storefront (home, shop, product, policies) | Storefront done. Admin and auth not started |
+| M2 Inventory engine: reservations, movements, state machines | Done, with concurrency tests |
+| M3 Cart, guest checkout, COD | Not started |
+| M4 Razorpay | Not started |
+| M5 Fulfilment and refunds | Not started |
+| M6 Hardening and launch | Not started |
+
+## Stack
+
+Next.js 16 (App Router, Cache Components) · TypeScript strict · Tailwind CSS 4 · Drizzle ORM + `pg` · Zod · Vitest.
+
+## Getting started
+
+Requires Node 20+ and PostgreSQL 15+.
 
 ```bash
+npm install            # if npm crashes with "reading 'edgesOut'", re-run with --legacy-peer-deps
+cp .env.example .env   # scripts and drizzle-kit
+cp .env.example .env.local
+
+createdb astitva && createdb astitva_test   # or use a hosted Postgres
+
+npm run db:migrate     # apply migrations in ./drizzle
+npm run db:seed        # SAMPLE products only (refuses to run in production)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Scripts
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Script | What it does |
+| --- | --- |
+| `npm run check` | Typecheck, lint and all tests. Run before every commit. |
+| `npm test` | Unit and integration tests. Integration tests need `DATABASE_URL_TEST` and **wipe that database**. |
+| `npm run db:generate` | Create a migration after editing `src/db/schema.ts`. Review the SQL before committing. |
+| `npm run db:migrate` | Apply pending migrations. |
+| `npm run db:studio` | Browse the database. |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Layout
 
-## Learn More
+```
+src/
+  app/(store)/        storefront pages
+  app/api/health/     uptime check
+  components/         UI (storefront/)
+  content/policies.ts policy page drafts (must be confirmed before launch)
+  db/schema.ts        the whole data model, with CHECK and UNIQUE constraints
+  lib/                money (integer paise), state machines, sizes, env
+  modules/
+    catalog/          cached storefront reads
+    inventory/        reservation engine: the only code that changes stock
+    orders/           order, payment, COD, refund state machines
+drizzle/              SQL migrations (generated, reviewed, committed)
+tests/unit/           pure logic
+tests/integration/    against a real Postgres, incl. the 50-buyer race test
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Rules that keep the money and stock right
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Money is integer paise. Never floats. Prices are tax-inclusive.
+2. Only `modules/inventory` changes `on_hand`, and each change writes one `inventory_movements` row in the same transaction.
+3. Status changes go through the machines in `modules/orders/machines.ts`.
+4. The browser never decides price, stock or payment status.
+5. Products and variants are archived, never deleted.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Before launch
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Search the code for `TODO(launch)` and `TODO(brand)`. Brand colours in `src/app/globals.css` are placeholders until the final logo files arrive.

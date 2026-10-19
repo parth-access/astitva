@@ -1,0 +1,39 @@
+# Decisions
+
+Short records of choices that differ from, or add to, the revised PRD. Newest first.
+
+## 2026-10-19 — Drizzle instead of Prisma
+
+**Decision:** Use Drizzle ORM with plain SQL migrations.
+
+**Why:** The PRD's invariants lean on database constraints: CHECK constraints on money and stock, partial unique indexes (one live reservation per order line, unique provider payment ids when present), and expression indexes. Drizzle declares all of these in `schema.ts` and generates them into migrations. Prisma cannot express CHECK constraints or partial indexes in its schema, so they would live in hand-edited migrations that drift from the schema file. Drizzle's `.for("update")` also makes the row lock in the reservation engine explicit. A practical factor too: Prisma 7's migration engine is a separately downloaded binary, which failed in the build environment.
+
+**Cost:** Slightly less polished migration tooling. Always read the generated SQL before committing a migration.
+
+## 2026-10-19 — Inventory movements record on_hand changes only
+
+**Decision:** `inventory_movements` gets a row only when `on_hand` changes (receipt, sale, cancellation restock, return restock, adjustment, damage). Holds are recorded in `inventory_reservations`, not as zero-delta movements.
+
+**Why:** Keeps the invariant simple and testable: `on_hand` always equals the sum of its movement deltas. The reservation table is already the log of holds.
+
+## 2026-10-19 — Late payments may revive lapsed or released holds
+
+**Decision:** `commitOrderReservations` re-checks stock and commits if a hold lapsed or was released before the payment was captured. If someone else bought the piece, it changes nothing and returns `stock_unavailable`; the payments module (M4) will flag the order `needs_resolution` and refund.
+
+**Caller contract:** never call it for a cancelled order. Check order status first, under the order row lock.
+
+## 2026-10-19 — Cache Components on
+
+**Decision:** Keep Next 16's default `cacheComponents: true`. Catalogue reads use `"use cache"` with the `catalog` tag; live stock on the product page is read uncached inside `<Suspense>`.
+
+**Consequences:** Admin edits and committed sales must call `revalidateTag("catalog")`. The listing's "Sold" badge reflects committed sales, not active holds; the product page shows live availability. A missing product renders the not-found page inside a streamed response, so the HTTP status is 200 (Next adds `noindex`). Revisit if this matters for SEO.
+
+## 2026-10-19 — Fonts self-hosted
+
+**Decision:** The three OFL font families are committed in `src/fonts` and loaded with `next/font/local`. Builds never depend on Google Fonts.
+
+## 2026-10-19 — Working assumptions pending Krishna's answers
+
+- Each launch piece is one of one: one product, one variant, `on_hand = 1`. The model supports multiple sizes and quantities if not.
+- COD is off by default (`store_settings.cod_enabled = false`) until the COD policy is decided.
+- Policy pages are drafts and say so on the page.

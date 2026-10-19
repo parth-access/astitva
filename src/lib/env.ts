@@ -1,0 +1,35 @@
+import { z } from "zod";
+
+/**
+ * Server environment, validated once at first use.
+ * Never import this file from a Client Component: it would leak nothing
+ * (Next strips non-NEXT_PUBLIC vars), but it would fail at runtime.
+ */
+const serverSchema = z.object({
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  DATABASE_URL: z.string().url(),
+  APP_URL: z.string().url().default("http://localhost:3000"),
+  // Optional until the milestones that need them (M3/M4).
+  RAZORPAY_KEY_ID: z.string().optional(),
+  RAZORPAY_KEY_SECRET: z.string().optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
+  CLOUDINARY_URL: z.string().optional(),
+});
+
+export type ServerEnv = z.infer<typeof serverSchema>;
+
+let cached: ServerEnv | undefined;
+
+export function env(): ServerEnv {
+  if (cached) return cached;
+  const parsed = serverSchema.safeParse(process.env);
+  if (!parsed.success) {
+    const issues = parsed.error.issues
+      .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
+      .join("\n");
+    throw new Error(`Invalid environment configuration:\n${issues}`);
+  }
+  cached = parsed.data;
+  return cached;
+}
