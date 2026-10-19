@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ProductGrid } from "@/components/storefront/product-grid";
-import { listCategories, listProducts, PRODUCT_SORTS, type ProductSort } from "@/modules/catalog/queries";
+import { listCategories, listPieces, PRODUCT_SORTS, type ProductSort } from "@/modules/catalog/queries";
 
 export const metadata: Metadata = {
-  title: "Shop",
-  description: "Shop the Astitva collection. Many pieces are one of one.",
+  title: "All pieces",
+  description: "Every Astitva piece in one place. Most of them exist only once.",
 };
 
 function first(value: string | string[] | undefined) {
@@ -16,7 +16,7 @@ function first(value: string | string[] | undefined) {
 function hrefFor(category: string | undefined, sort: ProductSort) {
   const qs = new URLSearchParams();
   if (category) qs.set("category", category);
-  if (sort !== "newest") qs.set("sort", sort);
+  if (sort !== "sequence") qs.set("sort", sort);
   const s = qs.toString();
   return s ? `/shop?${s}` : "/shop";
 }
@@ -24,10 +24,10 @@ function hrefFor(category: string | undefined, sort: ProductSort) {
 async function Catalogue({ searchParams }: Pick<PageProps<"/shop">, "searchParams">) {
   const params = await searchParams;
   const rawSort = first(params.sort);
-  const sort: ProductSort = rawSort && rawSort in PRODUCT_SORTS ? (rawSort as ProductSort) : "newest";
+  const sort: ProductSort = rawSort && rawSort in PRODUCT_SORTS ? (rawSort as ProductSort) : "sequence";
   const category = first(params.category)?.slice(0, 96);
 
-  const [cats, items] = await Promise.all([listCategories(), listProducts({ categorySlug: category, sort })]);
+  const [cats, items] = await Promise.all([listCategories(), listPieces({ categorySlug: category, sort })]);
   const active = cats.find((c) => c.slug === category);
 
   return (
@@ -71,9 +71,9 @@ async function Catalogue({ searchParams }: Pick<PageProps<"/shop">, "searchParam
         </nav>
       </div>
       <p className="mb-10 mt-6 text-sm text-espresso-soft" aria-live="polite">
-        {items.length === 1 ? "1 piece" : `${items.length} pieces`}
+        {items.length === 1 ? "One piece" : `${items.length} pieces`}, numbered in the order they were found
       </p>
-      <ProductGrid products={items} priorityCount={2} />
+      <ProductGrid pieces={items} priorityCount={2} />
     </>
   );
 }
@@ -81,7 +81,8 @@ async function Catalogue({ searchParams }: Pick<PageProps<"/shop">, "searchParam
 export default function ShopPage(props: PageProps<"/shop">) {
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-8">
-      <h1 className="mb-8 text-4xl">The collection</h1>
+      <p className="caption text-xl">Every chapter, every piece</p>
+      <h1 className="mb-10 mt-1 text-6xl italic md:text-7xl">All pieces</h1>
       <Suspense fallback={<div className="h-96" aria-busy="true" />}>
         <Catalogue searchParams={props.searchParams} />
       </Suspense>

@@ -1,65 +1,97 @@
 import Link from "next/link";
-import { ArchImage } from "@/components/storefront/arch-image";
-import { ProductGrid } from "@/components/storefront/product-grid";
-import { listProducts } from "@/modules/catalog/queries";
+import { cacheLife } from "next/cache";
+import { Suspense } from "react";
+import { ArchiveGrid } from "@/components/brand/archive-strip";
+import { ChapterCover } from "@/components/brand/chapter-cover";
+import { ConciergeBand } from "@/components/brand/concierge";
+import { Letter } from "@/components/brand/letter";
+import { Spreads } from "@/components/brand/spreads";
+import { toRoman } from "@/lib/format";
+import { getCurrentChapter, listArchive, listPieces } from "@/modules/catalog/queries";
 
-export default async function HomePage() {
-  const [featured, latest] = await Promise.all([
-    listProducts({ featuredOnly: true, limit: 6 }),
-    listProducts({ sort: "newest", limit: 6 }),
+const SPREAD_LIMIT = 6;
+
+async function Home() {
+  "use cache";
+  cacheLife("minutes");
+  const now = new Date();
+
+  const chapter = await getCurrentChapter();
+  const [pieces, archive] = await Promise.all([
+    listPieces({ chapterId: chapter?.id, sort: "sequence" }),
+    listArchive(4),
   ]);
-  // Rows of three on desktop: trim so the grid never ends on a lone piece.
-  const pool = featured.length >= 3 ? featured : latest;
-  const showcase = pool.length >= 6 ? pool.slice(0, 6) : pool.length >= 3 ? pool.slice(0, 3) : pool;
-  const isFeatured = pool === featured;
+  // Sold pieces live in the archive section, so each piece appears once on the page.
+  const available = pieces.filter((p) => p.onHand > 0);
+  const shown = available.slice(0, SPREAD_LIMIT);
 
   return (
     <>
-      <section className="mx-auto grid max-w-6xl items-end gap-10 px-4 pt-10 sm:px-8 md:grid-cols-[1.1fr_1fr] md:gap-16 md:pt-16">
-        <div className="order-2 pb-4 md:order-1 md:pb-16">
-          <p className="font-accent text-2xl italic text-espresso-soft">Your true form</p>
-          <h1 className="mt-4 text-4xl sm:text-5xl">Clothes chosen one piece at a time, for the woman you already are.</h1>
-          <p className="mt-6 max-w-md text-espresso-soft">
-            Every Astitva piece is picked by hand. Many exist only once, so when it is gone, it is gone.
-          </p>
-          <Link href="/shop" className="btn-primary mt-8">
-            Shop the collection
-          </Link>
+      <div id="chapter" className="scroll-mt-4">
+        {chapter ? (
+          <ChapterCover chapter={chapter} now={now} />
+        ) : (
+          <section className="mx-auto max-w-6xl px-4 pt-14 sm:px-8">
+            <h1 className="text-6xl italic md:text-8xl">Your true form</h1>
+          </section>
+        )}
+      </div>
+
+      {chapter?.letter ? (
+        <div className="mt-28 md:mt-44">
+          <Letter text={chapter.letter} signature={chapter.letterSignature} excerpt={2} href={`/chapters/${chapter.slug}#letter`} id="letter-excerpt" />
         </div>
-        <div className="order-1 mx-auto w-4/5 max-w-sm md:order-2 md:w-full md:max-w-none">
-          {/* TODO(brand): campaign photograph or the hat illustration from the final brand files. */}
-          <ArchImage src={null} alt="" ratio="2/3" sizes="(min-width: 768px) 45vw, 80vw" priority />
+      ) : null}
+
+      <section id="pieces" aria-labelledby="pieces-heading" className="mx-auto mt-28 max-w-6xl scroll-mt-8 px-4 sm:px-8 md:mt-44">
+        <div className="mb-16 flex flex-wrap items-end justify-between gap-6 md:mb-24">
+          <div>
+            {chapter ? <p className="caption text-xl">Chapter {toRoman(chapter.number)}, {chapter.title}</p> : null}
+            <h2 id="pieces-heading" className="mt-1 text-5xl md:text-6xl">
+              The pieces
+            </h2>
+          </div>
+          {chapter && pieces.length > shown.length ? (
+            <Link href={`/chapters/${chapter.slug}#pieces`} className="link text-sm">
+              All {pieces.length} pieces of Chapter {toRoman(chapter.number)}
+            </Link>
+          ) : null}
         </div>
+        {shown.length > 0 ? (
+          <Spreads pieces={shown} priorityCount={0} />
+        ) : (
+          <p className="caption text-2xl">Every piece in this chapter has found its home. The next chapter is being gathered.</p>
+        )}
       </section>
 
-      <section className="mx-auto mt-24 max-w-6xl px-4 sm:px-8" aria-labelledby="new-in">
-        <div className="mb-10 flex items-baseline justify-between gap-4">
-          <h2 id="new-in" className="text-3xl">
-            {isFeatured ? "Chosen for now" : "Just arrived"}
-          </h2>
-          <Link href="/shop" className="link text-sm">
-            See everything
-          </Link>
-        </div>
-        <ProductGrid products={showcase} priorityCount={2} />
-      </section>
+      <div className="mt-32 md:mt-48">
+        <ConciergeBand />
+      </div>
 
-      <section className="mx-auto mt-36 grid max-w-6xl items-center gap-10 px-4 sm:px-8 md:grid-cols-[1fr_1.2fr] md:gap-20">
-        <div className="mx-auto w-3/5 max-w-xs md:w-full">
-          <ArchImage src={null} alt="" ratio="3/4" sizes="(min-width: 768px) 35vw, 60vw" />
-        </div>
-        <div>
-          <h2 className="text-3xl">Astitva means existence. Being fully yourself.</h2>
-          <p className="mt-5 max-w-prose text-espresso-soft">
-            {/* TODO(brand): Krishna's own words for the brand story. */}
-            We look for pieces with a quiet confidence: good fabric, a considered cut, something you will reach for again.
-            We start with a small curated collection and will grow into clothing we design ourselves.
-          </p>
-          <Link href="/about" className="link mt-6 inline-block text-sm">
-            Our story
-          </Link>
-        </div>
-      </section>
+      {archive.length > 0 ? (
+        <section aria-labelledby="archive-heading" className="mx-auto mt-28 max-w-6xl px-4 sm:px-8 md:mt-40">
+          <div className="mb-12 flex flex-wrap items-end justify-between gap-6">
+            <div>
+              <p className="caption text-xl">They do not come back</p>
+              <h2 id="archive-heading" className="mt-1 text-5xl">
+                Found their home
+              </h2>
+            </div>
+            <Link href="/archive" className="link text-sm">
+              The archive
+            </Link>
+          </div>
+          <ArchiveGrid pieces={archive} />
+        </section>
+      ) : null}
     </>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<div className="min-h-[85vh]" aria-busy="true" />}>
+      <Home />
+    </Suspense>
   );
 }

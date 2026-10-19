@@ -1,6 +1,9 @@
 import { SiteFooter } from "@/components/storefront/site-footer";
 import { SiteHeader } from "@/components/storefront/site-header";
 
+// TODO(launch): remove the notice once checkout (M3) is live.
+const PREVIEW_NOTICE = "Preview. Ordering opens with Chapter I.";
+
 export default function StoreLayout({ children }: LayoutProps<"/">) {
   return (
     <>
@@ -10,7 +13,7 @@ export default function StoreLayout({ children }: LayoutProps<"/">) {
       >
         Skip to content
       </a>
-      <SiteHeader />
+      <SiteHeader notice={PREVIEW_NOTICE} />
       <main id="main" className="flex-1">
         {children}
       </main>

@@ -1,26 +1,35 @@
 import Link from "next/link";
+import { HatMark } from "@/components/brand/hat-mark";
 import { POLICY_PAGES } from "@/content/policies";
-import { Monogram } from "./monogram";
 
 export function SiteFooter() {
   return (
-    <footer className="mt-24 border-t border-taupe/40 bg-champagne/50">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:grid-cols-[1fr_auto_auto] sm:px-8">
-        <div className="flex items-start gap-4">
-          <Monogram className="h-14 w-auto text-gold" />
-          <div>
-            <p className="font-accent text-xl italic">Your true form</p>
-            <p className="mt-2 max-w-xs text-sm text-espresso-soft">
-              Curated womenswear, chosen piece by piece in India.
-            </p>
-          </div>
+    <footer className="mt-32 border-t border-taupe/30">
+      <div className="mx-auto grid max-w-6xl gap-12 px-4 pb-10 pt-16 sm:px-8 md:grid-cols-12">
+        <div className="md:col-span-5">
+          <HatMark className="h-8 w-auto text-gold" />
+          <p className="mt-5 font-display text-3xl italic">Your true form</p>
+          <p className="mt-3 max-w-xs text-sm leading-relaxed text-espresso-soft">
+            Clothes chosen by hand, one piece at a time. Most exist only once.
+          </p>
         </div>
-        <nav aria-label="Help">
-          <h2 className="font-sans text-sm font-semibold">Help</h2>
-          <ul className="mt-3 space-y-2 text-sm">
+        <nav aria-label="The house" className="md:col-span-2 md:col-start-7">
+          <h2 className="font-sans text-sm font-semibold">The house</h2>
+          <ul className="mt-4 space-y-2.5 text-sm">
             <li>
-              <Link className="link" href="/contact">Contact us</Link>
+              <Link className="link" href="/about">About</Link>
             </li>
+            <li>
+              <Link className="link" href="/archive">Archive</Link>
+            </li>
+            <li>
+              <Link className="link" href="/contact">Contact</Link>
+            </li>
+          </ul>
+        </nav>
+        <nav aria-label="Help" className="md:col-span-2">
+          <h2 className="font-sans text-sm font-semibold">Help</h2>
+          <ul className="mt-4 space-y-2.5 text-sm">
             <li>
               <Link className="link" href="/size-guide">Size guide</Link>
             </li>
@@ -29,9 +38,9 @@ export function SiteFooter() {
             </li>
           </ul>
         </nav>
-        <nav aria-label="Policies">
+        <nav aria-label="Policies" className="md:col-span-2">
           <h2 className="font-sans text-sm font-semibold">Policies</h2>
-          <ul className="mt-3 space-y-2 text-sm">
+          <ul className="mt-4 space-y-2.5 text-sm">
             {POLICY_PAGES.map((p) => (
               <li key={p.slug}>
                 <Link className="link" href={`/policies/${p.slug}`}>{p.title}</Link>
@@ -40,7 +49,7 @@ export function SiteFooter() {
           </ul>
         </nav>
       </div>
-      <p className="mx-auto max-w-6xl px-4 pb-8 text-xs text-espresso-soft sm:px-8">
+      <p className="mx-auto max-w-6xl px-4 pb-10 text-xs text-espresso-soft sm:px-8">
         {/* TODO(launch): registered business name, address and GSTIN if registered. */}
         Astitva. Business details will appear here before launch.
       </p>

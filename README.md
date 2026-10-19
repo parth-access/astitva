@@ -9,7 +9,7 @@ The specification is the revised PRD (Astitva PRD Review and Revised Specificati
 | Milestone | State |
 | --- | --- |
 | M0 Foundation: repo, schema, tokens, CI-ready scripts | Done |
-| M1 Catalogue: read-only storefront (home, shop, product, policies) | Storefront done. Admin and auth not started |
+| M1 Catalogue: storefront as a lookbook (chapters, numbered pieces, archive, concierge) | Storefront done. Admin and auth not started |
 | M2 Inventory engine: reservations, movements, state machines | Done, with concurrency tests |
 | M3 Cart, guest checkout, COD | Not started |
 | M4 Razorpay | Not started |
@@ -67,7 +67,8 @@ src/
   app/(store)/        storefront pages
   app/api/health/     uptime check
   components/         UI (storefront/)
-  content/policies.ts policy page drafts (must be confirmed before launch)
+  components/brand/   the lookbook: plates, spreads, chapter cover, letter, archive, concierge
+  content/            policy drafts and brand promises (must be confirmed before launch)
   db/schema.ts        the whole data model, with CHECK and UNIQUE constraints
   lib/                money (integer paise), state machines, sizes, env
   modules/

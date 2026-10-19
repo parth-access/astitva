@@ -29,6 +29,13 @@
       "when": 1792385247422,
       "tag": "0003_lock_down_supabase_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792436105790,
+      "tag": "0004_chapters_and_pieces",
+      "breakpoints": true
     }
   ]
 }

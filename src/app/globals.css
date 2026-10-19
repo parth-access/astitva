@@ -1,20 +1,20 @@
 @import "tailwindcss";
 
 /*
- * Astitva design tokens.
+ * Astitva design tokens. Direction: the Lookbook (see docs/DESIGN.md).
  * PLACEHOLDER HEX VALUES: estimated from the moodboard. Replace with the exact
- * values from the final logo files before launch (PRD open question 10),
- * then re-run the contrast check in docs/DESIGN.md.
+ * values from the final logo files before launch, then re-run the contrast
+ * check in docs/DESIGN.md.
  *
  * Roles
  *   ivory      page ground
- *   champagne  raised surfaces (bag drawer, notices)
- *   sand       image frames while photos load / placeholders
+ *   champagne  raised surfaces (the concierge band, notices, footer)
+ *   sand       image frames while photos load
  *   taupe      rules and borders only (fails contrast as text)
- *   olive      availability and quiet confirmations
- *   burgundy   the one action colour: buttons, links on hover, focus
+ *   olive      availability and "one of one"
+ *   burgundy   the one action colour: buttons, active links, focus
  *   espresso   text
- *   gold       decorative only (monogram, thin ornaments); never text
+ *   gold       ornaments only (hat mark, monogram); never text
  */
 @theme {
   --color-ivory: #f7f1e7;
@@ -32,7 +32,7 @@
   --font-sans: var(--font-montserrat), "Montserrat", system-ui, sans-serif;
   --font-accent: var(--font-cormorant), "Cormorant Infant", Georgia, serif;
 
-  /* Type scale: 1.25 ratio from a 16px body (Bringhurst-style progression). */
+  /* 1.25 ratio from a 16px body, extended upward for display type. */
   --text-xs: 0.8rem;
   --text-sm: 0.875rem;
   --text-base: 1rem;
@@ -42,8 +42,13 @@
   --text-3xl: 2.441rem;
   --text-4xl: 3.052rem;
   --text-5xl: 3.815rem;
+  --text-6xl: 4.768rem;
+  --text-7xl: 5.96rem;
+  --text-8xl: 7.451rem;
 
   --radius-arch: 999px 999px 0 0;
+
+  --ease-unhurried: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 @layer base {
@@ -62,9 +67,9 @@
   h2,
   h3 {
     font-family: var(--font-display);
-    font-weight: 500;
-    line-height: 1.15;
-    letter-spacing: -0.01em;
+    font-weight: 400;
+    line-height: 1.1;
+    letter-spacing: -0.015em;
     text-wrap: balance;
   }
   p {
@@ -81,13 +86,31 @@
 }
 
 @layer components {
-  /* The brand's one signature device: an arched window, like a boutique doorway
-     or the curve of a hat brim. Used for every product and campaign image. */
+  /* The signature device: an arched window, like a boutique doorway or the
+     curve of a hat brim. Every piece and every cover sits in one. */
   .arch {
     border-radius: var(--radius-arch);
     overflow: hidden;
     background: var(--color-sand);
     isolation: isolate;
+    container-type: inline-size;
+  }
+
+  /* Stand-in for a photograph: window light falling from the upper left onto
+     the piece's colour, with a fine fabric grain. */
+  .plate-art {
+    background-image:
+      radial-gradient(115% 75% at 28% 10%, rgb(255 250 240 / 0.34), transparent 62%),
+      linear-gradient(to top, rgb(20 10 5 / 0.16), transparent 42%);
+  }
+  .plate-art::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0.22;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .2 0 0 0 0 .14 0 0 0 0 .1 0 0 0 .6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    pointer-events: none;
   }
 
   .btn-primary {
@@ -98,10 +121,11 @@
     padding: 0 1.75rem;
     background: var(--color-burgundy);
     color: var(--color-ivory);
+    font-size: var(--text-sm);
     font-weight: 500;
-    letter-spacing: 0.01em;
-    border-radius: 2px;
-    transition: background-color 150ms ease;
+    letter-spacing: 0.02em;
+    border-radius: 1px;
+    transition: background-color 200ms var(--ease-unhurried);
   }
   .btn-primary:hover {
     background: var(--color-burgundy-deep);
@@ -112,16 +136,62 @@
     cursor: not-allowed;
   }
 
+  .btn-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 3rem;
+    padding: 0 1.5rem;
+    border: 1px solid currentColor;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    border-radius: 1px;
+    transition: background-color 200ms var(--ease-unhurried), color 200ms var(--ease-unhurried);
+  }
+  .btn-outline:hover {
+    background: var(--color-espresso);
+    color: var(--color-ivory);
+    border-color: var(--color-espresso);
+  }
+
   .link {
     text-decoration: underline;
     text-decoration-thickness: 1px;
-    text-underline-offset: 0.25em;
+    text-underline-offset: 0.3em;
     text-decoration-color: var(--color-taupe);
-    transition: text-decoration-color 150ms ease, color 150ms ease;
+    transition: text-decoration-color 200ms ease, color 200ms ease;
   }
   .link:hover {
     color: var(--color-burgundy);
     text-decoration-color: currentColor;
+  }
+
+  /* Captions and provenance: the voice of someone describing a find. */
+  .caption {
+    font-family: var(--font-accent);
+    font-style: italic;
+    font-size: var(--text-lg);
+    line-height: 1.35;
+    color: var(--color-espresso-soft);
+  }
+
+  /* Letter body: a reading serif at a generous size. */
+  .letter p {
+    font-family: var(--font-display);
+    font-size: clamp(1.15rem, 1.05rem + 0.45vw, 1.45rem);
+    line-height: 1.6;
+  }
+  .letter p + p {
+    margin-top: 1.1em;
+  }
+  .letter p:first-child::first-letter {
+    float: left;
+    font-size: 3.6em;
+    line-height: 0.82;
+    padding: 0.06em 0.1em 0 0;
+    font-style: italic;
+    color: var(--color-burgundy);
   }
 
   .prose-astitva {
@@ -142,11 +212,62 @@
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Motion. One orchestrated moment per page:                           */
+/*  - the cover arch rises open on first load;                         */
+/*  - a plate morphs into the piece page when you open it.             */
+/* ------------------------------------------------------------------ */
+
+@keyframes arch-rise {
+  from {
+    clip-path: inset(100% 0 0 0 round 999px 999px 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0 round 999px 999px 0 0);
+  }
+}
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.cover-rise {
+  animation: arch-rise 1400ms var(--ease-unhurried) both;
+}
+.cover-settle {
+  animation: settle 900ms var(--ease-unhurried) both;
+  animation-delay: var(--delay, 500ms);
+}
+
+::view-transition-group(.morph) {
+  animation-duration: 520ms;
+  animation-timing-function: var(--ease-unhurried);
+}
+::view-transition-image-pair(.morph) {
+  animation-name: via-blur;
+}
+@keyframes via-blur {
+  35% {
+    filter: blur(2px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }

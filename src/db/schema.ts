@@ -46,6 +46,7 @@ const money = (name: string) => bigint(name, { mode: "number" });
 
 export const productSourceType = pgEnum("product_source_type", ["curated", "own_brand"]);
 export const productStatus = pgEnum("product_status", ["draft", "active", "archived"]);
+export const chapterStatus = pgEnum("chapter_status", ["draft", "published"]);
 export const itemCondition = pgEnum("item_condition", ["new_with_tags", "new", "like_new", "gently_used"]);
 
 export const adminRole = pgEnum("admin_role", ["owner", "staff"]);
@@ -154,6 +155,41 @@ export const collections = pgTable("collections", {
   isActive: boolean("is_active").notNull().default(true),
 }).enableRLS();
 
+/**
+ * A chapter is a release: a set of pieces launched together with a letter
+ * from Krishna. Chapter I is the launch collection; own-label clothing later
+ * arrives as further chapters.
+ */
+export const chapters = pgTable(
+  "chapters",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** 1 for "Chapter I". Shown in Roman numerals. */
+    number: smallint("number").notNull().unique(),
+    slug: varchar("slug", { length: 96 }).notNull().unique(),
+    title: varchar("title", { length: 80 }).notNull(),
+    /** One line under the title, e.g. what the chapter is about. */
+    subtitle: varchar("subtitle", { length: 200 }),
+    /** The founder's letter that opens the chapter. Blank lines separate paragraphs. */
+    letter: text("letter").notNull().default(""),
+    letterSignature: varchar("letter_signature", { length: 60 }),
+    coverImageUrl: text("cover_image_url"),
+    coverImageAlt: varchar("cover_image_alt", { length: 240 }),
+    /** Hex colour shown while the cover loads, or instead of it. */
+    tone: varchar("tone", { length: 7 }),
+    status: chapterStatus("status").notNull().default("draft"),
+    /** When the chapter opens for purchase. Shown on the site; enforced at checkout. */
+    releaseAt: timestamp("release_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    check("chapters_number_pos", sql`${t.number} > 0`),
+    check("chapters_tone_hex", sql`${t.tone} is null or ${t.tone} ~ '^#[0-9a-fA-F]{6}$'`),
+    check("chapters_published_has_release", sql`${t.status} <> 'published' or ${t.releaseAt} is not null`),
+  ],
+).enableRLS();
+
 export const products = pgTable(
   "products",
   {
@@ -167,6 +203,17 @@ export const products = pgTable(
     fit: varchar("fit", { length: 160 }),
     careInstructions: text("care_instructions"),
     isFeatured: boolean("is_featured").notNull().default(false),
+    chapterId: uuid("chapter_id").references(() => chapters.id, { onDelete: "set null" }),
+    /** The piece's place in the house's sequence: "Nº 07". Unique across all chapters, never reused. */
+    pieceNumber: integer("piece_number").unique(),
+    /** The piece's given name, e.g. "Saanjh". `name` stays the plain description ("Taupe knit midi dress"). */
+    pieceName: varchar("piece_name", { length: 60 }),
+    /** Where and how the piece was found, in Krishna's words. */
+    story: text("story"),
+    /** How Krishna would wear it. */
+    stylingNote: text("styling_note"),
+    /** Dominant colour (hex), used behind images while they load and on photo-less placeholders. */
+    tone: varchar("tone", { length: 7 }),
     seoTitle: varchar("seo_title", { length: 160 }),
     seoDescription: varchar("seo_description", { length: 320 }),
     publishedAt: timestamp("published_at", { withTimezone: true }),
@@ -175,6 +222,9 @@ export const products = pgTable(
   },
   (t) => [
     index("products_status_published_idx").on(t.status, t.publishedAt.desc()),
+    index("products_chapter_idx").on(t.chapterId, t.pieceNumber),
+    check("products_piece_number_pos", sql`${t.pieceNumber} is null or ${t.pieceNumber} > 0`),
+    check("products_tone_hex", sql`${t.tone} is null or ${t.tone} ~ '^#[0-9a-fA-F]{6}$'`),
     check(
       "products_published_has_date",
       sql`${t.status} <> 'active' or ${t.publishedAt} is not null`,
@@ -305,12 +355,16 @@ export const storeSettings = pgTable(
     restrictToListedPincodes: boolean("restrict_to_listed_pincodes").notNull().default(false),
     reservationTtlMinutes: integer("reservation_ttl_minutes").notNull().default(15),
     supportEmail: varchar("support_email", { length: 254 }),
+    /** Digits only, with country code, e.g. 919812345678. Powers the "Ask about this piece" WhatsApp link. */
     supportWhatsapp: varchar("support_whatsapp", { length: 16 }),
+    /** Who answers WhatsApp, shown as "Ask Krishna". Null shows "Ask us". */
+    conciergeName: varchar("concierge_name", { length: 40 }),
     gstin: varchar("gstin", { length: 15 }),
     updatedAt: updatedAt(),
   },
   (t) => [
     check("store_settings_singleton", sql`${t.id} = 1`),
+    check("store_settings_whatsapp_digits", sql`${t.supportWhatsapp} is null or ${t.supportWhatsapp} ~ '^[0-9]{10,15}$'`),
     check("store_settings_ttl_range", sql`${t.reservationTtlMinutes} between 5 and 60`),
     check(
       "store_settings_money_nonneg",
@@ -410,6 +464,8 @@ export const orders = pgTable(
     idempotencyScope: varchar("idempotency_scope", { length: 64 }).notNull(),
     idempotencyKey: varchar("idempotency_key", { length: 64 }).notNull(),
     codVerifiedAt: timestamp("cod_verified_at", { withTimezone: true }),
+    /** Customer agreed to show their city on the archive ("went home to Pune"). Off unless they opt in. */
+    shareCityInArchive: boolean("share_city_in_archive").notNull().default(false),
     needsResolution: boolean("needs_resolution").notNull().default(false),
     resolutionNote: text("resolution_note"),
     cancelReason: text("cancel_reason"),

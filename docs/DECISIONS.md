@@ -2,6 +2,19 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-20 — The storefront is a lookbook of chapters
+
+**Decision:** Pieces are released in numbered chapters, each opened by a letter. Every piece has a house number (`Nº 07`) and a given name, plus a provenance story and a styling note. Sold pieces stay on the site in the archive. Piece pages moved from `/products/<slug>` to `/pieces/<slug>` (permanent redirect in `next.config.ts`). Design details: `docs/DESIGN.md`.
+
+**Why:** Research on premium labels (Sézane began exactly as curated drops of found pieces; Dôen releases "chapters"; Torani names collections; one-off vintage shops keep sold items visible). A one-of-one curated catalogue is the brand's strength, so the site is built around it rather than around a product grid.
+
+**Details:**
+- Piece numbers are unique across all chapters and never reused, so a number identifies a piece for good (cards in parcels, WhatsApp messages, the archive).
+- A buyer's city appears in the archive only if they opt in at checkout (`orders.share_city_in_archive`, default off). Checkout (M3) must ask.
+- `chapters.release_at` is displayed now; checkout must refuse orders for a chapter before it opens.
+- Copy that promises something (`src/content/brand.ts`) is hidden in production until Krishna confirms it. `SHOW_DRAFT_COPY=1` shows it in a production build for review.
+- Pages that compare against the current time (chapter "Opens"/"Opened") are cached for minutes, not hours.
+
 ## 2026-10-19 — Supabase as plain Postgres, locked down
 
 **Decision:** Supabase hosts the database. The app talks to it only through Drizzle over the Postgres protocol, as the table owner. Every table has RLS enabled with no policies (`.enableRLS()` in the schema), and migration 0003 revokes all privileges from Supabase's `anon` and `authenticated` roles. A test fails if any table lacks RLS.
