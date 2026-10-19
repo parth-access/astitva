@@ -2,6 +2,16 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-19 — Supabase as plain Postgres, locked down
+
+**Decision:** Supabase hosts the database. The app talks to it only through Drizzle over the Postgres protocol, as the table owner. Every table has RLS enabled with no policies (`.enableRLS()` in the schema), and migration 0003 revokes all privileges from Supabase's `anon` and `authenticated` roles. A test fails if any table lacks RLS.
+
+**Why:** Supabase exposes the `public` schema through its Data API. Without this, anyone holding the anon key (which is designed to be public) could read customer addresses or change stock and orders. We don't use supabase-js, Supabase Auth or Storage, so this costs nothing.
+
+**TLS:** Supabase certificates chain to Supabase's own CA. `src/db/ssl.ts` verifies against that CA (`DATABASE_CA_CERT_FILE` locally, `DATABASE_CA_CERT` on Vercel) and refuses to connect to any non-local database without it. Tested against a Postgres with a private CA: right CA connects, wrong CA fails, no CA refuses.
+
+**Migrations:** `npm run db:migrate` runs `scripts/migrate.ts`, which uses the app's own connection code, so TLS behaves the same for migrations and the app.
+
 ## 2026-10-19 — Drizzle instead of Prisma
 
 **Decision:** Use Drizzle ORM with plain SQL migrations.

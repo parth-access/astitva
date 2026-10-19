@@ -22,19 +22,33 @@ Next.js 16 (App Router, Cache Components) · TypeScript strict · Tailwind CSS 4
 
 ## Getting started
 
-Requires Node 20+ and PostgreSQL 15+.
+Requires Node 20+.
 
 ```bash
 npm install            # if npm crashes with "reading 'edgesOut'", re-run with --legacy-peer-deps
-cp .env.example .env   # scripts and drizzle-kit
+cp .env.example .env
 cp .env.example .env.local
+```
 
-createdb astitva && createdb astitva_test   # or use a hosted Postgres
+### Database: Supabase
 
-npm run db:migrate     # apply migrations in ./drizzle
+1. In the Supabase dashboard open **Connect** and copy the **Session pooler** connection string. Put it in `DATABASE_URL` in both env files, with your database password filled in. Do not add `?sslmode=`.
+2. Open **Project Settings → Database → SSL configuration** and download the certificate. Save it as `certs/supabase-ca.crt` in this folder (git-ignored).
+3. Create the tables and load the sample products:
+
+```bash
+npm run db:migrate
 npm run db:seed        # SAMPLE products only (refuses to run in production)
 npm run dev
 ```
+
+The app connects as the database owner. Every table has row-level security on with no policies, and the Supabase `anon` and `authenticated` roles have no privileges, so the Supabase Data API and anon key cannot read or change store data. Don't use `supabase-js` against these tables.
+
+Later, on Vercel, use the **Transaction pooler** string (port 6543) and paste the certificate's contents into `DATABASE_CA_CERT`.
+
+### Tests
+
+Integration tests need a local throwaway Postgres in `DATABASE_URL_TEST` (they wipe it). With Homebrew: `brew install postgresql@16 && brew services start postgresql@16 && createdb astitva_test`. CI runs them on its own Postgres.
 
 ## Scripts
 

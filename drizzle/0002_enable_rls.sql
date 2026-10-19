@@ -1,0 +1,26 @@
+ALTER TABLE "admin_role_assignments" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "audit_logs" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "cart_items" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "carts" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "categories" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "cod_collections" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "collections" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "email_outbox" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "inventory_movements" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "inventory_reservations" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "order_events" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "order_items" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "orders" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "payment_events" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "payments" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "pincodes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "product_categories" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "product_collections" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "product_images" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "product_variants" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "products" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "refunds" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "shipments" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "store_settings" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "suppliers" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "users" ENABLE ROW LEVEL SECURITY;

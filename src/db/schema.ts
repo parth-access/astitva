@@ -7,6 +7,10 @@
  *   snapshots so it survives edits.
  * - Invariants that the database can enforce are enforced here (CHECK,
  *   UNIQUE, partial UNIQUE). The rest live in src/modules/* and are tested.
+ * - Every table calls .enableRLS() with no policies. On Supabase this stops
+ *   the public Data API (anon/authenticated keys) from reading or writing
+ *   anything; the app connects as the table owner, which RLS does not apply
+ *   to. A test fails if a table is added without it.
  */
 import { sql } from "drizzle-orm";
 import {
@@ -109,7 +113,7 @@ export const users = pgTable(
   (t) => [
     uniqueIndex("users_email_lower_uq").on(sql`lower(${t.email})`).where(sql`${t.email} is not null`),
   ],
-);
+).enableRLS();
 
 export const adminRoleAssignments = pgTable("admin_role_assignments", {
   userId: uuid("user_id")
@@ -117,7 +121,7 @@ export const adminRoleAssignments = pgTable("admin_role_assignments", {
     .references(() => users.id, { onDelete: "cascade" }),
   role: adminRole("role").notNull(),
   createdAt: createdAt(),
-});
+}).enableRLS();
 
 /* ------------------------------------------------------------------ */
 /* Catalogue                                                           */
@@ -130,7 +134,7 @@ export const suppliers = pgTable("suppliers", {
   notes: text("notes"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
-});
+}).enableRLS();
 
 export const categories = pgTable("categories", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -138,7 +142,7 @@ export const categories = pgTable("categories", {
   slug: varchar("slug", { length: 96 }).notNull().unique(),
   sortOrder: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
-});
+}).enableRLS();
 
 export const collections = pgTable("collections", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -148,7 +152,7 @@ export const collections = pgTable("collections", {
   imageUrl: text("image_url"),
   sortOrder: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
-});
+}).enableRLS();
 
 export const products = pgTable(
   "products",
@@ -176,7 +180,7 @@ export const products = pgTable(
       sql`${t.status} <> 'active' or ${t.publishedAt} is not null`,
     ),
   ],
-);
+).enableRLS();
 
 export const productCategories = pgTable(
   "product_categories",
@@ -192,7 +196,7 @@ export const productCategories = pgTable(
     primaryKey({ columns: [t.productId, t.categoryId] }),
     index("product_categories_category_idx").on(t.categoryId, t.productId),
   ],
-);
+).enableRLS();
 
 export const productCollections = pgTable(
   "product_collections",
@@ -209,7 +213,7 @@ export const productCollections = pgTable(
     primaryKey({ columns: [t.productId, t.collectionId] }),
     index("product_collections_collection_idx").on(t.collectionId, t.sortOrder),
   ],
-);
+).enableRLS();
 
 /** Garment measurements in centimetres, shown on the product page. */
 export type Measurements = {
@@ -265,7 +269,7 @@ export const productVariants = pgTable(
     check("product_variants_cost_nonneg", sql`${t.acquisitionCostMinor} is null or ${t.acquisitionCostMinor} >= 0`),
     check("product_variants_currency_inr", sql`${t.currency} = 'INR'`),
   ],
-);
+).enableRLS();
 
 export const productImages = pgTable(
   "product_images",
@@ -282,7 +286,7 @@ export const productImages = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("product_images_product_idx").on(t.productId, t.sortOrder)],
-);
+).enableRLS();
 
 /* ------------------------------------------------------------------ */
 /* Store configuration                                                 */
@@ -313,13 +317,13 @@ export const storeSettings = pgTable(
       sql`${t.codMaxOrderMinor} >= 0 and ${t.codFeeMinor} >= 0 and ${t.shippingFlatMinor} >= 0`,
     ),
   ],
-);
+).enableRLS();
 
 export const pincodes = pgTable("pincodes", {
   pincode: varchar("pincode", { length: 6 }).primaryKey(),
   isServiceable: boolean("is_serviceable").notNull().default(true),
   codAllowed: boolean("cod_allowed").notNull().default(true),
-});
+}).enableRLS();
 
 /* ------------------------------------------------------------------ */
 /* Cart                                                                */
@@ -336,7 +340,7 @@ export const carts = pgTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-);
+).enableRLS();
 
 export const cartItems = pgTable(
   "cart_items",
@@ -356,7 +360,7 @@ export const cartItems = pgTable(
     uniqueIndex("cart_items_cart_variant_uq").on(t.cartId, t.variantId),
     check("cart_items_quantity_range", sql`${t.quantity} between 1 and 10`),
   ],
-);
+).enableRLS();
 
 /* ------------------------------------------------------------------ */
 /* Orders                                                              */
@@ -430,7 +434,7 @@ export const orders = pgTable(
     check("orders_cod_fee_only_cod", sql`${t.paymentMethod} = 'cod' or ${t.codFeeMinor} = 0`),
     check("orders_currency_inr", sql`${t.currency} = 'INR'`),
   ],
-);
+).enableRLS();
 
 export type VariantSnapshot = { size?: string | null; color?: string | null; condition?: string | null };
 
@@ -460,7 +464,7 @@ export const orderItems = pgTable(
       sql`${t.lineTotalMinor} = ${t.unitPriceMinor} * ${t.quantity} - ${t.discountMinor}`,
     ),
   ],
-);
+).enableRLS();
 
 export const orderEvents = pgTable(
   "order_events",
@@ -478,7 +482,7 @@ export const orderEvents = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("order_events_order_idx").on(t.orderId, t.createdAt)],
-);
+).enableRLS();
 
 /* ------------------------------------------------------------------ */
 /* Inventory                                                           */
@@ -508,7 +512,7 @@ export const inventoryReservations = pgTable(
       .where(sql`${t.status} in ('active', 'committed')`),
     check("inventory_reservations_quantity_pos", sql`${t.quantity} > 0`),
   ],
-);
+).enableRLS();
 
 /** Append-only. Every change to `product_variants.on_hand` writes exactly one row here, in the same transaction. */
 export const inventoryMovements = pgTable(
@@ -531,7 +535,7 @@ export const inventoryMovements = pgTable(
     check("inventory_movements_delta_nonzero", sql`${t.quantityDelta} <> 0`),
     check("inventory_movements_on_hand_after_nonneg", sql`${t.onHandAfter} >= 0`),
   ],
-);
+).enableRLS();
 
 /* ------------------------------------------------------------------ */
 /* Payments, COD, shipping, refunds                                    */
@@ -563,7 +567,7 @@ export const payments = pgTable(
       .where(sql`${t.providerPaymentId} is not null`),
     check("payments_amount_pos", sql`${t.amountMinor} > 0`),
   ],
-);
+).enableRLS();
 
 export const paymentEvents = pgTable(
   "payment_events",
@@ -580,7 +584,7 @@ export const paymentEvents = pgTable(
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("payment_events_provider_event_uq").on(t.provider, t.providerEventId)],
-);
+).enableRLS();
 
 export const codCollections = pgTable(
   "cod_collections",
@@ -601,7 +605,7 @@ export const codCollections = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [check("cod_collections_amount_pos", sql`${t.amountDueMinor} > 0`)],
-);
+).enableRLS();
 
 export const shipments = pgTable(
   "shipments",
@@ -621,7 +625,7 @@ export const shipments = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [index("shipments_order_idx").on(t.orderId)],
-);
+).enableRLS();
 
 export const refunds = pgTable(
   "refunds",
@@ -645,7 +649,7 @@ export const refunds = pgTable(
     check("refunds_amount_pos", sql`${t.amountMinor} > 0`),
     check("refunds_razorpay_has_payment", sql`${t.method} <> 'razorpay' or ${t.paymentId} is not null`),
   ],
-);
+).enableRLS();
 
 /* ------------------------------------------------------------------ */
 /* Audit and notifications                                             */
@@ -664,7 +668,7 @@ export const auditLogs = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("audit_logs_resource_idx").on(t.resourceType, t.resourceId, t.createdAt)],
-);
+).enableRLS();
 
 export const emailOutbox = pgTable(
   "email_outbox",
@@ -683,4 +687,4 @@ export const emailOutbox = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("email_outbox_due_idx").on(t.nextAttemptAt).where(sql`${t.status} = 'pending'`)],
-);
+).enableRLS();
