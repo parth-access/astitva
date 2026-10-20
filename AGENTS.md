@@ -19,3 +19,4 @@ Read `README.md` and `docs/DECISIONS.md` first.
 - Never select supplier, acquisition cost or internal ref in storefront code (`src/modules/catalog`).
 - Schema changes: edit `src/db/schema.ts`, run `npm run db:generate`, read the SQL, commit it.
 - Run `npm run check` before committing. Integration tests need `DATABASE_URL_TEST` and wipe that database.
+- Commit as `Parth <parthsaarthichhikara@gmail.com>` (e.g. `git -c user.name=Parth -c user.email=parthsaarthichhikara@gmail.com commit ...`). Never add `Co-Authored-By` or any other AI/Claude trailer, and never commit under a Claude or bot identity.
