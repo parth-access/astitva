@@ -9,14 +9,19 @@ export default async function AdminHome() {
   return (
     <div className="max-w-prose">
       <h1 className="font-display text-3xl">Hello, {user.name}</h1>
-      <p className="mt-4 text-espresso-soft">
-        The piece and chapter editors arrive here next. Until then, this page confirms that sign-in works.
-      </p>
-      <p className="mt-6 text-sm">
-        <Link href="/" className="link">
-          View the shop
-        </Link>
-      </p>
+      <ul className="mt-8 space-y-3">
+        <li>
+          <Link href="/admin/pieces" className="link text-lg">
+            Pieces
+          </Link>
+          <span className="ml-2 text-sm text-espresso-soft">Add and edit pieces, prices and stock.</span>
+        </li>
+        <li>
+          <Link href="/" className="link text-lg">
+            View the shop
+          </Link>
+        </li>
+      </ul>
     </div>
   );
 }

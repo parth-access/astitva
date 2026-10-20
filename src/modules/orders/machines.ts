@@ -1,9 +1,11 @@
 import { defineMachine } from "@/lib/state-machine";
 import type {
+  chapterStatus,
   codCollectionStatus,
   orderPaymentStatus,
   orderStatus,
   paymentAttemptStatus,
+  productStatus,
   refundStatus,
   reservationStatus,
 } from "@/db/schema";
@@ -16,6 +18,8 @@ export type PaymentAttemptStatus = EnumValues<typeof paymentAttemptStatus>;
 export type ReservationStatus = EnumValues<typeof reservationStatus>;
 export type CodCollectionStatus = EnumValues<typeof codCollectionStatus>;
 export type RefundStatus = EnumValues<typeof refundStatus>;
+export type ProductStatus = EnumValues<typeof productStatus>;
+export type ChapterStatus = EnumValues<typeof chapterStatus>;
 
 /**
  * Fulfilment lifecycle. Returns happen after `delivered` through return
@@ -72,3 +76,21 @@ export const refundMachine = defineMachine<RefundStatus>("refund", {
 export function isCancellable(status: OrderStatus): boolean {
   return orderMachine.can(status, "cancelled");
 }
+
+/**
+ * A piece in the catalogue. "active" is published; "archived" is hidden from
+ * the site (sold pieces stay active so the archive can show them). Products
+ * are never deleted, and a published piece never goes back to draft: its
+ * number and web address are already public.
+ */
+export const productMachine = defineMachine<ProductStatus>("product", {
+  draft: ["active", "archived"],
+  active: ["archived"],
+  archived: ["active"],
+});
+
+/** A chapter (release). Unpublishing hides it again. */
+export const chapterMachine = defineMachine<ChapterStatus>("chapter", {
+  draft: ["published"],
+  published: ["draft"],
+});

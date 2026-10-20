@@ -3,7 +3,9 @@ import { InvalidTransitionError } from "@/lib/state-machine";
 import {
   codCollectionMachine,
   isCancellable,
+  chapterMachine,
   orderMachine,
+  productMachine,
   paymentAttemptMachine,
   refundMachine,
   reservationMachine,
@@ -57,5 +59,20 @@ describe("other machines", () => {
 
   it("refunds are final once resolved", () => {
     expect(refundMachine.can("succeeded", "failed")).toBe(false);
+  });
+});
+
+describe("catalogue machines", () => {
+  it("publishes, hides and restores a piece, but never unpublishes it to draft", () => {
+    expect(productMachine.can("draft", "active")).toBe(true);
+    expect(productMachine.can("active", "archived")).toBe(true);
+    expect(productMachine.can("archived", "active")).toBe(true);
+    expect(productMachine.can("active", "draft")).toBe(false);
+    expect(productMachine.can("archived", "draft")).toBe(false);
+  });
+
+  it("publishes and unpublishes a chapter", () => {
+    expect(chapterMachine.can("draft", "published")).toBe(true);
+    expect(chapterMachine.can("published", "draft")).toBe(true);
   });
 });

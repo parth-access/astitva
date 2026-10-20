@@ -2,6 +2,14 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-20 — Piece editor rules
+
+**Decision:** Pieces are created as drafts and published from the editor. A published piece can be hidden and put back, but never returns to draft (`productMachine`). Its number and web address are fixed at first publish, because both are printed on cards, shared on WhatsApp and linked from Instagram. Publishing needs a number, a name and one size on sale.
+
+**How:** Admin reads and writes live in `src/modules/catalog-admin` (they include cost and internal reference), separate from the storefront's `src/modules/catalog`. Prices are typed in rupees and stored as paise. Opening stock and every later change go through the inventory service as movements with a reason ("More arrived", "Count was low/high", "Damaged or lost"). Every save writes an audit row and calls `updateTag("catalog")`, so the change shows on the site at once. Sizes are switched off, never deleted.
+
+**Not yet:** photos (Cloudinary), suppliers (no editor yet; the field stays empty), chapter editor.
+
 ## 2026-10-20 — Hosting on Netlify (free), photos on Cloudinary
 
 **Decision:** Launch on Netlify's free plan. Store and serve product and chapter photos from Cloudinary's free plan.

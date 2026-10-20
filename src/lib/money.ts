@@ -31,6 +31,14 @@ export function rupeesToPaise(input: string | number): Paise {
   return paise;
 }
 
+/** Paise as rupees for an input field: 349900 → "3499", 349950 → "3499.50". The inverse of rupeesToPaise. */
+export function paiseToRupeesText(paise: Paise): string {
+  assertNonNegativePaise(paise);
+  const rupees = Math.floor(paise / 100);
+  const rest = paise % 100;
+  return rest === 0 ? String(rupees) : `${rupees}.${String(rest).padStart(2, "0")}`;
+}
+
 const wholeRupees = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
