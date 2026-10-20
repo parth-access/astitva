@@ -67,7 +67,9 @@ src/
   app/(store)/        storefront pages
   app/api/health/     uptime check
   components/         UI (storefront/)
-  components/brand/   the lookbook: plates, spreads, chapter cover, letter, archive, concierge
+  components/brand/   the lookbook: plates, spreads, chapter cover, letter, archive, concierge, first-visit intro
+assets/brand/         the logo source the mascot assets are generated from
+scripts/mascot/       mascot pipeline: python3 scripts/mascot/build.py
   content/            policy drafts and brand promises (must be confirmed before launch)
   db/schema.ts        the whole data model, with CHECK and UNIQUE constraints
   lib/                money (integer paise), state machines, sizes, env

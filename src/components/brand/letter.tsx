@@ -27,7 +27,7 @@ export function Letter({
   return (
     <section id={id} aria-label="A letter" className="mx-auto grid max-w-6xl scroll-mt-24 gap-8 px-4 sm:px-8 md:grid-cols-12">
       <div className="md:col-span-3 md:col-start-2">
-        <HatMark className="h-7 w-auto text-gold" />
+        <HatMark className="h-11 w-auto text-gold" />
         <p className="caption mt-4 text-xl">A letter{signature ? ` from ${signature}` : ""}</p>
       </div>
       <div className="md:col-span-7">

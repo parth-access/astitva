@@ -19,6 +19,8 @@ type Props = {
   muted?: boolean;
   /** Shown centred on a photo-less plate that has no number or name (e.g. a chapter cover). */
   emblem?: ReactNode;
+  /** "cover" fills the arch (photographs); "illustration" fits the image inside, resting on the base. */
+  fit?: "cover" | "illustration";
   className?: string;
 };
 
@@ -39,6 +41,7 @@ export function Plate({
   priority,
   muted,
   emblem,
+  fit = "cover",
   className = "",
 }: Props) {
   const colour = normaliseTone(tone);
@@ -48,7 +51,14 @@ export function Plate({
   const plate = (
     <div className={`arch relative w-full ${muted ? "opacity-70 saturate-50" : ""} ${className}`} style={style}>
       {src ? (
-        <Image src={src} alt={alt} fill sizes={sizes} priority={priority} className="object-cover" />
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          sizes={sizes}
+          priority={priority}
+          className={fit === "illustration" ? "object-contain object-bottom px-[6%] pt-[14%]" : "object-cover"}
+        />
       ) : (
         <div className={`plate-art absolute inset-0 ${ink === "light" ? "text-ivory" : "text-espresso"}`} role="img" aria-label={alt}>
           <div className="absolute inset-x-0 top-[40%] flex -translate-y-1/2 flex-col items-center px-6 text-center">

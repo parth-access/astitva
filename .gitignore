@@ -44,3 +44,7 @@ next-env.d.ts
 
 # database CA certificates
 /certs/
+
+# python caches
+__pycache__/
+*.pyc

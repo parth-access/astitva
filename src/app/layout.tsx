@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { IntroBoot } from "@/components/brand/intro";
 import { cormorant, montserrat, playfair } from "./fonts";
 import "./globals.css";
 
@@ -15,7 +16,15 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en-IN" className={`${playfair.variable} ${montserrat.variable} ${cormorant.variable} antialiased`}>
+    // suppressHydrationWarning: the intro boot script sets data-intro on <html> before React hydrates.
+    <html
+      lang="en-IN"
+      className={`${playfair.variable} ${montserrat.variable} ${cormorant.variable} antialiased`}
+      suppressHydrationWarning
+    >
+      <head>
+        <IntroBoot />
+      </head>
       <body className="flex min-h-dvh flex-col">{children}</body>
     </html>
   );

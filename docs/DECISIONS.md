@@ -2,6 +2,14 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-20 — First-visit intro: the mascot sketched, then painted
+
+**Decision:** On a first visit the Astitva woman is drawn in fine lines and then her painting arrives part by part (sketch to colour, chosen by Parth and Krishna). Details: `docs/DESIGN.md`.
+
+**How it is built:** The colour stage uses the original painting cut into transparent layers rather than a vector trace: automatic tracing posterised her hair and skin, which looked cheap next to the logo. The sketch is hand-placed SVG strokes drawn with `stroke-dashoffset`. The intro runs from inline scripts, not React, so it starts on first paint and does not wait for hydration; the overlay markup is server-rendered with `suppressHydrationWarning` on the elements the script touches.
+
+**Guardrails:** once per browser, skippable, never blocks the page (it renders underneath), off for admin/checkout/API, reduced-motion aware, 7-second CSS failsafe, no JavaScript means no intro.
+
 ## 2026-10-20 — The storefront is a lookbook of chapters
 
 **Decision:** Pieces are released in numbered chapters, each opened by a letter. Every piece has a house number (`Nº 07`) and a given name, plus a provenance story and a styling note. Sold pieces stay on the site in the archive. Piece pages moved from `/products/<slug>` to `/pieces/<slug>` (permanent redirect in `next.config.ts`). Design details: `docs/DESIGN.md`.

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { formatLongDate, toRoman } from "@/lib/format";
 import type { Chapter } from "@/modules/catalog/queries";
-import { HatMark } from "./hat-mark";
+import { MASCOT_GROUND } from "./mascot-data";
 import { Plate } from "./plate";
 
 function releaseLine(releaseAt: Date | null, now: Date) {
@@ -31,15 +31,27 @@ export function ChapterCover({
     <section className="mx-auto grid max-w-6xl items-end gap-10 px-4 pt-8 sm:px-8 md:grid-cols-12 md:gap-8 md:pt-14">
       <div className="mx-auto w-[78%] max-w-sm md:order-2 md:col-span-6 md:col-start-7 md:w-full md:max-w-none">
         <div className="cover-rise">
-          <Plate
-            src={chapter.coverImageUrl}
-            alt={chapter.coverImageAlt ?? `Chapter ${toRoman(chapter.number)}, ${chapter.title}`}
-            tone={chapter.tone}
-            ratio="3/4"
-            sizes="(min-width: 768px) 46vw, 78vw"
-            priority
-            emblem={<HatMark className="h-auto w-full" />}
-          />
+          {/* Until the chapter has a campaign photograph, the Astitva woman stands in the arch. */}
+          {chapter.coverImageUrl ? (
+            <Plate
+              src={chapter.coverImageUrl}
+              alt={chapter.coverImageAlt ?? `Chapter ${toRoman(chapter.number)}, ${chapter.title}`}
+              tone={chapter.tone}
+              ratio="3/4"
+              sizes="(min-width: 768px) 46vw, 78vw"
+              priority
+            />
+          ) : (
+            <Plate
+              src="/brand/mascot.webp"
+              alt="The Astitva woman in a wide-brimmed hat"
+              tone={MASCOT_GROUND}
+              fit="illustration"
+              ratio="3/4"
+              sizes="(min-width: 768px) 46vw, 78vw"
+              priority
+            />
+          )}
         </div>
       </div>
 

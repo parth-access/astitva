@@ -257,6 +257,190 @@
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* First-visit intro (components/brand/intro.tsx).                     */
+/* Hidden unless the boot script set html[data-intro].                 */
+/* ------------------------------------------------------------------ */
+
+.intro {
+  display: none;
+}
+html[data-intro="play"] .intro,
+html[data-intro="leaving"] .intro {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: var(--intro-ground, var(--color-ivory));
+  /* Failsafe: never stay on screen, whatever happens to the script. */
+  animation: intro-gone 1ms linear 7s forwards;
+}
+html[data-intro="play"]:has(.intro) {
+  overflow: hidden;
+}
+/* Hold the homepage's own entrance until the intro starts leaving. */
+html[data-intro="play"] .cover-rise,
+html[data-intro="play"] .cover-settle {
+  animation-play-state: paused;
+}
+
+.intro-mascot {
+  width: min(72vw, 24rem);
+  height: auto;
+  overflow: visible;
+}
+
+/* 1. Sketch: fine sepia lines draw themselves. */
+.intro-sketch {
+  fill: none;
+  stroke: #4a3024;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  transition: opacity 600ms ease 200ms;
+}
+.intro-sketch path {
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: intro-draw var(--dur, 500ms) cubic-bezier(0.45, 0.05, 0.3, 1) var(--delay, 0ms) forwards;
+}
+@keyframes intro-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* 2. Colour: the painting arrives part by part. */
+.intro-part {
+  opacity: 0;
+  transform-box: view-box;
+}
+.intro.is-colour .intro-sketch {
+  opacity: 0;
+}
+.intro-hat {
+  transform-origin: 230px 160px;
+}
+.intro.is-colour .intro-hat {
+  animation: intro-hat 700ms cubic-bezier(0.2, 0.75, 0.25, 1.05) forwards;
+}
+@keyframes intro-hat {
+  from {
+    opacity: 0;
+    transform: translateY(-22px) rotate(-3deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* Hair washes in from under the brim, like ink running down. */
+.intro-wash {
+  transform-box: view-box;
+  transform: translateY(-140px);
+}
+.intro.is-colour .intro-hair {
+  opacity: 1;
+}
+.intro.is-colour .intro-wash {
+  animation: intro-wash 900ms cubic-bezier(0.4, 0.1, 0.3, 1) 120ms forwards;
+}
+@keyframes intro-wash {
+  from {
+    transform: translateY(-140px);
+  }
+  to {
+    transform: translateY(560px);
+  }
+}
+.intro.is-colour .intro-face {
+  animation: intro-fade 420ms ease 260ms forwards;
+}
+.intro-earring {
+  transform-origin: var(--pivot);
+}
+.intro.is-colour .intro-earring {
+  animation: intro-earring 760ms cubic-bezier(0.3, 0.7, 0.4, 1) 420ms forwards;
+}
+@keyframes intro-earring {
+  0% {
+    opacity: 0;
+    transform: rotate(10deg);
+  }
+  40% {
+    opacity: 1;
+    transform: rotate(-5deg);
+  }
+  72% {
+    transform: rotate(2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes intro-fade {
+  to {
+    opacity: 1;
+  }
+}
+/* A short glint of light travels along the brim once the hat has landed. */
+.intro-glint {
+  fill: none;
+  stroke: #f4dfb0;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 0.12 1.2;
+  stroke-dashoffset: 0.12;
+  opacity: 0;
+}
+.intro.is-colour .intro-glint {
+  animation: intro-glint 640ms ease-in-out 520ms forwards;
+}
+@keyframes intro-glint {
+  0% {
+    opacity: 0;
+    stroke-dashoffset: 0.12;
+  }
+  20% {
+    opacity: 0.9;
+  }
+  80% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    stroke-dashoffset: -1;
+  }
+}
+
+/* 3. Leave: she lifts away and the page shows through. */
+html[data-intro] .intro.is-leaving .intro-mascot {
+  animation: intro-mascot-out 460ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+html[data-intro] .intro.is-leaving {
+  animation: intro-gone 440ms ease 180ms forwards;
+}
+html[data-intro] .intro.is-skipped {
+  animation: intro-gone 260ms ease forwards;
+}
+@keyframes intro-mascot-out {
+  to {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.98);
+  }
+}
+@keyframes intro-gone {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -269,5 +453,13 @@
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation: none !important;
+  }
+}
+
+/* Reduced motion: no drawing or movement. The finished painting shows for a
+   moment, then the page. Keeps the failsafe from firing at once. */
+@media (prefers-reduced-motion: reduce) {
+  html[data-intro="play"] .intro {
+    animation: intro-gone 1ms linear 2.5s forwards !important;
   }
 }

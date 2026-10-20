@@ -17,11 +17,31 @@ Astitva is presented as a house that releases **chapters** of hand-chosen pieces
 
 - **The arch.** Every image and every cover sits in an arched window. Nothing else uses it.
 - **The plate placeholder.** Until a piece is photographed, its arch is filled with the piece's own colour (`products.tone`) under soft window light and a fine grain, with its number and name set in it. With a photograph, the same tone shows while the image loads.
-- **The hat mark.** A single-line wide-brimmed hat (placeholder for the illustrator's woman in the hat) used as an ornament: cover, letter, styling note, footer, archive. Gold, never text.
+- **The Astitva woman (mascot).** The woman in the wide-brimmed hat from the logo. She stands in the homepage cover arch until there is a campaign photograph, and she draws herself in the first-visit intro.
+- **The hat mark.** Her hat as a fine gold outline (silhouette and band), used as an ornament: letter, styling note, footer, archive. Never text.
+
+## The first-visit intro
+
+On a visitor's first visit to any storefront page (including straight from Instagram), the mascot is sketched in fine sepia lines, then the painting arrives: the hat settles onto her head and a glint runs along the brim, her face and earring appear (the earring swings once), and her hair washes in from under the brim. Then she lifts away and the page shows; on the homepage the cover arch rises with her already inside it.
+
+- About 2.2 seconds from first paint. Any tap, click, scroll or key skips it.
+- Plays once per browser (`localStorage["astitva:intro"]`). Add `?intro` to any URL to replay it for review.
+- Never on `/admin`, `/checkout` or `/api`. Never without JavaScript. If storage is blocked it does not play.
+- The page renders underneath at the same time. The painted layers (about 35 KB) load only when the intro plays.
+- Reduced motion: no drawing or movement; the finished painting shows for a moment, then the page.
+- A CSS failsafe removes the overlay after 7 seconds whatever happens.
+
+Code: `components/brand/intro.tsx` (markup and the two inline scripts), the "First-visit intro" block in `globals.css`.
+
+## Mascot assets
+
+All mascot artwork is generated from the logo by `python3 scripts/mascot/build.py`: the painting cut into transparent layers (`public/intro/*.webp`), the cover image (`public/brand/mascot.webp`), the browser icons (`src/app/icon.png`, `apple-icon.png`, `favicon.ico`) and `components/brand/mascot-data.ts` (layer positions, sketch strokes, hat ornament). The sketch strokes are hand-placed in `scripts/mascot/sketch.py`.
+
+The logo was generated with ChatGPT and exists only as a 1067 px raster. Before print (cards, packaging), have a designer redraw it as layered vector art; then replace this pipeline with their files and keep `mascot-data.ts`'s shape.
 
 ## Motion
 
-One moment per page, never decoration:
+One moment per page, never decoration (the first-visit intro aside):
 
 - the cover arch rises open on first load while the title settles;
 - opening a piece morphs its plate into the piece page hero (React `ViewTransition`, shared name `piece-<slug>`).
