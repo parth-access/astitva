@@ -49,11 +49,14 @@ export type PieceCard = {
   compareAtMinor: number | null;
   imageUrl: string | null;
   imageAlt: string;
+  categorySlug: string | null;
   onHand: number;
   variantCount: number;
 };
 
 const minPrice = sql<number>`min(${productVariants.priceMinor})::bigint`;
+/** The piece's first category (it picks the sketch drawn until there is a photograph). Outer table written out: see listCategories. */
+const firstCategorySlug = sql<string | null>`(select c.slug from product_categories pc join categories c on c.id = pc.category_id where pc.product_id = products.id order by c.sort_order limit 1)`;
 
 export async function listPieces(
   opts: { categorySlug?: string; chapterId?: string; sort?: ProductSort; featuredOnly?: boolean; limit?: number } = {},
@@ -84,6 +87,7 @@ export async function listPieces(
       pieceName: products.pieceName,
       story: products.story,
       tone: products.tone,
+      categorySlug: firstCategorySlug,
       priceMinor: minPrice,
       compareAtMinor: sql<number | null>`max(${productVariants.compareAtMinor})::bigint`,
       onHand: sql<number>`sum(${productVariants.onHand})::int`,
@@ -233,6 +237,7 @@ export type ArchivedPiece = {
   pieceNumber: number | null;
   pieceName: string | null;
   tone: string | null;
+  categorySlug: string | null;
   imageUrl: string | null;
   imageAlt: string;
   soldAt: Date;
@@ -258,6 +263,7 @@ export async function listArchive(limit = 60) {
       pieceNumber: products.pieceNumber,
       pieceName: products.pieceName,
       tone: products.tone,
+      categorySlug: firstCategorySlug,
       soldAt: lastSale,
     })
     .from(products)
@@ -337,6 +343,7 @@ export async function getProductBySlug(slug: string) {
       story: products.story,
       stylingNote: products.stylingNote,
       tone: products.tone,
+      categorySlug: firstCategorySlug,
       seoTitle: products.seoTitle,
       seoDescription: products.seoDescription,
       chapter: {
@@ -426,4 +433,62 @@ export async function getConcierge() {
     .from(storeSettings)
     .where(eq(storeSettings.id, 1));
   return row ?? { whatsapp: null, name: null, email: null };
+}
+
+/* Lookbook ------------------------------------------------------------ */
+
+export type LookbookPiece = {
+  id: string;
+  slug: string;
+  name: string;
+  pieceNumber: number | null;
+  pieceName: string | null;
+  story: string | null;
+  stylingNote: string | null;
+  tone: string | null;
+  categorySlug: string | null;
+  priceMinor: number;
+  compareAtMinor: number | null;
+  onHand: number;
+  variantCount: number;
+  imageUrl: string | null;
+  imageAlt: string;
+};
+
+/** Every published piece of a chapter, in house order, with what a lookbook page shows. */
+export async function listLookbookPieces(chapterId: string): Promise<LookbookPiece[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(CATALOG_TAG);
+
+  const rows = await db
+    .select({
+      id: products.id,
+      slug: products.slug,
+      name: products.name,
+      pieceNumber: products.pieceNumber,
+      pieceName: products.pieceName,
+      story: products.story,
+      stylingNote: products.stylingNote,
+      tone: products.tone,
+      categorySlug: firstCategorySlug,
+      priceMinor: minPrice,
+      compareAtMinor: sql<number | null>`max(${productVariants.compareAtMinor})::bigint`,
+      onHand: sql<number>`sum(${productVariants.onHand})::int`,
+      variantCount: sql<number>`count(${productVariants.id})::int`,
+    })
+    .from(products)
+    .innerJoin(productVariants, and(eq(productVariants.productId, products.id), eq(productVariants.isActive, true)))
+    .where(and(eq(products.status, "active"), eq(products.chapterId, chapterId)))
+    .groupBy(products.id)
+    .orderBy(sql`${products.pieceNumber} asc nulls last`, asc(products.name));
+
+  const images = await firstImages(rows.map((r) => r.id));
+  return rows.map((r) => ({
+    ...r,
+    priceMinor: Number(r.priceMinor),
+    compareAtMinor: r.compareAtMinor === null ? null : Number(r.compareAtMinor),
+    imageUrl: images.get(r.id)?.url ?? null,
+    imageAlt: images.get(r.id)?.alt || r.name,
+  }));
 }

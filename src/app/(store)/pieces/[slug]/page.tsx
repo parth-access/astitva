@@ -168,6 +168,8 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
             tone={product.tone}
             pieceNumber={product.pieceNumber}
             pieceName={product.pieceName}
+            category={product.categorySlug}
+            sketchNote
             sizes="(min-width: 768px) 56vw, 92vw"
             priority
           />

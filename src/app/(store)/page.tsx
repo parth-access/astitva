@@ -1,90 +1,56 @@
-import Link from "next/link";
 import { cacheLife } from "next/cache";
 import { Suspense } from "react";
 import { ArchiveGrid } from "@/components/brand/archive-strip";
-import { ChapterCover } from "@/components/brand/chapter-cover";
 import { ConciergeBand } from "@/components/brand/concierge";
-import { Letter } from "@/components/brand/letter";
-import { Spreads } from "@/components/brand/spreads";
-import { toRoman } from "@/lib/format";
-import { getCurrentChapter, listArchive, listPieces } from "@/modules/catalog/queries";
+import { LookbookContents, LookbookCover, LookbookPage } from "@/components/lookbook/lookbook";
+import { getCurrentChapter, listArchive, listLookbookPieces } from "@/modules/catalog/queries";
 
-const SPREAD_LIMIT = 6;
-
+/**
+ * The home page is the current chapter as a printed lookbook: a cover spread,
+ * a contents page, then a page for every piece (sold ones stay, marked).
+ * Design notes: docs/DESIGN.md.
+ */
 async function Home() {
   "use cache";
   cacheLife("minutes");
   const now = new Date();
 
   const chapter = await getCurrentChapter();
-  const [pieces, archive] = await Promise.all([
-    listPieces({ chapterId: chapter?.id, sort: "sequence" }),
-    listArchive(4),
-  ]);
-  // Sold pieces live in the archive section, so each piece appears once on the page.
-  const available = pieces.filter((p) => p.onHand > 0);
-  const shown = available.slice(0, SPREAD_LIMIT);
+  if (!chapter) {
+    return (
+      <section className="mx-auto max-w-6xl px-4 pb-24 pt-14 sm:px-8">
+        <h1 className="lookbook-title italic leading-[0.85]">Your true form</h1>
+        <p className="caption mt-8 text-2xl">The first chapter is being gathered.</p>
+      </section>
+    );
+  }
+
+  const [pieces, archive] = await Promise.all([listLookbookPieces(chapter.id), listArchive(12)]);
+  // This chapter's sold pieces already have their page above; the archive here is for earlier chapters.
+  const inBook = new Set(pieces.map((p) => p.id));
+  const earlier = archive.filter((p) => !inBook.has(p.id)).slice(0, 4);
 
   return (
-    <>
-      <div id="chapter" className="scroll-mt-4">
-        {chapter ? (
-          <ChapterCover chapter={chapter} now={now} />
-        ) : (
-          <section className="mx-auto max-w-6xl px-4 pt-14 sm:px-8">
-            <h1 className="text-6xl italic md:text-8xl">Your true form</h1>
-          </section>
-        )}
-      </div>
-
-      {chapter?.letter ? (
-        <div className="mt-28 md:mt-44">
-          <Letter text={chapter.letter} signature={chapter.letterSignature} excerpt={2} href={`/chapters/${chapter.slug}#letter`} id="letter-excerpt" />
-        </div>
-      ) : null}
-
-      <section id="pieces" aria-labelledby="pieces-heading" className="mx-auto mt-28 max-w-6xl scroll-mt-8 px-4 sm:px-8 md:mt-44">
-        <div className="mb-16 flex flex-wrap items-end justify-between gap-6 md:mb-24">
-          <div>
-            {chapter ? <p className="caption text-xl">Chapter {toRoman(chapter.number)}, {chapter.title}</p> : null}
-            <h2 id="pieces-heading" className="mt-1 text-5xl md:text-6xl">
-              The pieces
-            </h2>
-          </div>
-          {chapter && pieces.length > shown.length ? (
-            <Link href={`/chapters/${chapter.slug}#pieces`} className="link text-sm">
-              All {pieces.length} pieces of Chapter {toRoman(chapter.number)}
-            </Link>
-          ) : null}
-        </div>
-        {shown.length > 0 ? (
-          <Spreads pieces={shown} priorityCount={0} />
-        ) : (
-          <p className="caption text-2xl">Every piece in this chapter has found its home. The next chapter is being gathered.</p>
-        )}
-      </section>
-
-      <div className="mt-32 md:mt-48">
+    <div className="lookbook">
+      <LookbookCover chapter={chapter} pieces={pieces} now={now} />
+      <LookbookContents chapter={chapter} pieces={pieces} />
+      {pieces.map((p, i) => (
+        <LookbookPage key={p.id} chapter={chapter} piece={p} index={i} />
+      ))}
+      {/* End matter scrolls normally and covers the last leaf. */}
+      <div className="relative z-10 border-t border-sand bg-ivory pb-10 pt-24 md:pt-32">
         <ConciergeBand />
+        {earlier.length > 0 ? (
+          <section aria-labelledby="archive-heading" className="mx-auto mt-24 max-w-6xl px-4 sm:px-8 md:mt-32">
+            <p className="caption text-xl">From earlier chapters</p>
+            <h2 id="archive-heading" className="mb-12 mt-1 text-5xl">
+              Found their home
+            </h2>
+            <ArchiveGrid pieces={earlier} />
+          </section>
+        ) : null}
       </div>
-
-      {archive.length > 0 ? (
-        <section aria-labelledby="archive-heading" className="mx-auto mt-28 max-w-6xl px-4 sm:px-8 md:mt-40">
-          <div className="mb-12 flex flex-wrap items-end justify-between gap-6">
-            <div>
-              <p className="caption text-xl">They do not come back</p>
-              <h2 id="archive-heading" className="mt-1 text-5xl">
-                Found their home
-              </h2>
-            </div>
-            <Link href="/archive" className="link text-sm">
-              The archive
-            </Link>
-          </div>
-          <ArchiveGrid pieces={archive} />
-        </section>
-      ) : null}
-    </>
+    </div>
   );
 }
 

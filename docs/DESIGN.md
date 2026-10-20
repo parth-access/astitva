@@ -16,8 +16,8 @@ Astitva is presented as a house that releases **chapters** of hand-chosen pieces
 ## Signature devices
 
 - **The arch.** Every image and every cover sits in an arched window. Nothing else uses it.
-- **The plate placeholder.** Until a piece is photographed, its arch is filled with the piece's own colour (`products.tone`) under soft window light and a fine grain, with its number and name set in it. With a photograph, the same tone shows while the image loads.
-- **The Astitva woman (mascot).** The woman in the wide-brimmed hat from the logo. She stands in the homepage cover arch until there is a campaign photograph, and she draws herself in the first-visit intro.
+- **The painted sketch.** Until a piece is photographed, its arch holds an ink-and-watercolour sketch of its kind of garment (dress, co-ord set, top, outerwear, from its category) on a hanger, washed in the piece's own colour (`products.tone`). The ink draws itself as the plate scrolls in on wide screens; on phones and with reduced motion the finished sketch shows. Code: `components/lookbook/sketch-plate.tsx`, used by `Plate` whenever there is no photo. With a photograph, the tone shows while the image loads.
+- **The Astitva woman (mascot).** The woman in the wide-brimmed hat from the logo. She stands in the lookbook cover's arch until there is a campaign photograph, and she draws herself in the first-visit intro.
 
 ## The first-visit intro
 
@@ -45,11 +45,14 @@ One moment per page, never decoration (the first-visit intro aside):
 - the cover arch rises open on first load while the title settles;
 - opening a piece morphs its plate into the piece page hero (React `ViewTransition`, shared name `piece-<slug>`).
 
-Both are disabled under `prefers-reduced-motion`. A transition name must appear once per page: the homepage shows available pieces in the spreads and sold ones only in the archive section.
+- turning the pages of the lookbook (sticky leaves, wide screens);
+- a sketch's ink drawing itself as its plate comes into view (wide screens).
+
+All are disabled under `prefers-reduced-motion`. A transition name must appear once per page: the home page's archive section shows only earlier chapters, so a piece never appears twice.
 
 ## Layout
 
-- **Spreads** (`components/brand/spreads.tsx`): a rhythm of one plate with its caption beside it, then a pair with the second set lower, then a mirrored single. On phones, one piece per screen.
+- **The lookbook** (`components/lookbook/lookbook.tsx`): the home page and every chapter page are a printed lookbook. A cover spread (chapter title set huge, running across the fold and over the arch; the opening line of the letter, signed), on chapter pages the whole letter as its own page, a contents page (numbers, names, dotted leaders, page numbers; sold pieces marked), then one page per piece, alternating sides. Pages carry print furniture: running heads, folios (roman for front matter), a gutter shadow on spreads, paper grain. On wide screens each page sticks and the next slides over it like a turned leaf; on phones pages simply follow one another. Sold pieces keep their page, marked "Found its home"; the end matter's archive shows only earlier chapters.
 - **Grid** (`/shop`): every piece at once for people who know what they want; middle column stepped down.
 - **Masthead**: wordmark centred with the tagline beneath, navigation split either side; a no-JavaScript disclosure on phones.
 

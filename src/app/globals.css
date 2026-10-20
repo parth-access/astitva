@@ -463,3 +463,140 @@ html[data-intro] .intro.is-skipped {
     animation: intro-gone 1ms linear 2.5s forwards !important;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Lookbook (components/lookbook). The home page as a printed book:     */
+/* paper, folios, a gutter, leaves that slide over one another.        */
+/* ------------------------------------------------------------------ */
+
+.lookbook {
+  background-color: var(--color-ivory);
+  /* Uncoated paper: a faint, even tooth. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .3 0 0 0 0 .22 0 0 0 0 .16 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E");
+}
+
+.lookbook-title {
+  font-size: clamp(5rem, 22vw, 12.5rem);
+  letter-spacing: -0.03em;
+}
+/* On a spread the title is set large enough to run across the fold and over
+   the edge of the arch, the way a magazine headline crosses the gutter. */
+@media (min-width: 1024px) {
+  .lookbook-title {
+    font-size: clamp(10rem, 15vw, 16rem);
+    white-space: nowrap;
+  }
+}
+
+.folio {
+  font-family: var(--font-accent);
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--color-espresso-soft);
+  font-variant-numeric: oldstyle-nums;
+}
+
+.signature {
+  font-family: var(--font-accent);
+  font-style: italic;
+  color: var(--color-burgundy);
+  line-height: 1;
+}
+
+/* The fold between two pages of a spread. */
+@media (min-width: 768px) {
+  .spread::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 7rem;
+    transform: translateX(-50%);
+    pointer-events: none;
+    background: linear-gradient(
+      to right,
+      transparent,
+      rgb(52 37 30 / 0.035) 42%,
+      rgb(52 37 30 / 0.09) 50%,
+      rgb(52 37 30 / 0.035) 58%,
+      transparent
+    );
+  }
+}
+
+/* Each leaf is a sheet of paper: on wide screens it sticks and the next one
+   slides over it, casting a soft edge, like turning pages. */
+.leaf {
+  background: inherit;
+  background-color: var(--color-ivory);
+  border-top: 1px solid rgb(163 146 130 / 0.35);
+}
+@media (min-width: 768px) {
+  .leaf {
+    position: sticky;
+    top: 0;
+    box-shadow: 0 -18px 40px -24px rgb(52 37 30 / 0.28);
+  }
+}
+
+.contents-row {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid rgb(163 146 130 / 0.35);
+}
+.contents-row .leader {
+  flex: 1;
+  min-width: 1.5rem;
+  border-bottom: 1px dotted var(--color-taupe);
+  transform: translateY(-0.3em);
+}
+
+.paper-plate {
+  background-color: #f3ebdd;
+  background-image:
+    radial-gradient(120% 80% at 30% 8%, rgb(255 252 245 / 0.8), transparent 60%),
+    linear-gradient(to top, rgb(52 37 30 / 0.06), transparent 40%);
+}
+
+/* The sketch: ink draws itself as the plate comes into view, then the
+   colour washes in. Without scroll-driven animation it is simply there.
+   Wide screens only: redrawing SVG filters every frame is too heavy for
+   phones, where the finished sketch shows instead. */
+.sketch-ink path {
+  stroke-dasharray: 1;
+}
+@media (prefers-reduced-motion: no-preference) and (min-width: 768px) {
+  @supports (animation-timeline: view()) {
+    .sketch-ink path {
+      animation: sketch-draw linear both;
+      animation-timeline: view();
+      /* Within "entry": pages stick at the top of the screen on wide screens,
+         so progress through "cover" would freeze with the drawing half done. */
+      animation-range: entry 0% entry 100%;
+    }
+    .sketch-wash {
+      animation: sketch-wash linear both;
+      animation-timeline: view();
+      animation-range: entry 55% entry 100%;
+    }
+  }
+}
+@keyframes sketch-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes sketch-wash {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

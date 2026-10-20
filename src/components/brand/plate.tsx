@@ -3,6 +3,7 @@ import { ViewTransition, type CSSProperties, type ReactNode } from "react";
 import { isCloudinaryUrl } from "@/lib/cloudinary-url";
 import { formatPieceNumber } from "@/lib/format";
 import { inkOn, normaliseTone } from "@/lib/tone";
+import { garmentKind, SketchPlate } from "@/components/lookbook/sketch-plate";
 import { CloudImage } from "./cloud-image";
 
 type Props = {
@@ -23,6 +24,14 @@ type Props = {
   emblem?: ReactNode;
   /** "cover" fills the arch (photographs); "illustration" fits the image inside, resting on the base. */
   fit?: "cover" | "illustration";
+  /**
+   * A piece's category slug. Without a photograph, a piece with a known
+   * category is shown as a painted sketch of its garment instead of a plain
+   * tone (undefined keeps the plain tone, e.g. for chapter art).
+   */
+  category?: string | null;
+  /** Show "Sketched until photographed" under a sketch (large plates only). */
+  sketchNote?: boolean;
   className?: string;
 };
 
@@ -44,6 +53,8 @@ export function Plate({
   muted,
   emblem,
   fit = "cover",
+  category,
+  sketchNote = false,
   className = "",
 }: Props) {
   const colour = normaliseTone(tone);
@@ -51,7 +62,22 @@ export function Plate({
   const style = { aspectRatio: ratio, backgroundColor: colour } as CSSProperties;
   const imageClass = fit === "illustration" ? "object-contain object-bottom px-[6%] pt-[14%]" : "object-cover";
 
-  const plate = (
+  const sketch = !src && category !== undefined;
+  const plate = sketch ? (
+    <div className={`arch paper-plate relative w-full ${muted ? "opacity-70 saturate-50" : ""} ${className}`} style={{ aspectRatio: ratio }}>
+      <div className={`absolute inset-x-[6%] top-[8%] ${sketchNote ? "bottom-[11%]" : "bottom-[3%]"}`}>
+        <SketchPlate
+          kind={garmentKind(category)}
+          tone={tone}
+          label={`Sketch of ${alt}`}
+          seed={pieceNumber ?? 1}
+        />
+      </div>
+      {sketchNote ? (
+        <span className="caption absolute bottom-3 left-0 right-0 text-center text-sm text-espresso-soft">Sketched until photographed</span>
+      ) : null}
+    </div>
+  ) : (
     <div className={`arch relative w-full ${muted ? "opacity-70 saturate-50" : ""} ${className}`} style={style}>
       {src ? (
         // Photos on Cloudinary are resized there; local art (the mascot) goes through next/image.

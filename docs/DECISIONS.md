@@ -2,6 +2,14 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-20 — The home page becomes a printed lookbook
+
+**Decision:** The home page and chapter pages are a printed lookbook (cover spread, letter, contents, a page per piece) instead of a cover followed by a grid of spreads. Pieces without photographs show a painted sketch of their garment instead of a flat colour plate, everywhere a plate appears. Details: `docs/DESIGN.md`.
+
+**Why:** Parth found the old home page didn't feel premium or "wow". Every reference that does (Raw Mango, Dôen, Bode) opens with something full-width and confident, and the old page leaned on photography that doesn't exist yet, so it read as the same coloured arch repeated. The lookbook gives scale (the title across the fold), rhythm (pages rather than a feed) and craft (folios, contents, paper, ink), and the sketches carry the intro's "drawn, then painted" idea through the site until the shoot.
+
+**Sketches are drawn in code**, not generated per piece: four hand-tuned garment drawings chosen by category, coloured by tone, so every new piece gets one at no cost. A painted illustration of each actual garment (an illustrator, or paid image generation) can replace them piece by piece later. The ink animation is limited to wide screens because redrawing SVG filters every frame is too heavy for phones.
+
 ## 2026-10-20 — Piece editor rules
 
 **Decision:** Pieces are created as drafts and published from the editor. A published piece can be hidden and put back, but never returns to draft (`productMachine`). Its number and web address are fixed at first publish, because both are printed on cards, shared on WhatsApp and linked from Instagram. Publishing needs a number, a name and one size on sale.

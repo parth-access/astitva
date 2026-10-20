@@ -2,12 +2,10 @@ import type { Metadata } from "next";
 import { cacheLife } from "next/cache";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { ChapterCover } from "@/components/brand/chapter-cover";
 import { ConciergeBand } from "@/components/brand/concierge";
-import { Letter } from "@/components/brand/letter";
-import { Spreads } from "@/components/brand/spreads";
+import { LookbookContents, LookbookCover, LookbookLetter, LookbookPage } from "@/components/lookbook/lookbook";
 import { toRoman } from "@/lib/format";
-import { getChapterBySlug, listChapters, listPieces } from "@/modules/catalog/queries";
+import { getChapterBySlug, listChapters, listLookbookPieces } from "@/modules/catalog/queries";
 
 export async function generateStaticParams() {
   const chapters = await listChapters();
@@ -24,6 +22,7 @@ export async function generateMetadata({ params }: PageProps<"/chapters/[slug]">
   };
 }
 
+/** A chapter in full: the same lookbook as the home page, with the whole letter. */
 async function ChapterView({ slug }: { slug: string }) {
   "use cache";
   cacheLife("minutes");
@@ -31,32 +30,20 @@ async function ChapterView({ slug }: { slug: string }) {
 
   const chapter = await getChapterBySlug(slug);
   if (!chapter) notFound();
-  const pieces = await listPieces({ chapterId: chapter.id, sort: "sequence" });
+  const pieces = await listLookbookPieces(chapter.id);
 
   return (
-    <>
-      <ChapterCover chapter={chapter} now={now} showLetterLink={Boolean(chapter.letter)} />
-
-      {chapter.letter ? (
-        <div className="mt-28 md:mt-44">
-          <Letter text={chapter.letter} signature={chapter.letterSignature} />
-        </div>
-      ) : null}
-
-      <section id="pieces" aria-labelledby="pieces-heading" className="mx-auto mt-28 max-w-6xl scroll-mt-8 px-4 sm:px-8 md:mt-44">
-        <div className="mb-16 md:mb-24">
-          <p className="caption text-xl">In the order they were found</p>
-          <h2 id="pieces-heading" className="mt-1 text-5xl md:text-6xl">
-            {pieces.length === 1 ? "One piece" : `${pieces.length} pieces`}
-          </h2>
-        </div>
-        <Spreads pieces={pieces} priorityCount={0} />
-      </section>
-
-      <div className="mt-32 md:mt-48">
+    <div className="lookbook">
+      <LookbookCover chapter={chapter} pieces={pieces} now={now} />
+      <LookbookLetter chapter={chapter} />
+      <LookbookContents chapter={chapter} pieces={pieces} folio={chapter.letter ? "iv" : "iii"} />
+      {pieces.map((p, i) => (
+        <LookbookPage key={p.id} chapter={chapter} piece={p} index={i} />
+      ))}
+      <div className="relative z-10 border-t border-sand bg-ivory pb-10 pt-24 md:pt-32">
         <ConciergeBand />
       </div>
-    </>
+    </div>
   );
 }
 

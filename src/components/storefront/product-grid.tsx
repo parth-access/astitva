@@ -24,6 +24,7 @@ export function ProductGrid({ pieces, priorityCount = 0 }: { pieces: PieceCard[]
               tone={p.tone}
               pieceNumber={p.pieceNumber}
               pieceName={p.pieceName}
+              category={p.categorySlug}
               muted={p.onHand <= 0}
               sizes="(min-width: 1024px) 30vw, 46vw"
               priority={i < priorityCount}

@@ -22,6 +22,7 @@ export function ArchiveGrid({ pieces, withTransitions = true }: { pieces: Archiv
               tone={p.tone}
               pieceNumber={p.pieceNumber}
               pieceName={p.pieceName}
+              category={p.categorySlug}
               muted
               sizes="(min-width: 1024px) 22vw, (min-width: 640px) 30vw, 45vw"
             />
