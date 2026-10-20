@@ -19,6 +19,8 @@ const serverSchema = z.object({
   RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   CLOUDINARY_URL: z.string().optional(),
+  /** Guards /api/cron/*. The scheduled GitHub workflow sends it as a Bearer token. `openssl rand -base64 32`. */
+  CRON_SECRET: z.string().min(24).optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;

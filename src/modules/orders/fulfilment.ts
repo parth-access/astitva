@@ -11,7 +11,8 @@
  */
 import { desc, eq } from "drizzle-orm";
 import type { Db, Tx } from "@/db/create";
-import { auditLogs, codCollections, emailOutbox, orderEvents, orders, shipments } from "@/db/schema";
+import { auditLogs, codCollections, orderEvents, orders, shipments } from "@/db/schema";
+import { alertOwners, queueEmail } from "@/modules/email/outbox";
 import { formatINR } from "@/lib/money";
 import { InvalidTransitionError } from "@/lib/state-machine";
 import { restockCancelledOrder } from "@/modules/inventory/service";
@@ -82,15 +83,7 @@ export async function shipOrder(db: Db, orderId: string, actorId: string, input:
     await move(tx, order, "shipped", actorId, "order.shipped", { carrierName, trackingNumber });
     await tx.insert(shipments).values({ orderId, carrierName, trackingNumber, trackingUrl, createdBy: actorId });
     if (order.contactEmail) {
-      await tx
-        .insert(emailOutbox)
-        .values({
-          dedupeKey: `order_shipped:${orderId}`,
-          template: "order_shipped",
-          toAddress: order.contactEmail,
-          payload: { orderId, orderNumber: order.orderNumber, carrierName, trackingNumber, trackingUrl },
-        })
-        .onConflictDoNothing({ target: emailOutbox.dedupeKey });
+      await queueEmail(tx, { dedupeKey: `order_shipped:${orderId}`, template: "order_shipped", to: order.contactEmail, payload: { orderId } });
     }
   });
 }
@@ -137,6 +130,7 @@ export async function markReturnedToOrigin(db: Db, orderId: string, actorId: str
         .update(orders)
         .set({ needsResolution: true, resolutionNote: `Came back undelivered (${why}). Refund the buyer ${formatINR(Number(order.totalMinor))}, or resend.` })
         .where(eq(orders.id, orderId));
+      await alertOwners(tx, "owner_needs_you", `${orderId}:${Date.now()}`, { orderId });
     }
   });
 }

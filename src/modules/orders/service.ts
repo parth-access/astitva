@@ -8,6 +8,7 @@ import type { DbOrTx, Db } from "@/db/create";
 import { auditLogs, codCollections, orderEvents, orderItems, orders, payments, refunds, shipments } from "@/db/schema";
 import { formatINR } from "@/lib/money";
 import { InvalidTransitionError } from "@/lib/state-machine";
+import { alertOwners } from "@/modules/email/outbox";
 import { restockCancelledOrder } from "@/modules/inventory/service";
 import { codCollectionMachine, orderMachine, type OrderStatus } from "./machines";
 
@@ -219,6 +220,7 @@ export async function cancelOrder(db: Db, orderId: string, actorId: string, reas
       })
       .where(eq(orders.id, orderId));
     const restocked = await restockCancelledOrder(tx, orderId, actorId);
+    if (refundDue) await alertOwners(tx, "owner_needs_you", `${orderId}:${Date.now()}`, { orderId });
 
     const [cod] = await tx.select({ id: codCollections.id, status: codCollections.status }).from(codCollections).where(eq(codCollections.orderId, orderId));
     if (cod && codCollectionMachine.can(cod.status, "failed")) {

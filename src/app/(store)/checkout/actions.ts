@@ -11,6 +11,10 @@ import { CATALOG_TAG } from "@/modules/catalog/queries";
 import { parseCheckoutForm } from "@/modules/checkout/input";
 import { CheckoutError, MAX_UNVERIFIED_COD, placeOrder } from "@/modules/checkout/service";
 import { isOrderLinkKey, orderLinkKey, orderPath } from "@/modules/orders/links";
+import { alertError } from "@/modules/email/outbox";
+import { allowRequest } from "@/modules/limits/request";
+import { LIMITS } from "@/modules/limits/service";
+import { sendQueuedEmailsSoon } from "@/modules/email/soon";
 import { razorpay } from "@/modules/payments/client";
 import { confirmFromCheckout, openPayment, PaymentError, type CheckoutSession } from "@/modules/payments/service";
 
@@ -41,6 +45,9 @@ export async function placeOrderAction(_prev: CheckoutState, form: FormData): Pr
   const values = Object.fromEntries([...form].filter((e): e is [string, string] => typeof e[1] === "string"));
   const parsed = parseCheckoutForm(form);
   if (!parsed.ok) return { errors: parsed.errors, values };
+  if (!(await allowRequest(LIMITS.checkoutIp)) || !(await allowRequest(LIMITS.checkoutPhone, parsed.data.contact.phone))) {
+    return { errors: {}, values, message: "Too many orders in a short time. Please wait a little, or message us and we'll help." };
+  }
 
   const rzp = parsed.data.paymentMethod === "online" ? razorpay() : null;
   if (parsed.data.paymentMethod === "online" && !rzp) return { errors: {}, message: "Online payment isn't available right now.", values };
@@ -59,6 +66,7 @@ export async function placeOrderAction(_prev: CheckoutState, form: FormData): Pr
   }
   // Stock changed (taken or held): the shop's sold-out marks must follow.
   updateTag(CATALOG_TAG);
+  sendQueuedEmailsSoon();
 
   const path = linkFor(placed.orderId, placed.orderNumber);
   if (placed.paymentMethod === "cod" || placed.orderStatus !== "pending_payment") redirect(path);
@@ -87,8 +95,12 @@ export async function confirmPaymentAction(input: z.infer<typeof reply>): Promis
   try {
     const result = await confirmFromCheckout(db, rzp, parsed.data);
     updateTag(CATALOG_TAG);
+    sendQueuedEmailsSoon();
     return { path: linkFor(result.orderId, result.orderNumber) };
   } catch (err) {
+    // A real payment we couldn't confirm is worth a look, whatever the cause.
+    await alertError(db, "Payment confirmation", `Razorpay payment ${parsed.data.razorpayPaymentId} (order ${parsed.data.razorpayOrderId}): ${(err as Error).message}`).catch(() => {});
+    sendQueuedEmailsSoon();
     if (err instanceof PaymentError) {
       return { error: "We couldn't confirm that payment yet. If money left your account, it is safe: we'll match it within minutes, and your order page will update." };
     }

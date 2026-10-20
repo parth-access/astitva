@@ -18,7 +18,6 @@ import {
   cartItems,
   carts,
   codCollections,
-  emailOutbox,
   orderEvents,
   orderItems,
   orders,
@@ -30,6 +29,7 @@ import {
 import { formatPieceNumber } from "@/lib/format";
 import { InsufficientStockError, VariantUnavailableError } from "@/modules/inventory/errors";
 import { releaseOrderHolds, reserveForOrder } from "@/modules/inventory/service";
+import { alertOwners, queueEmail } from "@/modules/email/outbox";
 import { orderMachine } from "@/modules/orders/machines";
 import type { CheckoutInput } from "./input";
 import { priceOrder } from "./pricing";
@@ -231,7 +231,7 @@ export async function placeOrder(db: Db, bagId: string, input: CheckoutInput): P
 
     if (method === "cod") {
       await tx.insert(codCollections).values({ orderId, amountDueMinor: totals.totalMinor });
-      if (input.contact.email) await queueOrderEmail(tx, orderId, order!.orderNumber, input.contact.email);
+      await queueOrderPlacedEmails(tx, orderId, order!.orderNumber, input.contact.email);
       await tx.delete(cartItems).where(eq(cartItems.cartId, bagId));
     }
 
@@ -239,10 +239,11 @@ export async function placeOrder(db: Db, bagId: string, input: CheckoutInput): P
   });
 }
 
-/** The "thank you" email, sent once Resend is set up. One per order, however often this is called. */
-export async function queueOrderEmail(tx: Tx, orderId: string, orderNumber: string, to: string) {
-  await tx
-    .insert(emailOutbox)
-    .values({ dedupeKey: `order_placed:${orderId}`, template: "order_placed", toAddress: to, payload: { orderId, orderNumber } })
-    .onConflictDoNothing({ target: emailOutbox.dedupeKey });
+/**
+ * A placed order: the buyer's "thank you" (if they gave an email) and the
+ * owners' alert. Once per order, however often this is called.
+ */
+export async function queueOrderPlacedEmails(tx: Tx, orderId: string, orderNumber: string, buyerEmail: string | null) {
+  if (buyerEmail) await queueEmail(tx, { dedupeKey: `order_placed:${orderId}`, template: "order_placed", to: buyerEmail, payload: { orderId, orderNumber } });
+  await alertOwners(tx, "owner_new_order", orderId, { orderId });
 }

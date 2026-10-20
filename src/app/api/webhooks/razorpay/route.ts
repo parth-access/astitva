@@ -2,6 +2,8 @@ import { revalidateTag } from "next/cache";
 import { db } from "@/db/client";
 import { env } from "@/lib/env";
 import { CATALOG_TAG } from "@/modules/catalog/queries";
+import { alertError } from "@/modules/email/outbox";
+import { sendQueuedEmailsSoon } from "@/modules/email/soon";
 import { isWebhookSignature } from "@/modules/payments/razorpay";
 import { handleWebhook } from "@/modules/payments/service";
 
@@ -36,9 +38,12 @@ export async function POST(request: Request) {
     const result = await handleWebhook(db, eventId.slice(0, 96), body);
     // A captured payment turned a hold into a sale: the shop's counts follow.
     if (result === "processed") revalidateTag(CATALOG_TAG, "max");
+    sendQueuedEmailsSoon();
     return Response.json({ ok: true, result });
   } catch (err) {
     console.error("[razorpay webhook]", eventId, (err as Error).message);
+    await alertError(db, "Razorpay webhook", `Event ${eventId} (${String(body?.event)}): ${(err as Error).message}`).catch(() => {});
+    sendQueuedEmailsSoon();
     return Response.json({ error: "Processing failed" }, { status: 500 });
   }
 }

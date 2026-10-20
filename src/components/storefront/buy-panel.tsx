@@ -31,7 +31,9 @@ export function BuyPanel({
   /** The measurements table, opened in a side panel. */
   sizeGuide?: ReactNode;
 }) {
-  const { colours, colour, setColour, size, setSize } = useSelection();
+  const { colours, colour, setColour, size, setSize, adoptAddressColour } = useSelection();
+  // Now that this panel has hydrated, the colour named in the address can take over.
+  useEffect(() => adoptAddressColour(), [adoptAddressColour]);
   const bag = useBag();
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<{ variantId: string; message: string } | null>(null);

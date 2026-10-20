@@ -17,6 +17,8 @@ import {
   type Bag,
 } from "@/modules/bag/service";
 import { getStorefront } from "@/modules/catalog/queries";
+import { allowRequest } from "@/modules/limits/request";
+import { LIMITS } from "@/modules/limits/service";
 
 export type BagResult = { bag: Bag; error?: string };
 
@@ -45,18 +47,24 @@ function message(err: unknown): string {
   throw err;
 }
 
-/** Bag edits refuse while ordering is closed, whatever the page showed. */
+/** Bag edits refuse while ordering is closed, whatever the page showed, and when a visitor is making too many. */
 async function guard(): Promise<string | null> {
   const { orderingOpen } = await getStorefront();
-  return orderingOpen ? null : "Ordering opens soon.";
+  if (!orderingOpen) return "Ordering opens soon.";
+  if (!(await allowRequest(LIMITS.bag))) return "That's a lot of changes in a short time. Please wait a few minutes.";
+  return null;
 }
 
 export async function addToBagAction(variantId: string, quantity = 1): Promise<BagResult> {
   if (!id.safeParse(variantId).success) return { bag: EMPTY_BAG, error: "That piece isn't available." };
   const closed = await guard();
+  if (closed) {
+    // No new bag for a refused request.
+    const existing = await findBag(db, await currentToken());
+    return { bag: existing ? await readBag(db, existing.id) : EMPTY_BAG, error: closed };
+  }
   const bag = await openBag(db, await currentToken());
   if (bag.newToken) await setToken(bag.newToken);
-  if (closed) return { bag: await readBag(db, bag.id), error: closed };
   try {
     await addToBag(db, bag.id, variantId, Math.max(1, Math.min(10, Math.trunc(quantity))));
     return { bag: await readBag(db, bag.id) };

@@ -16,6 +16,8 @@ import {
   unpackOrder,
 } from "@/modules/orders/fulfilment";
 import { cancelOrder, markCodVerified, OrderRuleError } from "@/modules/orders/service";
+import { alertError } from "@/modules/email/outbox";
+import { sendQueuedEmailsSoon } from "@/modules/email/soon";
 import { razorpay } from "@/modules/payments/client";
 import { RefundError, refundOrder, type RefundMethod } from "@/modules/payments/refunds";
 
@@ -31,8 +33,11 @@ async function run(orderId: string, work: (actorId: string) => Promise<unknown>,
     await work(user.id);
   } catch (err) {
     if (err instanceof OrderRuleError || err instanceof RefundError) return { error: err.message };
+    await alertError(db, "Admin order action", `Order ${orderId}: ${(err as Error).message}`).catch(() => {});
+    sendQueuedEmailsSoon();
     throw err;
   }
+  sendQueuedEmailsSoon();
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/orders");
   // Pieces back on sale (cancelled, or a parcel came back): the shop must show them again.

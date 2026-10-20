@@ -17,6 +17,7 @@ import { and, desc, eq, ne, sql } from "drizzle-orm";
 import type { Db, Tx } from "@/db/create";
 import { auditLogs, orderEvents, orders, payments, refunds } from "@/db/schema";
 import { formatINR } from "@/lib/money";
+import { queueEmail } from "@/modules/email/outbox";
 import { orderMachine, orderPaymentMachine, refundMachine } from "@/modules/orders/machines";
 import type { Razorpay } from "./razorpay";
 
@@ -162,6 +163,9 @@ async function settle(tx: Tx, refundId: string, actorId: string | null) {
       actorId,
       metadata: { refundId, amountMinor: Number(refund.amountMinor), method: refund.method },
     });
+    if (order!.contactEmail) {
+      await queueEmail(tx, { dedupeKey: `refund_succeeded:${refundId}`, template: "refund_succeeded", to: order!.contactEmail, payload: { orderId: order!.id, refundId } });
+    }
   }
 
   if (full) {

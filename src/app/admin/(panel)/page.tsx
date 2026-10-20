@@ -1,14 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { FormError } from "@/components/admin/ui";
+import { db } from "@/db/client";
 import { requireAdmin } from "@/modules/auth/auth";
+import { failedEmailCount } from "@/modules/email/outbox";
 
 export const metadata: Metadata = { title: "Admin" };
 
 export default async function AdminHome() {
   const { user } = await requireAdmin();
+  const failedEmails = await failedEmailCount(db);
   return (
     <div className="max-w-prose">
       <h1 className="font-display text-3xl">Hello, {user.name}</h1>
+      {failedEmails ? (
+        <div className="mt-6">
+          <FormError
+            message={`${failedEmails} ${failedEmails === 1 ? "email" : "emails"} couldn't be sent after six tries. Check Resend's dashboard (the domain and the API key), then tell Parth.`}
+          />
+        </div>
+      ) : null}
       <ul className="mt-8 space-y-3">
         <li>
           <Link href="/admin/orders" className="link text-lg">

@@ -4,21 +4,40 @@
     {
       "name": "dev-local-db",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 3000,
-      "env": { "DATABASE_URL": "postgres://localhost:5432/astitva_dev" }
+      "env": {
+        "DATABASE_URL": "postgres://localhost:5432/astitva_dev"
+      }
     },
     {
       "name": "prod-local-db",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["next", "start", "-p", "3002"],
+      "runtimeArgs": [
+        "next",
+        "start",
+        "-p",
+        "3002"
+      ],
       "port": 3002,
-      "env": { "DATABASE_URL": "postgres://localhost:5432/astitva_dev", "APP_URL": "http://localhost:3002" }
+      "env": {
+        "DATABASE_URL": "postgres://localhost:5432/astitva_dev",
+        "APP_URL": "http://localhost:3002",
+        "CRON_SECRET": "local-cron-secret-for-testing-only"
+      }
     },
     {
       "name": "prod-local-fake-razorpay",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["next", "start", "-p", "3003"],
+      "runtimeArgs": [
+        "next",
+        "start",
+        "-p",
+        "3003"
+      ],
       "port": 3003,
       "env": {
         "DATABASE_URL": "postgres://localhost:5432/astitva_dev",

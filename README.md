@@ -14,7 +14,7 @@ The specification is the revised PRD (Astitva PRD Review and Revised Specificati
 | M3 Cart, guest checkout, COD | Done: bag drawer, one-page guest checkout, cash on delivery with WhatsApp confirmation, buyer's private order page, admin Orders (confirm, cancel), delivery and COD settings. Order emails are queued until Resend is set up |
 | M4 Razorpay | Built and tested against a stand-in Razorpay: pay now at checkout (stock held 15 minutes), signature and server-side checks, webhook, late-payment flags. Needs test keys to try the real window; live keys once Krishna's current account is verified |
 | M5 Fulfilment and refunds | Done: pack, ship with courier and tracking, delivered, came back (RTO, stock returned), COD cash remitted, refunds through Razorpay or recorded UPI/bank, flags for Krishna, tracking on the buyer's order page. Shipping emails are queued until Resend is set up |
-| M6 Hardening and launch | Not started |
+| M6 Hardening and launch | In progress: owner alerts and buyer emails (queued, sent through Resend, retried), scheduled jobs and encrypted nightly backups (GitHub Actions), abuse limits, error alerts, security headers, sitemap and robots. Left: policies, business details, deploy, live keys |
 
 ## Stack
 
@@ -106,6 +106,22 @@ tests/integration/    against a real Postgres, incl. the 50-buyer race test
 3. Status changes go through the machines in `modules/orders/machines.ts`.
 4. The browser never decides price, stock or payment status.
 5. Products and variants are archived, never deleted.
+
+## Scheduled jobs and backups
+
+Two GitHub workflows, both skip quietly until their settings exist:
+
+- `.github/workflows/scheduled.yml` calls `/api/cron/frequent` every 15 minutes (send and retry emails, close online checkouts unpaid after 2 hours, mark lapsed holds) and `/api/cron/daily` once a day (expired bags, old limit counters; the call also keeps the free Supabase project from pausing). Set the repository **variable** `SITE_URL` and **secret** `CRON_SECRET` (same value as the site's `CRON_SECRET`).
+- `.github/workflows/backup.yml` dumps the database nightly, encrypts it with `BACKUP_PASSPHRASE` and keeps it 30 days as a workflow download. Secrets: `BACKUP_DATABASE_URL`, `DATABASE_CA_CERT`, `BACKUP_PASSPHRASE`. The repository is public: backups are only ever stored encrypted. Keep the passphrase in the password manager; without it the backups can't be read.
+
+GitHub pauses scheduled workflows after 60 days without activity in the repository; a push turns them back on.
+
+**Restore** (into an empty database, or a fresh Supabase project):
+
+```bash
+gpg --decrypt astitva-YYYY-MM-DD.dump.gpg > astitva.dump
+pg_restore --clean --if-exists --no-owner --no-privileges -d "$TARGET_DATABASE_URL" astitva.dump
+```
 
 ## Before launch
 

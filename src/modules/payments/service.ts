@@ -20,7 +20,8 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import type { Db, DbOrTx, Tx } from "@/db/create";
 import { cartItems, orderEvents, orderItems, orders, paymentEvents, payments } from "@/db/schema";
 import { commitOrderReservations, releaseOrderHolds } from "@/modules/inventory/service";
-import { queueOrderEmail } from "@/modules/checkout/service";
+import { queueOrderPlacedEmails } from "@/modules/checkout/service";
+import { alertOwners } from "@/modules/email/outbox";
 import { orderMachine, orderPaymentMachine, paymentAttemptMachine } from "@/modules/orders/machines";
 import type { Razorpay, RazorpayPayment, RazorpayRefund } from "./razorpay";
 import { refundUpdateFromRazorpay } from "./refunds";
@@ -93,8 +94,8 @@ export async function openPayment(db: Db, rzp: Razorpay, orderId: string): Promi
   return session(created.id);
 }
 
-/** Cancel an unpaid order and drop its holds. */
-async function abandonOrder(db: Db, orderId: string, reason: string) {
+/** Cancel an unpaid order and drop its holds. A payment that still arrives later is flagged for a refund. */
+export async function abandonOrder(db: Db, orderId: string, reason: string) {
   await db.transaction(async (tx) => {
     const [o] = await tx.select({ status: orders.orderStatus, paid: orders.paymentStatus }).from(orders).where(eq(orders.id, orderId)).for("update");
     if (!o || o.paid !== "unpaid" || !orderMachine.can(o.status, "cancelled")) return;
@@ -180,7 +181,7 @@ export async function recordCapture(db: Db, payment: RazorpayPayment, source: "b
     orderMachine.assertTransition(order!.orderStatus, "confirmed");
     await tx.update(orders).set({ orderStatus: "confirmed" }).where(eq(orders.id, order!.id));
     await tx.insert(orderEvents).values({ orderId: order!.id, eventType: "order.placed", fromStatus: "pending_payment", toStatus: "confirmed", actorType: "system" });
-    if (order!.contactEmail) await queueOrderEmail(tx, order!.id, order!.orderNumber, order!.contactEmail);
+    await queueOrderPlacedEmails(tx, order!.id, order!.orderNumber, order!.contactEmail);
     await emptyBagOf(tx, order!.id, order!.idempotencyScope);
     return { outcome: "paid", ...ref };
   });
@@ -189,6 +190,7 @@ export async function recordCapture(db: Db, payment: RazorpayPayment, source: "b
 async function flag(tx: Tx, orderId: string, note: string) {
   await tx.update(orders).set({ needsResolution: true, resolutionNote: note }).where(eq(orders.id, orderId));
   await tx.insert(orderEvents).values({ orderId, eventType: "order.needs_resolution", actorType: "system", metadata: { note } });
+  await alertOwners(tx, "owner_needs_you", `${orderId}:${Date.now()}`, { orderId });
 }
 
 /** Take the paid pieces out of the bag the order came from (the scope is the bag's id). */

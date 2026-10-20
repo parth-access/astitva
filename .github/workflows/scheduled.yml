@@ -1,0 +1,43 @@
+name: Scheduled jobs
+
+# Calls the site's housekeeping (src/app/api/cron/[job]/route.ts).
+# Needs: repository variable SITE_URL (e.g. https://astitva.in) and secret CRON_SECRET
+# (the same value as the site's CRON_SECRET). Until both exist, runs skip quietly.
+#
+# GitHub pauses scheduled workflows in a repository with no activity for 60 days;
+# a push re-enables them.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *" # frequent: emails, abandoned checkouts, lapsed holds
+    - cron: "40 20 * * *" # daily, 02:10 India time: expired bags, old counters; keeps Supabase awake
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Which job to run
+        type: choice
+        options: [frequent, daily]
+        default: frequent
+
+permissions: {}
+
+jobs:
+  call:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SITE_URL: ${{ vars.SITE_URL }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      JOB: ${{ github.event.inputs.job || (github.event.schedule == '40 20 * * *' && 'daily' || 'frequent') }}
+    steps:
+      - name: Run ${{ env.JOB }}
+        run: |
+          if [ -z "$SITE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::notice::SITE_URL or CRON_SECRET is not set yet; skipping."
+            exit 0
+          fi
+          curl --fail-with-body --silent --show-error --max-time 120 \
+            --retry 2 --retry-delay 10 --retry-all-errors \
+            -X POST -H "Authorization: Bearer $CRON_SECRET" \
+            "$SITE_URL/api/cron/$JOB"
+          echo

@@ -1,0 +1,72 @@
+name: Nightly backup
+
+# A full pg_dump of the Supabase database, encrypted with a passphrase before it
+# leaves the runner, kept as a workflow download for 30 days. The repository is
+# public, so anyone signed in to GitHub could download the file: it must never
+# be stored unencrypted. Without the passphrase it is unreadable.
+#
+# Secrets: BACKUP_DATABASE_URL (the session pooler or direct connection string),
+#          DATABASE_CA_CERT (Supabase's CA, same as the site's), BACKUP_PASSPHRASE
+#          (long and random; keep a copy in the password manager: lose it and
+#          the backups are lost too).
+#
+# Restore (see README):
+#   gpg --decrypt astitva-YYYY-MM-DD.dump.gpg > astitva.dump
+#   pg_restore --clean --if-exists --no-owner -d "$TARGET_DATABASE_URL" astitva.dump
+
+on:
+  schedule:
+    - cron: "30 21 * * *" # 03:00 India time
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      DATABASE_CA_CERT: ${{ secrets.DATABASE_CA_CERT }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: Check secrets
+        id: ready
+        run: |
+          if [ -z "$DATABASE_URL" ] || [ -z "$DATABASE_CA_CERT" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::notice::Backup secrets are not set yet; skipping."
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Dump (Postgres 17 tools, TLS verified against Supabase's CA)
+        if: steps.ready.outputs.go == 'true'
+        run: |
+          mkdir -p out
+          printf '%s\n' "$DATABASE_CA_CERT" | sed 's/\\n/\n/g' > out/ca.crt
+          case "$DATABASE_URL" in *\?*) SEP='&' ;; *) SEP='?' ;; esac
+          docker run --rm -v "$PWD/out:/out" postgres:17 \
+            pg_dump "${DATABASE_URL}${SEP}sslmode=verify-full&sslrootcert=/out/ca.crt" \
+              --format=custom --no-owner --no-privileges --file=/out/astitva.dump
+          rm out/ca.crt
+          ls -lh out/astitva.dump
+
+      - name: Encrypt
+        if: steps.ready.outputs.go == 'true'
+        run: |
+          NAME="astitva-$(date -u +%Y-%m-%d).dump.gpg"
+          printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 --output "out/$NAME" out/astitva.dump
+          shred -u out/astitva.dump
+          echo "NAME=$NAME" >> "$GITHUB_ENV"
+
+      - name: Keep for 30 days
+        if: steps.ready.outputs.go == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NAME }}
+          path: out/${{ env.NAME }}
+          retention-days: 30
+          if-no-files-found: error

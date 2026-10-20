@@ -2,6 +2,22 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-21 — Alerts, emails, scheduled jobs, backups and hardening (M6, part 1)
+
+**Decision:** Owners hear about orders by email; every email goes through the outbox and Resend; housekeeping runs from GitHub Actions; backups are encrypted pg_dumps kept as workflow downloads.
+
+**How:**
+- **Outbox** (`src/modules/email`): emails are queued in the same transaction as the change they report, rendered at send time from the order as it stands, and sent straight after the request (`after()`), then retried by the 15-minute job (1, 5, 30 min, 2, 6 h; failed after 6 tries, shown on the admin home). Rows are claimed with a 10-minute lease (`FOR UPDATE SKIP LOCKED`), so two workers never send the same email.
+- **Who hears what:** owners (role `owner`) get "New order" for a COD order or a captured online payment, "Needs you" whenever an order is flagged, and error alerts (payment confirmation, webhook, refund, admin action, scheduled job failing), at most one per kind per hour. Buyers get order placed, shipped (with tracking) and refunded. An unpaid online checkout tells nobody.
+- **Scheduled jobs** (`/api/cron/frequent|daily`, Bearer `CRON_SECRET`, constant-time compare): GitHub Actions, not Netlify scheduled functions, because Netlify's free plan counts them against its credits and this keeps the host replaceable. The repo is public, so Actions minutes are free.
+- **Unpaid online checkouts** are cancelled after 2 hours (holds lapsed long before). A payment that still arrives is flagged for a refund as before.
+- **Backups:** nightly `pg_dump` with Postgres 17 tools (Supabase runs 17), TLS verified against Supabase's CA, encrypted with GPG AES-256 before upload, 30 days. Public repo: never unencrypted.
+- **Abuse limits** (`request_limits`, migration 0009): fixed windows counted with one atomic upsert; keys are HMACs, never raw IPs or phone numbers. Bag changes 60 per 10 min per visitor; checkout 10 per 10 min per visitor and 5 orders per hour per phone. A refused bag request creates no bag.
+- **Security headers** (`src/lib/security-headers.ts`): CSP listing only Razorpay and Cloudinary, no framing (`frame-ancestors 'none'`, `X-Frame-Options`), nosniff, strict referrer, permissions off, HSTS two years in production. Scripts need `'unsafe-inline'`: Next streams page data in inline scripts and the intro runs inline; a nonce would make every page dynamic.
+- **Search:** `sitemap.xml` (home, shop, pieces, help and policy pages) and `robots.txt` (keeps admin, checkout, order pages and API out).
+
+**Fixed on the way:** opening a piece with `?colour=` changed the colour before the streamed buy panel hydrated, so its HTML (default colour) disagreed with the browser (React error 418). The address's colour is now adopted by the buy panel after it hydrates.
+
 ## 2026-10-20 — Packing, shipping, returns and refunds (M5)
 
 **Decision:** Krishna runs every order to its end from the admin's order page; the buyer's private order page follows along. No courier integration yet: she books with the courier and types the courier and AWB in.

@@ -796,6 +796,17 @@ export const auditLogs = pgTable(
   (t) => [index("audit_logs_resource_idx").on(t.resourceType, t.resourceId, t.createdAt)],
 ).enableRLS();
 
+/**
+ * Fixed-window counters for the shop's own abuse limits (adding to the bag,
+ * placing orders). Keys are hashed; old windows are cleared daily. Better
+ * Auth keeps its own sign-in limits in auth_rate_limits.
+ */
+export const requestLimits = pgTable("request_limits", {
+  key: varchar("key", { length: 96 }).primaryKey(),
+  windowStart: timestamp("window_start", { withTimezone: true }).notNull().defaultNow(),
+  count: integer("count").notNull().default(0),
+}).enableRLS();
+
 export const emailOutbox = pgTable(
   "email_outbox",
   {
