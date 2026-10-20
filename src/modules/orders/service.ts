@@ -3,9 +3,10 @@
  * Krishna does from the admin (check a COD order with the buyer, cancel).
  * Packing, shipping and refunds arrive in M5.
  */
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, or, sql } from "drizzle-orm";
 import type { DbOrTx, Db } from "@/db/create";
-import { auditLogs, codCollections, orderEvents, orderItems, orders } from "@/db/schema";
+import { auditLogs, codCollections, orderEvents, orderItems, orders, payments } from "@/db/schema";
+import { formatINR } from "@/lib/money";
 import { InvalidTransitionError } from "@/lib/state-machine";
 import { restockCancelledOrder } from "@/modules/inventory/service";
 import { codCollectionMachine, orderMachine, type OrderStatus } from "./machines";
@@ -43,6 +44,8 @@ export async function getOrderForBuyer(db: DbOrTx, orderNumber: string) {
       contactEmail: orders.contactEmail,
       orderStatus: orders.orderStatus,
       paymentMethod: orders.paymentMethod,
+      paymentStatus: orders.paymentStatus,
+      needsResolution: orders.needsResolution,
       subtotalMinor: orders.subtotalMinor,
       shippingMinor: orders.shippingMinor,
       codFeeMinor: orders.codFeeMinor,
@@ -64,13 +67,25 @@ export async function getOrderForBuyer(db: DbOrTx, orderNumber: string) {
 
 export type OrderListFilter = "to_check" | "open" | "all";
 
-/** Newest first. "to_check": COD orders Krishna hasn't confirmed with the buyer yet. */
+/** Orders waiting on Krishna: COD orders not yet confirmed with the buyer, and payments that need a refund or a call. */
+const needsKrishna = or(
+  and(eq(orders.paymentMethod, "cod"), eq(orders.orderStatus, "confirmed"), isNull(orders.codVerifiedAt)),
+  eq(orders.needsResolution, true),
+);
+
+/**
+ * Newest first. "to_check": orders waiting on Krishna. "open": everything not
+ * finished, except online checkouts nobody paid for (they're under "all").
+ */
 export async function listOrders(db: DbOrTx, filter: OrderListFilter = "open") {
   const where =
     filter === "to_check"
-      ? and(eq(orders.paymentMethod, "cod"), eq(orders.orderStatus, "confirmed"), isNull(orders.codVerifiedAt))
+      ? needsKrishna
       : filter === "open"
-        ? sql`${orders.orderStatus} not in ('delivered', 'cancelled')`
+        ? or(
+            eq(orders.needsResolution, true),
+            sql`${orders.orderStatus} not in ('delivered', 'cancelled') and not (${orders.orderStatus} = 'pending_payment' and ${orders.paymentStatus} = 'unpaid')`,
+          )
         : undefined;
   const rows = await db
     .select({
@@ -84,6 +99,8 @@ export async function listOrders(db: DbOrTx, filter: OrderListFilter = "open") {
       orderStatus: orders.orderStatus,
       paymentMethod: orders.paymentMethod,
       codVerifiedAt: orders.codVerifiedAt,
+      paymentStatus: orders.paymentStatus,
+      needsResolution: orders.needsResolution,
       units: sql<number>`(select coalesce(sum(oi.quantity), 0)::int from order_items oi where oi.order_id = orders.id)`,
     })
     .from(orders)
@@ -97,29 +114,43 @@ export async function countOrdersToCheck(db: DbOrTx): Promise<number> {
   const [row] = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(orders)
-    .where(and(eq(orders.paymentMethod, "cod"), eq(orders.orderStatus, "confirmed"), isNull(orders.codVerifiedAt)));
+    .where(needsKrishna);
   return Number(row?.n ?? 0);
 }
 
 export async function getOrderForAdmin(db: DbOrTx, orderId: string) {
   const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
   if (!order) return null;
-  const [items, events, [cod]] = await Promise.all([
+  const [items, events, [cod], [payment]] = await Promise.all([
     db.select({ ...itemFields, sku: orderItems.skuSnapshot }).from(orderItems).where(eq(orderItems.orderId, orderId)).orderBy(asc(orderItems.id)),
     db.select().from(orderEvents).where(eq(orderEvents.orderId, orderId)).orderBy(asc(orderEvents.createdAt)),
     db.select().from(codCollections).where(eq(codCollections.orderId, orderId)),
+    db
+      .select({ status: payments.status, providerPaymentId: payments.providerPaymentId, failureReason: payments.failureReason })
+      .from(payments)
+      .where(eq(payments.orderId, orderId))
+      .orderBy(desc(payments.createdAt))
+      .limit(1),
   ]);
   return {
     ...money(order, ["subtotalMinor", "discountMinor", "shippingMinor", "codFeeMinor", "taxIncludedMinor", "totalMinor"]),
     items: items.map((i) => money(i, ["unitPriceMinor", "lineTotalMinor"])),
     events,
     cod: cod ? money(cod, ["amountDueMinor"]) : null,
+    payment: payment ?? null,
   };
 }
 
 async function lockOrder(db: Db | DbOrTx, orderId: string) {
   const [order] = await db
-    .select({ id: orders.id, status: orders.orderStatus, method: orders.paymentMethod, codVerifiedAt: orders.codVerifiedAt })
+    .select({
+      id: orders.id,
+      status: orders.orderStatus,
+      method: orders.paymentMethod,
+      paid: orders.paymentStatus,
+      total: orders.totalMinor,
+      codVerifiedAt: orders.codVerifiedAt,
+    })
     .from(orders)
     .where(eq(orders.id, orderId))
     .for("update");
@@ -155,7 +186,16 @@ export async function cancelOrder(db: Db, orderId: string, actorId: string, reas
       if (err instanceof InvalidTransitionError) throw new OrderRuleError(cancelRefusal(order.status));
       throw err;
     }
-    await tx.update(orders).set({ orderStatus: "cancelled", cancelReason: why }).where(eq(orders.id, orderId));
+    // Paid online: the money must go back. Refunds from the admin arrive in M5; until then it's flagged.
+    const refundDue = order.paid === "paid";
+    await tx
+      .update(orders)
+      .set({
+        orderStatus: "cancelled",
+        cancelReason: why,
+        ...(refundDue ? { needsResolution: true, resolutionNote: `Cancelled after payment. Refund ${formatINR(Number(order.total))} from Razorpay's dashboard.` } : {}),
+      })
+      .where(eq(orders.id, orderId));
     const restocked = await restockCancelledOrder(tx, orderId, actorId);
 
     const [cod] = await tx.select({ id: codCollections.id, status: codCollections.status }).from(codCollections).where(eq(codCollections.orderId, orderId));

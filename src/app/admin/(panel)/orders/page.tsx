@@ -10,7 +10,7 @@ import { OrderStatusBadge } from "@/components/admin/order-status";
 export const metadata: Metadata = { title: "Orders" };
 
 const FILTERS: [OrderListFilter, string][] = [
-  ["to_check", "To confirm"],
+  ["to_check", "Needs you"],
   ["open", "Open"],
   ["all", "All"],
 ];
@@ -35,7 +35,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/admin/ord
       </nav>
 
       {orders.length === 0 ? (
-        <p className="mt-10 text-espresso-soft">{filter === "to_check" ? "Nothing to confirm. Every cash-on-delivery order has been checked." : "No orders here yet."}</p>
+        <p className="mt-10 text-espresso-soft">{filter === "to_check" ? "Nothing waiting on you." : "No orders here yet."}</p>
       ) : (
         <ul className="mt-6 divide-y divide-sand border-y border-sand">
           {orders.map((o) => (
@@ -46,7 +46,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/admin/ord
               >
                 <span className="font-medium tabular-nums">{o.orderNumber}</span>
                 <span className="text-right text-sm tabular-nums sm:order-last">
-                  <OrderStatusBadge status={o.orderStatus} method={o.paymentMethod} verified={o.codVerifiedAt !== null} />
+                  <OrderStatusBadge status={o.orderStatus} method={o.paymentMethod} verified={o.codVerifiedAt !== null} needsResolution={o.needsResolution} />
                 </span>
                 <span className="text-sm">
                   {o.contactName} <span className="text-espresso-soft">· {o.city} · {formatMobile(o.contactPhone)}</span>

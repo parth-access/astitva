@@ -35,7 +35,7 @@ const checkoutSchema = z.object({
     .trim()
     .regex(PINCODE_PATTERN, "A 6-digit pincode."),
   note: optional(500),
-  payment: z.literal("cod", { message: "Choose how to pay." }),
+  payment: z.enum(["cod", "online"], { message: "Choose how to pay." }),
   key: z.uuid("Please reload the page and try again."),
 });
 
@@ -44,7 +44,7 @@ export type CheckoutInput = {
   contact: { name: string; phone: string; email: string | null };
   address: AddressSnapshot;
   note: string | null;
-  paymentMethod: "cod";
+  paymentMethod: "cod" | "online";
 };
 
 export type CheckoutFieldErrors = Record<string, string>;

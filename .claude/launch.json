@@ -14,6 +14,19 @@
       "runtimeArgs": ["next", "start", "-p", "3002"],
       "port": 3002,
       "env": { "DATABASE_URL": "postgres://localhost:5432/astitva_dev", "APP_URL": "http://localhost:3002" }
+    },
+    {
+      "name": "prod-local-fake-razorpay",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["next", "start", "-p", "3003"],
+      "port": 3003,
+      "env": {
+        "DATABASE_URL": "postgres://localhost:5432/astitva_dev",
+        "APP_URL": "http://localhost:3003",
+        "RAZORPAY_KEY_ID": "rzp_test_notarealkey",
+        "RAZORPAY_KEY_SECRET": "not-a-real-secret",
+        "RAZORPAY_WEBHOOK_SECRET": "local-webhook-secret"
+      }
     }
   ]
 }

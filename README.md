@@ -12,7 +12,7 @@ The specification is the revised PRD (Astitva PRD Review and Revised Specificati
 | M1 Catalogue: the lookbook storefront, styles in colours × sizes, admin | Done: storefront lookbook, admin sign-in (password + required 2FA), style editor with colour × size stock grid, photos on Cloudinary, lookbook settings, colour and size choice across the storefront |
 | M2 Inventory engine: reservations, movements, state machines | Done, with concurrency tests |
 | M3 Cart, guest checkout, COD | Done: bag drawer, one-page guest checkout, cash on delivery with WhatsApp confirmation, buyer's private order page, admin Orders (confirm, cancel), delivery and COD settings. Order emails are queued until Resend is set up |
-| M4 Razorpay | Not started |
+| M4 Razorpay | Built and tested against a stand-in Razorpay: pay now at checkout (stock held 15 minutes), signature and server-side checks, webhook, late-payment flags. Needs test keys to try the real window; live keys once Krishna's current account is verified |
 | M5 Fulfilment and refunds | Not started |
 | M6 Hardening and launch | Not started |
 

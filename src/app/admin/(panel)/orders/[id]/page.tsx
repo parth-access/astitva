@@ -20,6 +20,10 @@ const EVENT_LABEL: Record<string, string> = {
   "order.placed": "Placed by the buyer",
   "cod.verified": "Confirmed with the buyer",
   "order.cancelled": "Cancelled",
+  "order.awaiting_payment": "Checkout started, waiting for payment",
+  "order.superseded": "Replaced by a new checkout from the same bag",
+  "payment.captured": "Payment received",
+  "order.needs_resolution": "Needs you",
 };
 
 export default async function OrderPage({ params }: PageProps<"/admin/orders/[id]">) {
@@ -42,10 +46,11 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
       </Link>
       <div className="mt-4 flex flex-wrap items-center gap-4">
         <h1 className="font-display text-3xl tabular-nums">{order.orderNumber}</h1>
-        <OrderStatusBadge status={order.orderStatus} method={order.paymentMethod} verified={order.codVerifiedAt !== null} />
+        <OrderStatusBadge status={order.orderStatus} method={order.paymentMethod} verified={order.codVerifiedAt !== null} needsResolution={order.needsResolution} />
       </div>
       <p className="mt-1 text-sm text-espresso-soft">
-        {when.format(order.createdAt)} · {order.paymentMethod === "cod" ? "Cash on delivery" : "Paid online"}
+        {when.format(order.createdAt)} ·{" "}
+        {order.paymentMethod === "cod" ? "Cash on delivery" : order.paymentStatus === "unpaid" ? "Online, not paid" : "Paid online"}
       </p>
 
       <div className="mt-8 grid gap-10 md:grid-cols-[1fr_18rem]">
@@ -154,6 +159,31 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
         </div>
 
         <aside className="space-y-6">
+          {order.needsResolution ? (
+            <div className="space-y-2 border-l-2 border-burgundy bg-champagne p-5 text-sm">
+              <p className="font-medium">Needs you</p>
+              <p>{order.resolutionNote}</p>
+              <p className="text-espresso-soft">Message the buyer to offer another colour or size, or refund them from Razorpay&apos;s dashboard. Refunds from here arrive with the next update.</p>
+            </div>
+          ) : null}
+          {order.payment ? (
+            <div className="text-sm">
+              <h2 className="font-display text-xl">Payment</h2>
+              <dl className="mt-3 space-y-1">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-espresso-soft">Status</dt>
+                  <dd>{order.payment.status === "captured" ? "Received" : order.payment.status === "created" ? "Not paid" : order.payment.status}</dd>
+                </div>
+                {order.payment.providerPaymentId ? (
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-espresso-soft">Razorpay</dt>
+                    <dd className="font-mono text-xs">{order.payment.providerPaymentId}</dd>
+                  </div>
+                ) : null}
+                {order.payment.failureReason ? <p className="text-espresso-soft">Last attempt: {order.payment.failureReason}</p> : null}
+              </dl>
+            </div>
+          ) : null}
           {toConfirm ? (
             <div className="space-y-4 bg-champagne p-5">
               <p className="text-sm">

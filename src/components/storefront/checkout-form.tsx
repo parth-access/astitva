@@ -1,34 +1,53 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useRef, type ComponentProps, type ReactNode } from "react";
-import { placeOrderAction, type CheckoutState } from "@/app/(store)/checkout/actions";
+import { useActionState, useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
+import { confirmPaymentAction, placeOrderAction, type CheckoutState } from "@/app/(store)/checkout/actions";
 import { Plate } from "@/components/brand/plate";
 import { INDIAN_STATES } from "@/lib/india";
 import { formatINR } from "@/lib/money";
 import type { Bag } from "@/modules/bag/types";
 import type { OrderTotals } from "@/modules/checkout/pricing";
+import type { CheckoutSession } from "@/modules/payments/service";
 import { useBag } from "./bag/bag-context";
+import { openRazorpay } from "./razorpay-window";
 
 const empty: CheckoutState = { errors: {} };
+
+type Method = "online" | "cod";
+type Paying =
+  | { phase: "idle" }
+  | { phase: "window"; session: CheckoutSession & { orderPath: string } }
+  | { phase: "confirming" }
+  | { phase: "dismissed"; session: CheckoutSession & { orderPath: string }; lastError: string | null }
+  | { phase: "error"; message: string; orderPath: string };
 
 /**
  * One calm page: who you are, where it goes, how you'll pay, and the bag
  * beside it. Totals shown here are for reading only; the server prices the
  * order again from the database when it's placed.
+ *
+ * Online: placing the order holds the pieces and opens Razorpay's window.
+ * Paid → the order page. Closed → "Pay now" again while the hold lasts.
  */
 export function CheckoutForm({
   bag,
   totals,
+  online,
   codEnabled,
   overCodLimit,
+  holdMinutes,
   who,
   idempotencyKey,
 }: {
   bag: Bag;
-  totals: OrderTotals;
+  totals: Record<Method, OrderTotals>;
+  /** Null when online payment isn't set up. */
+  online: { testMode: boolean } | null;
   codEnabled: boolean;
   overCodLimit: boolean;
+  holdMinutes: number;
   who: string | null;
   idempotencyKey: string;
 }) {
@@ -36,9 +55,12 @@ export function CheckoutForm({
   const router = useRouter();
   const { open: openBag } = useBag();
   const form = useRef<HTMLFormElement>(null);
+  const [method, setMethod] = useState<Method>((state.values?.payment as Method | undefined) ?? (online ? "online" : "cod"));
+  const [paying, setPaying] = useState<Paying>({ phase: "idle" });
   const v = (k: string) => state.values?.[k] ?? "";
   const e = (k: string) => state.errors[k];
   const errorCount = Object.keys(state.errors).length;
+  const total = totals[method];
 
   // Take the buyer to the first thing to fix.
   useEffect(() => {
@@ -51,7 +73,40 @@ export function CheckoutForm({
     if (state.bagChanged) router.refresh();
   }, [state, router]);
 
-  const blocked = !codEnabled || overCodLimit || bag.hasProblems;
+  // The order is placed and waiting: open Razorpay's window.
+  useEffect(() => {
+    // A new reply from the server starts the payment window once.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (state.payment) setPaying({ phase: "window", session: state.payment });
+  }, [state]);
+
+  useEffect(() => {
+    if (paying.phase !== "window") return;
+    const session = paying.session;
+    let live = true;
+    openRazorpay(session)
+      .then(async (result) => {
+        if (!live) return;
+        if (result.kind === "dismissed") {
+          setPaying({ phase: "dismissed", session, lastError: result.lastError });
+          return;
+        }
+        setPaying({ phase: "confirming" });
+        const confirmed = await confirmPaymentAction(result.reply);
+        if ("path" in confirmed) router.push(confirmed.path);
+        else setPaying({ phase: "error", message: confirmed.error, orderPath: session.orderPath });
+      })
+      .catch(() => {
+        if (live) setPaying({ phase: "dismissed", session, lastError: "The payment window couldn't open. Check your connection and try again." });
+      });
+    return () => {
+      live = false;
+    };
+  }, [paying, router]);
+
+  const methodBlocked = method === "cod" ? !codEnabled || overCodLimit : !online;
+  const busy = pending || paying.phase === "window" || paying.phase === "confirming";
+  const blocked = methodBlocked || bag.hasProblems;
   const contact = who ?? "We";
 
   return (
@@ -65,17 +120,16 @@ export function CheckoutForm({
             <span className="group-open:hidden">Show</span>
             <span className="hidden group-open:inline">Hide</span> your bag ({bag.count})
           </span>
-          <span className="font-display text-lg tabular-nums">{formatINR(totals.totalMinor)}</span>
+          <span className="font-display text-lg tabular-nums">{formatINR(total.totalMinor)}</span>
         </summary>
         <div className="pb-6">
-          <Summary bag={bag} totals={totals} />
+          <Summary bag={bag} totals={total} />
         </div>
       </details>
 
       <div className="mt-8 grid gap-12 md:mt-12 md:grid-cols-12 md:gap-8">
         <form ref={form} action={action} noValidate className="space-y-12 md:col-span-7">
           <input type="hidden" name="key" value={idempotencyKey} />
-          <input type="hidden" name="payment" value="cod" />
 
           {errorCount ? (
             <p role="alert" className="border-l-2 border-burgundy bg-champagne px-4 py-3 text-sm">
@@ -95,7 +149,7 @@ export function CheckoutForm({
                 placeholder="98123 45678"
                 defaultValue={v("phone")}
                 error={e("phone")}
-                hint={`${contact} will WhatsApp you here to confirm.`}
+                hint={`${contact} will WhatsApp you here about your order.`}
               />
               <Field
                 label="Email (optional)"
@@ -138,20 +192,35 @@ export function CheckoutForm({
           </Step>
 
           <Step n={3} title="How you'll pay">
-            {codEnabled ? (
-              <label className="choice-card">
-                <input type="radio" name="payment-choice" value="cod" defaultChecked className="mt-1 accent-burgundy" />
-                <span>
-                  <span className="font-medium">Cash on delivery</span>
-                  <span className="mt-1 block text-sm text-espresso-soft">
-                    Pay in cash or by UPI to the courier when it arrives. {contact} will message you on WhatsApp to confirm before we
-                    pack it.
+            <div className="space-y-3" role="radiogroup" aria-label="How you'll pay">
+              {online ? (
+                <label className="choice-card">
+                  <input type="radio" name="payment" value="online" checked={method === "online"} onChange={() => setMethod("online")} className="mt-1 accent-burgundy" />
+                  <span>
+                    <span className="font-medium">Pay now</span>
+                    <span className="mt-1 block text-sm text-espresso-soft">UPI, cards or netbanking, through Razorpay. Your pieces are held while you pay.</span>
+                    {online.testMode ? (
+                      <span className="mt-2 inline-block bg-sand px-2 py-0.5 text-xs text-espresso">Test mode: no real money moves</span>
+                    ) : null}
                   </span>
-                </span>
-              </label>
-            ) : (
-              <p className="text-sm text-espresso-soft">Cash on delivery is paused for now. Please message us to order.</p>
-            )}
+                </label>
+              ) : null}
+              {codEnabled ? (
+                <label className="choice-card">
+                  <input type="radio" name="payment" value="cod" checked={method === "cod"} onChange={() => setMethod("cod")} className="mt-1 accent-burgundy" />
+                  <span>
+                    <span className="font-medium">
+                      Cash on delivery
+                      {totals.cod.codFeeMinor ? <span className="font-normal text-espresso-soft"> · {formatINR(totals.cod.codFeeMinor)} extra</span> : null}
+                    </span>
+                    <span className="mt-1 block text-sm text-espresso-soft">
+                      Pay in cash or by UPI to the courier when it arrives. {contact} will message you on WhatsApp to confirm before we pack it.
+                    </span>
+                  </span>
+                </label>
+              ) : null}
+              {!online && !codEnabled ? <p className="text-sm text-espresso-soft">Checkout is paused for a moment. Please message us to order.</p> : null}
+            </div>
             <TextAreaField label="A note for us (optional)" name="note" defaultValue={v("note")} error={e("note")} hint="A gift, a delivery time, anything." />
           </Step>
 
@@ -169,8 +238,10 @@ export function CheckoutForm({
                 ) : null}
               </p>
             ) : null}
-            {overCodLimit ? (
-              <p className="mb-5 text-sm text-espresso-soft">This order is over our cash-on-delivery limit. Please message us and we&apos;ll arrange it.</p>
+            {method === "cod" && overCodLimit ? (
+              <p className="mb-5 text-sm text-espresso-soft">
+                This order is over our cash-on-delivery limit.{online ? " Please pay now instead." : " Please message us and we'll arrange it."}
+              </p>
             ) : null}
             {bag.hasProblems ? (
               <p className="mb-5 text-sm text-burgundy">
@@ -180,10 +251,42 @@ export function CheckoutForm({
                 </button>
               </p>
             ) : null}
-            <button type="submit" className="btn-primary w-full text-base" disabled={pending || blocked}>
-              {pending ? "Placing your order…" : `Place order · ${formatINR(totals.totalMinor)}`}
-            </button>
-            <p className="mt-3 text-center text-xs text-espresso-soft">Nothing is paid now. You pay {formatINR(totals.totalMinor)} when it arrives.</p>
+
+            {paying.phase === "dismissed" ? (
+              <PaymentPaused
+                lastError={paying.lastError}
+                holdMinutes={holdMinutes}
+                total={paying.session.amountMinor}
+                onRetry={() => setPaying({ phase: "window", session: paying.session })}
+                orderPath={paying.session.orderPath}
+              />
+            ) : paying.phase === "error" ? (
+              <p role="alert" className="border-l-2 border-burgundy bg-champagne px-4 py-3 text-sm">
+                {paying.message}{" "}
+                <Link href={paying.orderPath} className="link">
+                  See your order
+                </Link>
+              </p>
+            ) : (
+              <>
+                <button type="submit" className="btn-primary w-full text-base" disabled={busy || blocked}>
+                  {paying.phase === "confirming"
+                    ? "Confirming your payment…"
+                    : busy
+                      ? method === "online"
+                        ? "Opening payment…"
+                        : "Placing your order…"
+                      : method === "online"
+                        ? `Pay ${formatINR(total.totalMinor)}`
+                        : `Place order · ${formatINR(total.totalMinor)}`}
+                </button>
+                <p className="mt-3 text-center text-xs text-espresso-soft">
+                  {method === "online"
+                    ? "You'll pay in Razorpay's secure window. We never see your card or UPI details."
+                    : `Nothing is paid now. You pay ${formatINR(total.totalMinor)} when it arrives.`}
+                </p>
+              </>
+            )}
           </div>
         </form>
 
@@ -191,11 +294,45 @@ export function CheckoutForm({
           <div className="sticky top-8">
             <p className="caption text-xl">Your bag</p>
             <div className="mt-4">
-              <Summary bag={bag} totals={totals} />
+              <Summary bag={bag} totals={total} />
             </div>
           </div>
         </aside>
       </div>
+    </div>
+  );
+}
+
+function PaymentPaused({
+  lastError,
+  holdMinutes,
+  total,
+  onRetry,
+  orderPath,
+}: {
+  lastError: string | null;
+  holdMinutes: number;
+  total: number;
+  onRetry: () => void;
+  orderPath: string;
+}) {
+  return (
+    <div role="status" className="space-y-4 bg-champagne p-5">
+      <p className="text-sm">
+        <span className="font-medium">{lastError ? "The payment didn't go through." : "Payment not finished."}</span>{" "}
+        {lastError ? `${lastError} ` : ""}
+        Your pieces are held for about {holdMinutes} minutes. Nothing has been charged.
+      </p>
+      <button type="button" className="btn-primary w-full" onClick={onRetry}>
+        Pay {formatINR(total)}
+      </button>
+      <p className="text-center text-xs text-espresso-soft">
+        Or come back to it from{" "}
+        <Link href={orderPath} className="link">
+          your order page
+        </Link>
+        .
+      </p>
     </div>
   );
 }

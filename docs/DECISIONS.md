@@ -2,6 +2,21 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-20 — Online payment with Razorpay (M4), test mode first
+
+**Decision:** Razorpay Standard Checkout (its own payment window: UPI, cards, netbanking) beside cash on delivery. Built and run in test mode until Krishna's current account is opened and Razorpay activates live payments; switching is only a change of keys.
+
+**How** (`src/modules/payments`):
+- Choosing "Pay now" places the order `pending_payment` with its stock **held** for the store's reservation time (15 minutes), not taken. The bag is kept until the money arrives. Starting checkout again from the same bag cancels the earlier unpaid order and drops its hold, so a buyer never holds stock against themselves.
+- A Razorpay order is created for the total **as stored on our order**; reopening the window reuses it. If Razorpay can't be reached, the order is cancelled and the hold released at once.
+- Paid means: the reply's signature checks out (HMAC of `order_id|payment_id` with the key secret), **and** Razorpay's own record of the payment says captured, for exactly the stored amount in INR (an authorised payment is captured by us). Only then does the hold become a sale, the order become confirmed/paid, the email get queued and the pieces leave the bag.
+- The webhook (`/api/webhooks/razorpay`, signed over the raw body with `RAZORPAY_WEBHOOK_SECRET`) does the same, so a closed tab still ends in a paid order. Events are recorded once by Razorpay's event id with ids, amounts and status only; a delivery that failed is retried, a repeat of a processed one is skipped. Browser and webhook racing end in one sale (tested).
+- **Paid too late:** if the hold lapsed and the stock went to someone else, or the order was cancelled first, the payment is still recorded, the order is flagged `needs_resolution` ("Needs you" in the admin) and the buyer's page says Krishna will offer another colour or size, or a refund. Cancelling a paid order flags a refund the same way. Refunding from the admin is M5; until then, from Razorpay's dashboard.
+- The COD fee and limit don't apply to online orders. Unpaid online checkouts stay out of the admin's "Open" list (they're under "All").
+- No SDK: four REST calls and two HMAC checks (`razorpay.ts`), with `fetch` injectable so tests run against a stand-in Razorpay.
+
+**Before going live:** live keys in the host's environment, the webhook set up on the live account, one real ₹1 payment and refund.
+
 ## 2026-10-20 — Bag, guest checkout and cash on delivery (M3)
 
 **Decision:** A guest bag kept on the server, a one-page checkout, and cash on delivery as the only way to pay until Razorpay (M4). Krishna confirms every COD order with the buyer on WhatsApp before packing.

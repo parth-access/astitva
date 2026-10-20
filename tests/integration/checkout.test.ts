@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { codCollections, emailOutbox, orderItems, orders, products, storeSettings, users } from "../../src/db/schema";
 import { addToBag, BagError, openBag, readBag, setLineQuantity } from "../../src/modules/bag/service";
 import type { CheckoutInput } from "../../src/modules/checkout/input";
-import { CheckoutError, placeCodOrder } from "../../src/modules/checkout/service";
+import { CheckoutError, placeOrder } from "../../src/modules/checkout/service";
 import { cancelOrder, markCodVerified, OrderRuleError } from "../../src/modules/orders/service";
 import { createVariant, hasDb, makeDb, movementSum, onHand, resetData } from "./helpers";
 
@@ -75,7 +75,7 @@ describe.skipIf(!hasDb)("bag and cash-on-delivery checkout", () => {
     const v = await createVariant(db, { onHand: 3, priceMinor: 349_900 });
     const bagId = await bagWith(v.id, 2);
 
-    const placed = await placeCodOrder(db, bagId, buyer());
+    const placed = await placeOrder(db, bagId, buyer());
     expect(placed.orderNumber).toMatch(/^AST-\d{6}$/);
     const [order] = await db.select().from(orders).where(eq(orders.id, placed.orderId));
     expect(order).toMatchObject({
@@ -104,7 +104,7 @@ describe.skipIf(!hasDb)("bag and cash-on-delivery checkout", () => {
     const v = await createVariant(db, { onHand: 2 });
     const bagId = await bagWith(v.id);
     const input = buyer();
-    const [a, b] = await Promise.all([placeCodOrder(db, bagId, input), placeCodOrder(db, bagId, input)]);
+    const [a, b] = await Promise.all([placeOrder(db, bagId, input), placeOrder(db, bagId, input)]);
     expect(a.orderId).toBe(b.orderId);
     expect([a.repeated, b.repeated].sort()).toEqual([false, true]);
     expect(await db.select().from(orders)).toHaveLength(1);
@@ -114,7 +114,7 @@ describe.skipIf(!hasDb)("bag and cash-on-delivery checkout", () => {
   it("two buyers for the last piece: exactly one gets it", async () => {
     const v = await createVariant(db, { onHand: 1 });
     const bags = [await bagWith(v.id), await bagWith(v.id)];
-    const results = await Promise.allSettled(bags.map((b, i) => placeCodOrder(db, b, buyer({ phone: `981234567${i}` }))));
+    const results = await Promise.allSettled(bags.map((b, i) => placeOrder(db, b, buyer({ phone: `981234567${i}` }))));
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     const lost = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
     expect(lost.reason).toMatchObject({ code: "unavailable", variantIds: [v.id] });
@@ -129,35 +129,35 @@ describe.skipIf(!hasDb)("bag and cash-on-delivery checkout", () => {
     const v = await createVariant(db, { onHand: 5, priceMinor: 300_000 });
 
     await settings({ orderingOpen: false });
-    await expectCheckout(placeCodOrder(db, await bagWith(v.id), buyer()), "ordering_closed");
+    await expectCheckout(placeOrder(db, await bagWith(v.id), buyer()), "ordering_closed");
     await settings({ orderingOpen: true, codEnabled: false });
-    await expectCheckout(placeCodOrder(db, await bagWith(v.id), buyer()), "cod_off");
+    await expectCheckout(placeOrder(db, await bagWith(v.id), buyer()), "cod_off");
     await settings({ codEnabled: true });
 
-    await expectCheckout(placeCodOrder(db, await bagWith(v.id, 2), buyer()), "over_cod_limit");
-    await expectCheckout(placeCodOrder(db, (await openBag(db, null)).id, buyer()), "empty");
+    await expectCheckout(placeOrder(db, await bagWith(v.id, 2), buyer()), "over_cod_limit");
+    await expectCheckout(placeOrder(db, (await openBag(db, null)).id, buyer()), "empty");
 
     await settings({ restrictToListedPincodes: true });
-    await expectCheckout(placeCodOrder(db, await bagWith(v.id), buyer()), "pincode");
+    await expectCheckout(placeOrder(db, await bagWith(v.id), buyer()), "pincode");
     await settings({ restrictToListedPincodes: false });
 
     // Hidden after it went into the bag.
     const hiddenBag = await bagWith(v.id);
     await db.update(products).set({ status: "archived" });
-    await expectCheckout(placeCodOrder(db, hiddenBag, buyer()), "unavailable");
+    await expectCheckout(placeOrder(db, hiddenBag, buyer()), "unavailable");
     await db.update(products).set({ status: "active" });
 
     // Two orders waiting for Krishna's check on one number; a third waits until one is checked.
-    const first = await placeCodOrder(db, await bagWith(v.id), buyer());
-    await placeCodOrder(db, await bagWith(v.id), buyer());
-    await expectCheckout(placeCodOrder(db, await bagWith(v.id), buyer()), "too_many_unverified");
+    const first = await placeOrder(db, await bagWith(v.id), buyer());
+    await placeOrder(db, await bagWith(v.id), buyer());
+    await expectCheckout(placeOrder(db, await bagWith(v.id), buyer()), "too_many_unverified");
     await markCodVerified(db, first.orderId, adminId);
-    await placeCodOrder(db, await bagWith(v.id), buyer());
+    await placeOrder(db, await bagWith(v.id), buyer());
   });
 
   it("cancelling puts the stock back once and closes the collection", async () => {
     const v = await createVariant(db, { onHand: 2 });
-    const placed = await placeCodOrder(db, await bagWith(v.id, 2), buyer());
+    const placed = await placeOrder(db, await bagWith(v.id, 2), buyer());
     expect(await onHand(db, v.id)).toBe(0);
 
     await expect(cancelOrder(db, placed.orderId, adminId, " ")).rejects.toBeInstanceOf(OrderRuleError);

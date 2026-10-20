@@ -6,7 +6,7 @@ import { storeSettings } from "@/db/schema";
 import { SETTINGS_TAG } from "@/modules/catalog/queries";
 import type { PricingSettings } from "./pricing";
 
-export type CheckoutSettings = PricingSettings & { codEnabled: boolean; codMaxOrderMinor: number };
+export type CheckoutSettings = PricingSettings & { codEnabled: boolean; codMaxOrderMinor: number; holdMinutes: number };
 
 /** For display (the bag and checkout pages). Placing an order re-reads the settings under lock. */
 export async function getCheckoutSettings(): Promise<CheckoutSettings> {
@@ -21,6 +21,7 @@ export async function getCheckoutSettings(): Promise<CheckoutSettings> {
       codFeeMinor: storeSettings.codFeeMinor,
       shippingFlatMinor: storeSettings.shippingFlatMinor,
       freeShippingThresholdMinor: storeSettings.freeShippingThresholdMinor,
+      holdMinutes: storeSettings.reservationTtlMinutes,
     })
     .from(storeSettings)
     .where(eq(storeSettings.id, 1));
@@ -30,5 +31,6 @@ export async function getCheckoutSettings(): Promise<CheckoutSettings> {
     codFeeMinor: Number(s?.codFeeMinor ?? 0),
     shippingFlatMinor: Number(s?.shippingFlatMinor ?? 0),
     freeShippingThresholdMinor: s?.freeShippingThresholdMinor == null ? null : Number(s.freeShippingThresholdMinor),
+    holdMinutes: s?.holdMinutes ?? 15,
   };
 }

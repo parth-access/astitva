@@ -10,6 +10,7 @@ import { formatINR } from "@/lib/money";
 import { getConcierge } from "@/modules/catalog/queries";
 import { isOrderLinkKey } from "@/modules/orders/links";
 import { getOrderForBuyer } from "@/modules/orders/service";
+import { PayNow } from "@/components/storefront/pay-now";
 
 export const metadata: Metadata = { title: "Your order", robots: { index: false, follow: false } };
 
@@ -31,27 +32,46 @@ async function OrderView({ params, searchParams }: PageProps<"/orders/[number]">
   const concierge = await getConcierge();
   const who = concierge.name ?? "We";
   const firstName = order.contactName.split(/\s+/)[0];
-  const cancelled = order.orderStatus === "cancelled";
+  const paid = order.paymentStatus !== "unpaid";
+  // Money arrived but the order can't go ahead as it is (stock gone, or cancelled first): Krishna sorts it out.
+  const attention = order.needsResolution;
+  const cancelled = order.orderStatus === "cancelled" && !attention;
+  const awaitingPayment = order.paymentMethod === "online" && order.orderStatus === "pending_payment" && !paid;
+  const cod = order.paymentMethod === "cod";
   const a = order.address;
-  const hello = `Hello${concierge.name ? ` ${concierge.name}` : ""}, I've just placed order ${order.orderNumber} (${formatINR(order.totalMinor)}, cash on delivery).`;
+  const hello = `Hello${concierge.name ? ` ${concierge.name}` : ""}, I've just placed order ${order.orderNumber} (${formatINR(order.totalMinor)}, ${cod ? "cash on delivery" : paid ? "paid online" : "not paid yet"}).`;
+  const lead = "mx-auto mt-6 max-w-xl text-lg leading-relaxed";
+  const heading = cancelled ? "This order was cancelled" : awaitingPayment ? "Almost there" : `Thank you, ${firstName}.`;
 
   return (
     <div className="mx-auto max-w-3xl px-4 pb-28 pt-10 sm:px-8 md:pt-16">
       <div className="text-center">
-        {cancelled ? null : <Tick />}
+        {cancelled || awaitingPayment || attention ? null : <Tick />}
         <p className="caption mt-6 text-xl">Order {order.orderNumber}</p>
-        <h1 className="mt-2 text-5xl italic md:text-6xl">{cancelled ? "This order was cancelled" : `Thank you, ${firstName}.`}</h1>
-        {cancelled ? (
-          <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed">If this is a surprise, please message us.</p>
+        <h1 className="mt-2 text-5xl italic md:text-6xl">{heading}</h1>
+        {attention ? (
+          <p className={lead}>
+            We&apos;ve received your payment of {formatINR(order.totalMinor)}, but one of your pieces sold just before it arrived. {who} will message you on
+            WhatsApp today to offer another colour or size, or a full refund.
+          </p>
+        ) : cancelled ? (
+          <p className={lead}>If this is a surprise, please message us. Nothing was charged for it.</p>
+        ) : awaitingPayment ? (
+          <>
+            <p className={lead}>Your pieces are held while you pay. If the payment window closed, you can open it again here.</p>
+            <PayNow orderId={order.id} linkKey={typeof k === "string" ? k : ""} totalMinor={order.totalMinor} />
+          </>
+        ) : !cod ? (
+          <p className={lead}>Paid, thank you. We&apos;re packing it by hand and will send it soon.</p>
         ) : order.codVerifiedAt ? (
-          <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed">Confirmed. We&apos;re packing it by hand and will send it soon.</p>
+          <p className={lead}>Confirmed. We&apos;re packing it by hand and will send it soon.</p>
         ) : (
-          <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed">
+          <p className={lead}>
             {who} will message you on WhatsApp at <span className="whitespace-nowrap">{formatMobile(order.contactPhone)}</span> to confirm, then we pack
             it by hand.
           </p>
         )}
-        {concierge.whatsapp && !cancelled ? (
+        {concierge.whatsapp && !cancelled && !awaitingPayment ? (
           <a href={whatsappLink(concierge.whatsapp, hello)} target="_blank" rel="noopener noreferrer" className="btn-outline mt-8">
             Say hello on WhatsApp
           </a>
@@ -88,7 +108,7 @@ async function OrderView({ params, searchParams }: PageProps<"/orders/[number]">
             </div>
           ) : null}
           <div className="flex items-baseline justify-between border-t border-taupe/40 pt-3">
-            <dt>{cancelled ? "Total" : "To pay on delivery"}</dt>
+            <dt>{cod && !cancelled ? "To pay on delivery" : paid ? "Paid" : "Total"}</dt>
             <dd className="font-display text-2xl">{formatINR(order.totalMinor)}</dd>
           </div>
         </dl>

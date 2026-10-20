@@ -10,6 +10,7 @@ import { EMPTY_BAG } from "@/modules/bag/types";
 import { getConcierge, getStorefront } from "@/modules/catalog/queries";
 import { priceOrder } from "@/modules/checkout/pricing";
 import { getCheckoutSettings } from "@/modules/checkout/queries";
+import { razorpay } from "@/modules/payments/client";
 
 export const metadata: Metadata = { title: "Checkout", robots: { index: false } };
 
@@ -48,17 +49,17 @@ async function Checkout() {
     );
   }
 
-  const totals = priceOrder(
-    bag.lines.map((l) => ({ unitPriceMinor: l.priceMinor, quantity: l.quantity })),
-    settings,
-    "cod",
-  );
+  const lines = bag.lines.map((l) => ({ unitPriceMinor: l.priceMinor, quantity: l.quantity }));
+  const totals = { cod: priceOrder(lines, settings, "cod"), online: priceOrder(lines, settings, "online") };
+  const rzp = razorpay();
   return (
     <CheckoutForm
       bag={bag}
       totals={totals}
+      online={rzp ? { testMode: rzp.testMode } : null}
       codEnabled={settings.codEnabled}
-      overCodLimit={totals.totalMinor > settings.codMaxOrderMinor}
+      overCodLimit={totals.cod.totalMinor > settings.codMaxOrderMinor}
+      holdMinutes={settings.holdMinutes}
       who={concierge.name}
       // One key per visit to this page: a double tap or a resubmit places one order.
       idempotencyKey={randomUUID()}
