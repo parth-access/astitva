@@ -8,6 +8,7 @@ import type { DbOrTx, Db } from "@/db/create";
 import { auditLogs, codCollections, orderEvents, orderItems, orders, payments, refunds, shipments } from "@/db/schema";
 import { formatINR } from "@/lib/money";
 import { InvalidTransitionError } from "@/lib/state-machine";
+import { releaseCodeUse } from "@/modules/discounts/service";
 import { alertOwners } from "@/modules/email/outbox";
 import { restockCancelledOrder } from "@/modules/inventory/service";
 import { codCollectionMachine, orderMachine, type OrderStatus } from "./machines";
@@ -48,6 +49,8 @@ export async function getOrderForBuyer(db: DbOrTx, orderNumber: string) {
       paymentStatus: orders.paymentStatus,
       needsResolution: orders.needsResolution,
       subtotalMinor: orders.subtotalMinor,
+      discountMinor: orders.discountMinor,
+      discountCode: orders.discountCode,
       shippingMinor: orders.shippingMinor,
       codFeeMinor: orders.codFeeMinor,
       totalMinor: orders.totalMinor,
@@ -76,7 +79,7 @@ export async function getOrderForBuyer(db: DbOrTx, orderNumber: string) {
   return {
     shipment: shipment ?? null,
     refunds: refunded.map((r) => money(r, ["amountMinor"])),
-    ...money(order, ["subtotalMinor", "shippingMinor", "codFeeMinor", "totalMinor"]),
+    ...money(order, ["subtotalMinor", "discountMinor", "shippingMinor", "codFeeMinor", "totalMinor"]),
     items: items.map((i) => money(i, ["unitPriceMinor", "lineTotalMinor"])),
   };
 }
@@ -220,6 +223,7 @@ export async function cancelOrder(db: Db, orderId: string, actorId: string, reas
       })
       .where(eq(orders.id, orderId));
     const restocked = await restockCancelledOrder(tx, orderId, actorId);
+    await releaseCodeUse(tx, orderId);
     if (refundDue) await alertOwners(tx, "owner_needs_you", `${orderId}:${Date.now()}`, { orderId });
 
     const [cod] = await tx.select({ id: codCollections.id, status: codCollections.status }).from(codCollections).where(eq(codCollections.orderId, orderId));

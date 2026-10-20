@@ -6,7 +6,11 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db/client";
 import { env } from "@/lib/env";
-import { BAG_COOKIE, findBag } from "@/modules/bag/service";
+import { normaliseMobile } from "@/lib/india";
+import { BAG_COOKIE, findBag, readBag } from "@/modules/bag/service";
+import { priceOrder, type OrderTotals } from "@/modules/checkout/pricing";
+import { getCheckoutSettings } from "@/modules/checkout/queries";
+import { checkCode } from "@/modules/discounts/service";
 import { CATALOG_TAG } from "@/modules/catalog/queries";
 import { parseCheckoutForm } from "@/modules/checkout/input";
 import { CheckoutError, MAX_UNVERIFIED_COD, placeOrder } from "@/modules/checkout/service";
@@ -27,7 +31,27 @@ export type CheckoutState = {
   values?: Record<string, string>;
   /** Online: open Razorpay's window with this. */
   payment?: CheckoutSession & { orderPath: string };
+  /** The code stopped being valid between applying it and placing the order. */
+  discountRejected?: boolean;
 };
+
+export type DiscountPreview =
+  | { ok: true; code: string; label: string; totals: { cod: OrderTotals; online: OrderTotals }; overCodLimit: boolean }
+  | { ok: false; message: string };
+
+/** "Apply" on the checkout page: is the code good for this bag, and what does the order come to with it? */
+export async function previewDiscountAction(input: string, phone: string): Promise<DiscountPreview> {
+  if (!(await allowRequest(LIMITS.checkoutIp))) return { ok: false, message: "Too many tries in a short time. Please wait a few minutes." };
+  const bag = await findBag(db, (await cookies()).get(BAG_COOKIE)?.value);
+  if (!bag) return { ok: false, message: "Your bag is empty." };
+  const contents = await readBag(db, bag.id);
+  const lines = contents.lines.map((l) => ({ unitPriceMinor: l.priceMinor, quantity: l.quantity }));
+  const check = await checkCode(db, input, { subtotalMinor: contents.subtotalMinor, phone: normaliseMobile(phone) });
+  if (!check.ok) return check;
+  const settings = await getCheckoutSettings();
+  const totals = { cod: priceOrder(lines, settings, "cod", check.rule), online: priceOrder(lines, settings, "online", check.rule) };
+  return { ok: true, code: check.code, label: check.label, totals, overCodLimit: totals.cod.totalMinor > settings.codMaxOrderMinor };
+}
 
 const MESSAGES: Record<CheckoutError["code"], string> = {
   ordering_closed: "Ordering isn't open yet. Nothing has been charged or placed.",
@@ -37,6 +61,7 @@ const MESSAGES: Record<CheckoutError["code"], string> = {
   over_cod_limit: "This order is over our cash-on-delivery limit. Please pay online, or message us and we'll arrange it.",
   pincode: "We can't deliver to this pincode yet. Please message us.",
   too_many_unverified: `This number already has ${MAX_UNVERIFIED_COD} cash-on-delivery orders waiting for our call. Pay online, or message us.`,
+  discount: "That code can't be used on this order.",
 };
 
 const linkFor = (orderId: string, orderNumber: string) => orderPath(orderNumber, orderLinkKey(orderId, env().BETTER_AUTH_SECRET));
@@ -60,6 +85,7 @@ export async function placeOrderAction(_prev: CheckoutState, form: FormData): Pr
     placed = await placeOrder(db, bag.id, parsed.data);
   } catch (err) {
     if (err instanceof CheckoutError) {
+      if (err.code === "discount") return { errors: { discountCode: err.detail ?? MESSAGES.discount }, values, discountRejected: true };
       return { errors: {}, message: MESSAGES[err.code], bagChanged: err.code === "unavailable", values };
     }
     throw err;

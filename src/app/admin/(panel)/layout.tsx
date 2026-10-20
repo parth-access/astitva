@@ -6,7 +6,7 @@ import { countOrdersToCheck } from "@/modules/orders/service";
 
 /** Everything inside the admin proper. Pages and server actions still call requireAdmin() themselves. */
 export default async function PanelLayout({ children }: LayoutProps<"/admin">) {
-  const { user } = await requireAdmin();
+  const { user, role } = await requireAdmin();
   const toConfirm = await countOrdersToCheck(db);
   return (
     <>
@@ -24,6 +24,11 @@ export default async function PanelLayout({ children }: LayoutProps<"/admin">) {
               <Link href="/admin/pieces" className="link">
                 Pieces
               </Link>
+              {role === "owner" ? (
+                <Link href="/admin/discounts" className="link">
+                  Discounts
+                </Link>
+              ) : null}
               <Link href="/admin/settings" className="link">
                 Lookbook &amp; settings
               </Link>

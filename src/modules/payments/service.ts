@@ -21,6 +21,7 @@ import type { Db, DbOrTx, Tx } from "@/db/create";
 import { cartItems, orderEvents, orderItems, orders, paymentEvents, payments } from "@/db/schema";
 import { commitOrderReservations, releaseOrderHolds } from "@/modules/inventory/service";
 import { queueOrderPlacedEmails } from "@/modules/checkout/service";
+import { releaseCodeUse } from "@/modules/discounts/service";
 import { alertOwners } from "@/modules/email/outbox";
 import { orderMachine, orderPaymentMachine, paymentAttemptMachine } from "@/modules/orders/machines";
 import type { Razorpay, RazorpayPayment, RazorpayRefund } from "./razorpay";
@@ -101,6 +102,7 @@ export async function abandonOrder(db: Db, orderId: string, reason: string) {
     if (!o || o.paid !== "unpaid" || !orderMachine.can(o.status, "cancelled")) return;
     await tx.update(orders).set({ orderStatus: "cancelled", cancelReason: reason }).where(eq(orders.id, orderId));
     await releaseOrderHolds(tx, orderId);
+    await releaseCodeUse(tx, orderId);
     await tx.insert(orderEvents).values({ orderId, eventType: "order.cancelled", fromStatus: o.status, toStatus: "cancelled", actorType: "system", metadata: { reason } });
   });
 }

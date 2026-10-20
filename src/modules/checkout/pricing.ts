@@ -1,4 +1,4 @@
-import { assertNonNegativePaise, type Paise } from "@/lib/money";
+import { assertNonNegativePaise, percentOf, type Paise } from "@/lib/money";
 
 /** The store settings that decide what an order costs. */
 export type PricingSettings = {
@@ -10,10 +10,22 @@ export type PricingSettings = {
 
 export type OrderTotals = {
   subtotalMinor: Paise;
+  discountMinor: Paise;
   shippingMinor: Paise;
   codFeeMinor: Paise;
   totalMinor: Paise;
 };
+
+/** A discount code's effect: a share of the pieces (basis points) or a fixed amount off them. */
+export type DiscountRule = { kind: "percent" | "amount"; value: number };
+
+/** What a rule takes off a subtotal: never more than the pieces cost. */
+export function discountOn(subtotalMinor: Paise, rule: DiscountRule | null): Paise {
+  if (!rule) return 0;
+  // A percentage is rounded to whole rupees (₹3,149, not ₹3,149.10), half up.
+  const off = rule.kind === "percent" ? Math.round(percentOf(subtotalMinor, rule.value) / 100) * 100 : rule.value;
+  return Math.min(subtotalMinor, Math.max(0, off));
+}
 
 /**
  * What an order costs. Prices are tax-inclusive, so nothing is added for GST.
@@ -23,16 +35,20 @@ export function priceOrder(
   lines: readonly { unitPriceMinor: Paise; quantity: number }[],
   settings: PricingSettings,
   method: "cod" | "online",
+  discount: DiscountRule | null = null,
 ): OrderTotals {
   const subtotalMinor = lines.reduce((sum, l) => {
     assertNonNegativePaise(l.unitPriceMinor, "unit price");
     if (!Number.isInteger(l.quantity) || l.quantity < 1) throw new RangeError(`Invalid quantity ${l.quantity}`);
     return sum + l.unitPriceMinor * l.quantity;
   }, 0);
-  const free = settings.freeShippingThresholdMinor !== null && subtotalMinor >= settings.freeShippingThresholdMinor;
+  const discountMinor = discountOn(subtotalMinor, discount);
+  // Free shipping is earned on what the pieces cost after the discount.
+  const goods = subtotalMinor - discountMinor;
+  const free = settings.freeShippingThresholdMinor !== null && goods >= settings.freeShippingThresholdMinor;
   const shippingMinor = subtotalMinor === 0 || free ? 0 : settings.shippingFlatMinor;
   const codFeeMinor = method === "cod" ? settings.codFeeMinor : 0;
-  return { subtotalMinor, shippingMinor, codFeeMinor, totalMinor: subtotalMinor + shippingMinor + codFeeMinor };
+  return { subtotalMinor, discountMinor, shippingMinor, codFeeMinor, totalMinor: goods + shippingMinor + codFeeMinor };
 }
 
 /** "₹X more for free shipping", as paise; null when not applicable. */

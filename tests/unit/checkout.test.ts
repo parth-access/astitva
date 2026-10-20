@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatMobile, normaliseMobile } from "../../src/lib/india";
 import { parseCheckoutForm } from "../../src/modules/checkout/input";
-import { priceOrder, untilFreeShipping } from "../../src/modules/checkout/pricing";
+import { discountOn, priceOrder, untilFreeShipping } from "../../src/modules/checkout/pricing";
 import { isOrderLinkKey, orderLinkKey } from "../../src/modules/orders/links";
 
 describe("priceOrder", () => {
@@ -10,6 +10,7 @@ describe("priceOrder", () => {
   it("adds shipping and the COD fee below the free-shipping line", () => {
     expect(priceOrder([{ unitPriceMinor: 349_900, quantity: 1 }], settings, "cod")).toEqual({
       subtotalMinor: 349_900,
+      discountMinor: 0,
       shippingMinor: 9_900,
       codFeeMinor: 5_000,
       totalMinor: 364_800,
@@ -19,10 +20,30 @@ describe("priceOrder", () => {
   it("ships free at the line, and charges no COD fee online", () => {
     expect(priceOrder([{ unitPriceMinor: 250_000, quantity: 2 }], settings, "online")).toEqual({
       subtotalMinor: 500_000,
+      discountMinor: 0,
       shippingMinor: 0,
       codFeeMinor: 0,
       totalMinor: 500_000,
     });
+  });
+
+  it("takes a discount off the pieces, and judges free shipping after it", () => {
+    // 10% off ₹5,000 is ₹4,500: below the ₹5,000 line, so shipping is charged again.
+    expect(priceOrder([{ unitPriceMinor: 250_000, quantity: 2 }], settings, "cod", { kind: "percent", value: 1000 })).toEqual({
+      subtotalMinor: 500_000,
+      discountMinor: 50_000,
+      shippingMinor: 9_900,
+      codFeeMinor: 5_000,
+      totalMinor: 464_900,
+    });
+    // A fixed amount never takes more than the pieces cost.
+    expect(priceOrder([{ unitPriceMinor: 30_000, quantity: 1 }], settings, "online", { kind: "amount", value: 50_000 })).toMatchObject({
+      discountMinor: 30_000,
+      totalMinor: 9_900,
+    });
+    // 15% of ₹3,499 is ₹524.85: rounded to ₹525.
+    expect(discountOn(349_900, { kind: "percent", value: 1500 })).toBe(52_500);
+    expect(discountOn(349_900, { kind: "percent", value: 1000 })).toBe(35_000);
   });
 
   it("refuses fractions of paise and empty quantities", () => {

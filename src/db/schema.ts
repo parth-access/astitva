@@ -95,6 +95,7 @@ export const refundStatus = pgEnum("refund_status", ["initiated", "succeeded", "
 export const refundMethod = pgEnum("refund_method", ["razorpay", "manual_bank", "manual_upi"]);
 export const actorType = pgEnum("actor_type", ["customer", "admin", "system"]);
 export const outboxStatus = pgEnum("outbox_status", ["pending", "sent", "failed"]);
+export const discountKind = pgEnum("discount_kind", ["percent", "amount"]);
 
 /* ------------------------------------------------------------------ */
 /* People and access                                                   */
@@ -487,6 +488,45 @@ export const cartItems = pgTable(
 ).enableRLS();
 
 /* ------------------------------------------------------------------ */
+/* Discount codes                                                      */
+/* ------------------------------------------------------------------ */
+
+/** A code a buyer types at checkout. Created by an owner in the admin. */
+export const discountCodes = pgTable(
+  "discount_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** Stored in capitals; buyers may type it any way. */
+    code: varchar("code", { length: 32 }).notNull().unique(),
+    kind: discountKind("kind").notNull(),
+    /** percent: basis points (1000 = 10%). amount: paise off the pieces. */
+    value: integer("value").notNull(),
+    /** The pieces must come to at least this before the discount. */
+    minSubtotalMinor: money("min_subtotal_minor").notNull().default(0),
+    startsAt: timestamp("starts_at", { withTimezone: true }),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
+    /** Null: no limit. Counts orders placed with it; a cancelled or unpaid order gives its use back. */
+    maxUses: integer("max_uses"),
+    usesCount: integer("uses_count").notNull().default(0),
+    /** At most one live order per phone number with this code. */
+    onePerPhone: boolean("one_per_phone").notNull().default(true),
+    isActive: boolean("is_active").notNull().default(true),
+    /** For the admin only, e.g. "Instagram launch". */
+    note: varchar("note", { length: 200 }),
+    createdBy: uuid("created_by"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    check("discount_codes_code_format", sql`${t.code} ~ '^[A-Z0-9-]{3,32}$'`),
+    check("discount_codes_value", sql`(${t.kind} = 'percent' and ${t.value} between 1 and 9000) or (${t.kind} = 'amount' and ${t.value} > 0)`),
+    check("discount_codes_min_nonneg", sql`${t.minSubtotalMinor} >= 0`),
+    check("discount_codes_uses", sql`${t.usesCount} >= 0 and (${t.maxUses} is null or (${t.maxUses} > 0 and ${t.usesCount} <= ${t.maxUses}))`),
+    check("discount_codes_window", sql`${t.startsAt} is null or ${t.endsAt} is null or ${t.startsAt} < ${t.endsAt}`),
+  ],
+).enableRLS();
+
+/* ------------------------------------------------------------------ */
 /* Orders                                                              */
 /* ------------------------------------------------------------------ */
 
@@ -528,6 +568,9 @@ export const orders = pgTable(
     taxIncludedMinor: money("tax_included_minor").notNull().default(0),
     totalMinor: money("total_minor").notNull(),
     addressSnapshot: jsonb("address_snapshot").$type<AddressSnapshot>().notNull(),
+    /** The code used, as typed into the order (kept if the code is later changed or removed). */
+    discountCode: varchar("discount_code", { length: 32 }),
+    discountCodeId: uuid("discount_code_id").references(() => discountCodes.id, { onDelete: "set null" }),
     customerNote: text("customer_note"),
     internalNote: text("internal_note"),
     /** Guest cart id or user id: keys are unique per scope, not globally. */
@@ -794,6 +837,28 @@ export const auditLogs = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("audit_logs_resource_idx").on(t.resourceType, t.resourceId, t.createdAt)],
+).enableRLS();
+
+/**
+ * "Tell me when it's back": an email waiting for one colour and size to return.
+ * Notified once, then deleted after a while; never used for anything else.
+ */
+export const stockAlerts = pgTable(
+  "stock_alerts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    variantId: uuid("variant_id")
+      .notNull()
+      .references(() => productVariants.id, { onDelete: "cascade" }),
+    email: varchar("email", { length: 254 }).notNull(),
+    createdAt: createdAt(),
+    notifiedAt: timestamp("notified_at", { withTimezone: true }),
+  },
+  (t) => [
+    // One waiting alert per person per colour and size.
+    uniqueIndex("stock_alerts_waiting_uq").on(t.variantId, t.email).where(sql`${t.notifiedAt} is null`),
+    index("stock_alerts_waiting_idx").on(t.variantId).where(sql`${t.notifiedAt} is null`),
+  ],
 ).enableRLS();
 
 /**

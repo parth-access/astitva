@@ -3,8 +3,8 @@
  * Correctness never depends on these running: holds expire by time, emails
  * are also sent straight after each request. They keep things tidy and retry.
  *
- *   frequent (every 15 min): send/retry emails, close abandoned online checkouts, mark lapsed holds
- *   daily:                   clear expired bags and old limit counters; the call itself keeps Supabase awake
+ *   frequent (every 15 min): close abandoned online checkouts, mark lapsed holds, back-in-stock alerts, send/retry emails
+ *   daily:                   clear expired bags, old limit counters and used alerts; the call itself keeps Supabase awake
  */
 import { and, eq, lt, sql } from "drizzle-orm";
 import type { Db } from "@/db/create";
@@ -15,6 +15,7 @@ import type { RenderContext } from "@/modules/email/templates";
 import { markLapsedReservations } from "@/modules/inventory/service";
 import { clearOldLimits } from "@/modules/limits/service";
 import { abandonOrder } from "@/modules/payments/service";
+import { clearOldAlerts, notifyRestocked } from "@/modules/alerts/service";
 
 /** Online checkouts nobody paid for are cancelled after this long. Their holds lapsed long before. */
 export const ABANDON_AFTER_MINUTES = 120;
@@ -44,12 +45,15 @@ export type JobName = "frequent" | "daily";
 
 export async function runJob(db: Db, job: JobName, mail: { send: SendEmail; ctx: RenderContext }) {
   if (job === "frequent") {
-    const emails = await processOutbox(db, mail.send, mail.ctx, { limit: 50 });
     const abandoned = await closeAbandonedCheckouts(db);
     const lapsedHolds = await markLapsedReservations(db);
-    return { emails, abandoned, lapsedHolds };
+    // After closing checkouts: their stock may be exactly what someone is waiting for.
+    const restockAlerts = await notifyRestocked(db);
+    const emails = await processOutbox(db, mail.send, mail.ctx, { limit: 50 });
+    return { emails, abandoned, lapsedHolds, restockAlerts };
   }
   const bags = await clearExpiredBags(db);
   const limits = await clearOldLimits(db);
-  return { bags, limits };
+  const alerts = await clearOldAlerts(db);
+  return { bags, limits, alerts };
 }

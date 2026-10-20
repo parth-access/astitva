@@ -71,6 +71,20 @@
       "when": 1792518637453,
       "tag": "0009_request_limits",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792523800784,
+      "tag": "0010_stock_alerts",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792523918322,
+      "tag": "0011_discount_codes",
+      "breakpoints": true
     }
   ]
 }

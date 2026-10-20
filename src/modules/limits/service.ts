@@ -19,6 +19,10 @@ export const LIMITS = {
   bag: { name: "bag", max: 60, windowSeconds: 10 * 60 },
   /** Checkout attempts per visitor (IP). */
   checkoutIp: { name: "checkout-ip", max: 10, windowSeconds: 10 * 60 },
+  /** "Find my order" requests per visitor (IP): enough for typos, too few to guess with. */
+  orderLookup: { name: "order-lookup", max: 5, windowSeconds: 15 * 60 },
+  /** "Tell me when it's back" sign-ups per visitor (IP). */
+  stockAlert: { name: "stock-alert", max: 10, windowSeconds: 10 * 60 },
   /** Orders placed per phone number. */
   checkoutPhone: { name: "checkout-phone", max: 5, windowSeconds: 60 * 60 },
 } satisfies Record<string, Limit>;

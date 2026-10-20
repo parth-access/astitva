@@ -5,6 +5,8 @@ import { StatusPanel } from "@/components/admin/piece-panels";
 import { PhotosPanel } from "@/components/admin/photos-panel";
 import { Notice } from "@/components/admin/ui";
 import { formatPieceNumber } from "@/lib/format";
+import { db } from "@/db/client";
+import { waitingByVariant } from "@/modules/alerts/service";
 import { requireAdmin } from "@/modules/auth/auth";
 import { getEditorOptions, getPieceForEdit, getPublishProblems, pieceFormValues, pieceGrid } from "@/modules/catalog-admin/queries";
 
@@ -21,6 +23,10 @@ export default async function EditPiecePage({ params, searchParams }: PageProps<
   if (!piece) notFound();
   const { product, photos } = piece;
   const { colours } = pieceGrid(piece);
+  const waiting = await waitingByVariant(db, piece.variants.map((v) => v.id));
+  const waitingList = piece.variants
+    .filter((v) => (waiting.get(v.id) ?? 0) > 0)
+    .map((v) => `${waiting.get(v.id)} for ${[v.color, v.size].filter(Boolean).join(" ") || "it"}`);
 
   return (
     <div>
@@ -32,6 +38,14 @@ export default async function EditPiecePage({ params, searchParams }: PageProps<
       {created || saved ? (
         <div className="mt-4 max-w-3xl">
           <Notice>{created ? "Draft created. Publish it when it’s ready." : "Saved."}</Notice>
+        </div>
+      ) : null}
+
+      {waitingList.length ? (
+        <div className="mt-4 max-w-3xl">
+          <Notice>
+            Waiting to hear it&apos;s back: {waitingList.join(", ")}. Add stock and they&apos;re emailed automatically.
+          </Notice>
         </div>
       ) : null}
 

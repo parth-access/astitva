@@ -35,6 +35,7 @@ const checkoutSchema = z.object({
     .trim()
     .regex(PINCODE_PATTERN, "A 6-digit pincode."),
   note: optional(500),
+  discountCode: optional(40),
   payment: z.enum(["cod", "online"], { message: "Choose how to pay." }),
   key: z.uuid("Please reload the page and try again."),
 });
@@ -45,6 +46,8 @@ export type CheckoutInput = {
   address: AddressSnapshot;
   note: string | null;
   paymentMethod: "cod" | "online";
+  /** As typed; checked and claimed under lock when the order is placed. */
+  discountCode?: string | null;
 };
 
 export type CheckoutFieldErrors = Record<string, string>;
@@ -76,6 +79,7 @@ export function parseCheckoutForm(form: FormData): { ok: true; data: CheckoutInp
       },
       note: d.note,
       paymentMethod: d.payment,
+      discountCode: d.discountCode,
     },
   };
 }

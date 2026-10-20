@@ -9,6 +9,7 @@ import { InvalidTransitionError } from "@/lib/state-machine";
 import { formValues, parsePieceForm, type FieldErrors } from "@/modules/catalog-admin/input";
 import { addPhoto, movePhoto, removePhoto, setPhotoAlt, setPhotoColour } from "@/modules/catalog-admin/photos";
 import { PieceRuleError, savePiece, setPieceStatus } from "@/modules/catalog-admin/service";
+import { notifyRestockedSoon } from "@/modules/alerts/soon";
 import { CATALOG_TAG } from "@/modules/catalog/queries";
 import { requireAdmin } from "@/modules/auth/auth";
 import {
@@ -42,6 +43,8 @@ export async function savePieceAction(productId: string | null, _prev: FormState
     throw err;
   }
   updateTag(CATALOG_TAG);
+  // New stock may be what someone asked to hear about.
+  notifyRestockedSoon();
   // Reload the piece so new sizes get their ids (a second save must not add them again).
   redirect(`/admin/pieces/${id}?${productId ? "saved" : "created"}=1`);
 }

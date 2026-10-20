@@ -27,6 +27,8 @@ import {
   storeSettings,
 } from "@/db/schema";
 import { formatPieceNumber } from "@/lib/format";
+import { allocateDiscount } from "@/lib/money";
+import { claimCode, DiscountError, releaseCodeUse } from "@/modules/discounts/service";
 import { InsufficientStockError, VariantUnavailableError } from "@/modules/inventory/errors";
 import { releaseOrderHolds, reserveForOrder } from "@/modules/inventory/service";
 import { alertOwners, queueEmail } from "@/modules/email/outbox";
@@ -44,13 +46,16 @@ export type CheckoutErrorCode =
   | "unavailable"
   | "over_cod_limit"
   | "pincode"
-  | "too_many_unverified";
+  | "too_many_unverified"
+  | "discount";
 
 export class CheckoutError extends Error {
   constructor(
     readonly code: CheckoutErrorCode,
     /** For "unavailable": the variants that can't be had in the quantity asked. */
     readonly variantIds: string[] = [],
+    /** For "discount": why the code can't be used, said to the buyer. */
+    readonly detail?: string,
   ) {
     super(`Checkout: ${code}`);
     this.name = "CheckoutError";
@@ -84,6 +89,7 @@ async function supersedeUnpaid(tx: Tx, bagId: string) {
     orderMachine.assertTransition(o.status, "cancelled");
     await tx.update(orders).set({ orderStatus: "cancelled", cancelReason: "Checkout started again" }).where(eq(orders.id, o.id));
     await releaseOrderHolds(tx, o.id);
+    await releaseCodeUse(tx, o.id);
     await tx.insert(orderEvents).values({
       orderId: o.id,
       eventType: "order.superseded",
@@ -143,14 +149,28 @@ export async function placeOrder(db: Db, bagId: string, input: CheckoutInput): P
     const withdrawn = lines.filter((l) => !l.isActive || l.status !== "active").map((l) => l.variantId);
     if (withdrawn.length) throw new CheckoutError("unavailable", withdrawn);
 
+    const priced = lines.map((l) => ({ unitPriceMinor: Number(l.unitPriceMinor), quantity: l.quantity }));
+    let discount: Awaited<ReturnType<typeof claimCode>> | null = null;
+    if (input.discountCode) {
+      try {
+        discount = await claimCode(tx, input.discountCode, {
+          subtotalMinor: priced.reduce((n, l) => n + l.unitPriceMinor * l.quantity, 0),
+          phone: input.contact.phone,
+        });
+      } catch (err) {
+        if (err instanceof DiscountError) throw new CheckoutError("discount", [], err.message);
+        throw err;
+      }
+    }
     const totals = priceOrder(
-      lines.map((l) => ({ unitPriceMinor: Number(l.unitPriceMinor), quantity: l.quantity })),
+      priced,
       {
         shippingFlatMinor: Number(settings.shippingFlatMinor),
         freeShippingThresholdMinor: settings.freeShippingThresholdMinor === null ? null : Number(settings.freeShippingThresholdMinor),
         codFeeMinor: Number(settings.codFeeMinor),
       },
       method,
+      discount?.rule ?? null,
     );
     if (method === "cod" && totals.totalMinor > Number(settings.codMaxOrderMinor)) throw new CheckoutError("over_cod_limit");
 
@@ -186,6 +206,8 @@ export async function placeOrder(db: Db, bagId: string, input: CheckoutInput): P
         ...totals,
         addressSnapshot: input.address,
         customerNote: input.note,
+        discountCode: discount?.code ?? null,
+        discountCodeId: discount?.id ?? null,
         idempotencyScope: bagId,
         idempotencyKey: input.idempotencyKey,
       })
@@ -208,8 +230,13 @@ export async function placeOrder(db: Db, bagId: string, input: CheckoutInput): P
       throw err;
     }
 
+    // The discount is shared across the lines in proportion, to the paisa (for refunds and invoices).
+    const lineDiscounts = allocateDiscount(
+      priced.map((l) => l.unitPriceMinor * l.quantity),
+      totals.discountMinor,
+    );
     await tx.insert(orderItems).values(
-      lines.map((l) => ({
+      lines.map((l, i) => ({
         orderId,
         variantId: l.variantId,
         productNameSnapshot: lineName(l),
@@ -217,7 +244,8 @@ export async function placeOrder(db: Db, bagId: string, input: CheckoutInput): P
         variantSnapshot: { size: l.size, color: l.colour, condition: l.condition },
         quantity: l.quantity,
         unitPriceMinor: Number(l.unitPriceMinor),
-        lineTotalMinor: Number(l.unitPriceMinor) * l.quantity,
+        discountMinor: lineDiscounts[i]!,
+        lineTotalMinor: Number(l.unitPriceMinor) * l.quantity - lineDiscounts[i]!,
       })),
     );
 

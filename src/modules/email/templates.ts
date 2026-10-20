@@ -5,13 +5,13 @@
  */
 import { asc, desc, eq } from "drizzle-orm";
 import type { DbOrTx } from "@/db/create";
-import { orderItems, orders, refunds, shipments, storeSettings } from "@/db/schema";
+import { orderItems, orders, productVariants, products, refunds, shipments, storeSettings } from "@/db/schema";
 import type { Email } from "@/lib/email";
 import { formatMobile } from "@/lib/india";
 import { formatINR } from "@/lib/money";
 import { orderLinkKey, orderPath } from "@/modules/orders/links";
 
-export type TemplateName = "order_placed" | "order_shipped" | "refund_succeeded" | "owner_new_order" | "owner_needs_you" | "owner_error";
+export type TemplateName = "order_placed" | "order_link" | "order_shipped" | "refund_succeeded" | "back_in_stock" | "owner_new_order" | "owner_needs_you" | "owner_error";
 
 export type RenderContext = { appUrl: string; linkSecret: string };
 
@@ -46,13 +46,15 @@ async function loadOrder(db: DbOrTx, orderId: string) {
   return { order, items };
 }
 
-function itemLines(items: (typeof orderItems.$inferSelect)[]) {
-  return items
-    .map((i) => {
-      const v = [i.variantSnapshot.color, i.variantSnapshot.size].filter(Boolean).join(", ");
-      return `${i.productNameSnapshot}${v ? ` (${v})` : ""}${i.quantity > 1 ? ` × ${i.quantity}` : ""}  ${formatINR(Number(i.lineTotalMinor))}`;
-    })
-    .join("\n");
+function itemLines(items: (typeof orderItems.$inferSelect)[], order?: typeof orders.$inferSelect) {
+  const lines = items.map((i) => {
+    const v = [i.variantSnapshot.color, i.variantSnapshot.size].filter(Boolean).join(", ");
+    // Shown at full price; a discount is its own line below.
+    return `${i.productNameSnapshot}${v ? ` (${v})` : ""}${i.quantity > 1 ? ` × ${i.quantity}` : ""}  ${formatINR(Number(i.unitPriceMinor) * i.quantity)}`;
+  });
+  if (order && Number(order.discountMinor) > 0) lines.push(`Discount${order.discountCode ? ` (${order.discountCode})` : ""}  −${formatINR(Number(order.discountMinor))}`);
+  if (order) lines.push(`Total  ${formatINR(Number(order.totalMinor))}`);
+  return lines.join("\n");
 }
 
 function addressLines(a: (typeof orders.$inferSelect)["addressSnapshot"]) {
@@ -65,6 +67,23 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
     return compose(`Astitva: ${String(payload.kind)} failed`, "Something failed", [
       `${String(payload.message ?? "No details.")}`,
       "Nothing was lost: the site keeps going. Check the server logs for the full error, and the order in the admin if one is named.",
+    ]);
+  }
+
+  if (template === "back_in_stock") {
+    const [v] = await db
+      .select({ color: productVariants.color, size: productVariants.size, slug: products.slug, pieceName: products.pieceName, name: products.name, price: productVariants.priceMinor })
+      .from(productVariants)
+      .innerJoin(products, eq(products.id, productVariants.productId))
+      .where(eq(productVariants.id, String(payload.variantId ?? "")));
+    if (!v) return null;
+    const what = [v.color, v.size].filter(Boolean).join(", ");
+    const title = v.pieceName ?? v.name;
+    const url = `${ctx.appUrl}/pieces/${v.slug}${v.color ? `?colour=${encodeURIComponent(v.color)}` : ""}`;
+    return compose(`${title}${what ? ` (${what})` : ""} is back`, `${title} is back`, [
+      `You asked us to tell you: ${title}${what ? ` (${what})` : ""} is back in stock, at ${formatINR(Number(v.price))}. There are only a few, so it may not stay long.`,
+      { label: "See it", url },
+      "This was a one-time note: we won't email you about it again.",
     ]);
   }
 
@@ -86,9 +105,16 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
         cod
           ? `${who} will message you on WhatsApp at ${formatMobile(order.contactPhone)} to confirm your order, then we pack it by hand. You pay ${total} when it arrives.`
           : `We've received your payment of ${total}. We'll pack it by hand and let you know when it's on its way.`,
-        itemLines(items),
+        itemLines(items, order),
         `Going to:\n${addressLines(order.addressSnapshot)}`,
         { label: "See your order", url: buyerLink },
+      ]);
+
+    case "order_link":
+      return compose(`Your Astitva order ${order.orderNumber}`, "Here's your order", [
+        `You asked for the page for order ${order.orderNumber}. It shows where your order is, and stays private to you.`,
+        { label: "See your order", url: buyerLink },
+        "If you didn't ask for this, you can ignore this email.",
       ]);
 
     case "order_shipped": {
@@ -120,7 +146,7 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
         `New order from ${first}`,
         [
           `${order.contactName}, ${order.addressSnapshot.city} · ${formatMobile(order.contactPhone)}`,
-          itemLines(items),
+          itemLines(items, order),
           cod ? `Cash on delivery, ${total}. Confirm with the buyer on WhatsApp before packing.` : `Paid online, ${total}. Ready to pack.`,
           ...(order.customerNote ? [`Their note: ${order.customerNote}`] : []),
           { label: "Open the order", url: adminLink },

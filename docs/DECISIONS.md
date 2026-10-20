@@ -2,6 +2,14 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-21 — Find my order, back-in-stock alerts, discount codes
+
+**Find my order** (`/orders`, `src/modules/orders/lookup.ts`): the order number (typed any way: "1004", "AST-001004") and the mobile number on it. If both match and the order has an email, its private link is emailed there, at most once an hour; it is never shown on the page, and the page answers the same whether or not anything matched, so it can't be used to learn who ordered what. 5 tries per 15 minutes per visitor. An order without an email is pointed to WhatsApp, and the admin's order page has "Send them their order page" (a WhatsApp message with the link).
+
+**Back in stock** (`stock_alerts`, migration 0010, `src/modules/alerts`): under a sold-out colour and size, "Tell me when Ink S is back" takes an email. When that variant can be bought again (checked every 15 minutes, and straight after a piece is saved or an order's stock is put back), everyone waiting is emailed once; claiming by setting `notified_at` means two runs never email twice. Addresses are deleted 90 days after notifying (180 days if it never comes back). The admin piece page shows how many people wait for each colour and size.
+
+**Discount codes** (`discount_codes`, migration 0011, `src/modules/discounts`, admin → Discounts, owners only): a percentage (rounded to whole rupees) or a fixed amount off the pieces, never shipping; free shipping is judged after the discount. Optional start/end dates (India time), minimum order, total uses, once per mobile number (default on). Checkout previews a code ("Have a code?"); placing the order locks the code row, re-checks everything and counts the use, so a limited code can't be overused by buyers racing (tested: 4 buyers, 2 uses). The discount is split across the order lines to the paisa (`allocateDiscount`), and the order keeps the code as typed. A cancelled order, an unpaid online checkout that is closed or replaced, gives its use back; a returned parcel doesn't. Codes are switched off, never deleted.
+
 ## 2026-10-21 — Search and sharing
 
 **Decision:** Every public page says what it is to search engines and to the apps people share links in, using only facts the page already shows.

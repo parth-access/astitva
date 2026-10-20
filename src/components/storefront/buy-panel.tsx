@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { formatINR } from "@/lib/money";
 import { useBag } from "./bag/bag-context";
 import { useSelection } from "./piece-selection";
+import { RestockAlert } from "./restock-alert";
 import { SwatchPicker } from "./swatch-picker";
 
 export type BuyVariant = {
@@ -171,6 +172,10 @@ export function BuyPanel({
               Open the bag
             </button>
           </p>
+        ) : null}
+        {out ? (
+          // Keyed by the variant so a new colour or size starts a fresh form.
+          <RestockAlert key={selected.id} variantId={selected.id} label={[colour, hasSizes ? selected.size : null].filter(Boolean).join(" ") || "it"} />
         ) : null}
         {!orderingOpen && !allOut ? <p className="mt-3 text-sm text-espresso-soft">We&apos;re opening soon. Ask Krishna if you&apos;d like this one kept for you.</p> : null}
       </div>

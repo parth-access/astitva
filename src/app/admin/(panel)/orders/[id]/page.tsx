@@ -16,12 +16,14 @@ import {
 } from "@/components/admin/order-actions";
 import { OrderStatusBadge } from "@/components/admin/order-status";
 import { db } from "@/db/client";
+import { env } from "@/lib/env";
 import { whatsappLink } from "@/lib/format";
 import { formatMobile } from "@/lib/india";
 import { formatINR } from "@/lib/money";
 import { requireAdmin } from "@/modules/auth/auth";
 import { isCancellable } from "@/modules/orders/machines";
 import { packingBlocker } from "@/modules/orders/fulfilment";
+import { orderLinkKey, orderPath } from "@/modules/orders/links";
 import { getOrderForAdmin } from "@/modules/orders/service";
 import { razorpay } from "@/modules/payments/client";
 import { refundableMinor } from "@/modules/payments/refunds";
@@ -65,6 +67,9 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
   const isOwner = role === "owner";
   const firstName = order.contactName.split(/\s+/)[0];
   const itemsText = order.items.map((i) => `${i.name}${[i.variant.color, i.variant.size].some(Boolean) ? ` (${[i.variant.color, i.variant.size].filter(Boolean).join(", ")})` : ""}${i.quantity > 1 ? ` × ${i.quantity}` : ""}`).join("; ");
+  // The buyer's private page, for a buyer who lost it.
+  const buyerPage = `${env().APP_URL.replace(/\/$/, "")}${orderPath(order.orderNumber, orderLinkKey(order.id, env().BETTER_AUTH_SECRET))}`;
+  const shareMessage = `Hello ${firstName}, here's the page for your Astitva order ${order.orderNumber}. It shows where your order is: ${buyerPage}`;
   const confirmMessage = `Hello ${firstName}, this is Astitva. Thank you for order ${order.orderNumber}: ${itemsText}. It comes to ${formatINR(order.totalMinor)}, to pay on delivery, and goes to ${a.city} ${a.pincode}. Shall we pack it?`;
 
   return (
@@ -105,6 +110,12 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
                 <dt className="text-espresso-soft">Subtotal</dt>
                 <dd>{formatINR(order.subtotalMinor)}</dd>
               </div>
+              {order.discountMinor ? (
+                <div className="flex justify-between">
+                  <dt className="text-espresso-soft">Discount{order.discountCode ? ` (${order.discountCode})` : ""}</dt>
+                  <dd>−{formatINR(order.discountMinor)}</dd>
+                </div>
+              ) : null}
               <div className="flex justify-between">
                 <dt className="text-espresso-soft">Shipping</dt>
                 <dd>{order.shippingMinor ? formatINR(order.shippingMinor) : "Free"}</dd>
@@ -136,6 +147,10 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
                 <br />
                 <a href={`tel:+91${order.contactPhone}`} className="link">
                   {formatMobile(order.contactPhone)}
+                </a>
+                <br />
+                <a href={whatsappLink(`91${order.contactPhone}`, shareMessage)} target="_blank" rel="noopener noreferrer" className="link text-espresso-soft">
+                  Send them their order page
                 </a>
                 {order.contactEmail ? (
                   <>

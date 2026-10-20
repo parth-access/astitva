@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
-import { confirmPaymentAction, placeOrderAction, type CheckoutState } from "@/app/(store)/checkout/actions";
+import { useActionState, useEffect, useRef, useState, useTransition, type ComponentProps, type ReactNode } from "react";
+import { confirmPaymentAction, placeOrderAction, previewDiscountAction, type CheckoutState } from "@/app/(store)/checkout/actions";
 import { Plate } from "@/components/brand/plate";
 import { INDIAN_STATES } from "@/lib/india";
 import { formatINR } from "@/lib/money";
@@ -59,8 +59,17 @@ export function CheckoutForm({
   const [paying, setPaying] = useState<Paying>({ phase: "idle" });
   const v = (k: string) => state.values?.[k] ?? "";
   const e = (k: string) => state.errors[k];
-  const errorCount = Object.keys(state.errors).length;
-  const total = totals[method];
+  const errorCount = Object.keys(state.errors).filter((k) => k !== "discountCode").length;
+  const [discount, setDiscount] = useState<Applied | null>(null);
+  const shown = discount?.totals ?? totals;
+  const total = shown[method];
+  const overLimit = discount ? discount.overCodLimit : overCodLimit;
+
+  // The code stopped being valid while they filled in the form: take it off and say why.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (state.discountRejected) setDiscount(null);
+  }, [state]);
 
   // Take the buyer to the first thing to fix.
   useEffect(() => {
@@ -104,7 +113,7 @@ export function CheckoutForm({
     };
   }, [paying, router]);
 
-  const methodBlocked = method === "cod" ? !codEnabled || overCodLimit : !online;
+  const methodBlocked = method === "cod" ? !codEnabled || overLimit : !online;
   const busy = pending || paying.phase === "window" || paying.phase === "confirming";
   const blocked = methodBlocked || bag.hasProblems;
   const contact = who ?? "We";
@@ -123,7 +132,7 @@ export function CheckoutForm({
           <span className="font-display text-lg tabular-nums">{formatINR(total.totalMinor)}</span>
         </summary>
         <div className="pb-6">
-          <Summary bag={bag} totals={total} />
+          <Summary bag={bag} totals={total} code={discount?.code ?? null} />
         </div>
       </details>
 
@@ -211,7 +220,7 @@ export function CheckoutForm({
                   <span>
                     <span className="font-medium">
                       Cash on delivery
-                      {totals.cod.codFeeMinor ? <span className="font-normal text-espresso-soft"> · {formatINR(totals.cod.codFeeMinor)} extra</span> : null}
+                      {shown.cod.codFeeMinor ? <span className="font-normal text-espresso-soft"> · {formatINR(shown.cod.codFeeMinor)} extra</span> : null}
                     </span>
                     <span className="mt-1 block text-sm text-espresso-soft">
                       Pay in cash or by UPI to the courier when it arrives. {contact} will message you on WhatsApp to confirm before we pack it.
@@ -221,6 +230,13 @@ export function CheckoutForm({
               ) : null}
               {!online && !codEnabled ? <p className="text-sm text-espresso-soft">Checkout is paused for a moment. Please message us to order.</p> : null}
             </div>
+            <input type="hidden" name="discountCode" value={discount?.code ?? ""} />
+            <DiscountField
+              applied={discount}
+              rejected={e("discountCode") ?? null}
+              onApply={setDiscount}
+              phone={() => form.current?.querySelector<HTMLInputElement>("[name=phone]")?.value ?? ""}
+            />
             <TextAreaField label="A note for us (optional)" name="note" defaultValue={v("note")} error={e("note")} hint="A gift, a delivery time, anything." />
           </Step>
 
@@ -238,7 +254,7 @@ export function CheckoutForm({
                 ) : null}
               </p>
             ) : null}
-            {method === "cod" && overCodLimit ? (
+            {method === "cod" && overLimit ? (
               <p className="mb-5 text-sm text-espresso-soft">
                 This order is over our cash-on-delivery limit.{online ? " Please pay now instead." : " Please message us and we'll arrange it."}
               </p>
@@ -294,7 +310,7 @@ export function CheckoutForm({
           <div className="sticky top-8">
             <p className="caption text-xl">Your bag</p>
             <div className="mt-4">
-              <Summary bag={bag} totals={total} />
+              <Summary bag={bag} totals={total} code={discount?.code ?? null} />
             </div>
           </div>
         </aside>
@@ -337,6 +353,86 @@ function PaymentPaused({
   );
 }
 
+type Applied = { code: string; label: string; totals: Record<Method, OrderTotals>; overCodLimit: boolean };
+
+/** "Have a code?" → a field and Apply; once applied, the code and Remove. */
+function DiscountField({
+  applied,
+  rejected,
+  onApply,
+  phone,
+}: {
+  applied: Applied | null;
+  rejected: string | null;
+  onApply: (a: Applied | null) => void;
+  phone: () => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [code, setCode] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  if (applied) {
+    return (
+      <p className="fade-in flex items-baseline justify-between gap-4 border border-dashed border-olive/60 bg-champagne/40 px-4 py-3 text-sm">
+        <span>
+          <span className="font-medium tracking-wide">{applied.code}</span> <span className="text-olive">· {applied.label}</span>
+        </span>
+        <button type="button" className="link text-xs" onClick={() => onApply(null)}>
+          Remove
+        </button>
+      </p>
+    );
+  }
+  if (!open && !rejected) {
+    return (
+      <button type="button" className="link-draw text-sm" onClick={() => setOpen(true)}>
+        Have a code?
+      </button>
+    );
+  }
+  const apply = () =>
+    start(async () => {
+      const r = await previewDiscountAction(code, phone());
+      if (r.ok) {
+        setMessage(null);
+        onApply({ code: r.code, label: r.label, totals: r.totals, overCodLimit: r.overCodLimit });
+      } else setMessage(r.message);
+    });
+  return (
+    <div className="fade-in">
+      <label className="block text-sm" htmlFor="discount-input">
+        Discount code
+      </label>
+      <div className="mt-1.5 flex gap-2">
+        <input
+          id="discount-input"
+          value={code}
+          onChange={(ev) => setCode(ev.target.value.toUpperCase())}
+          onKeyDown={(ev) => {
+            // Enter applies the code rather than placing the order.
+            if (ev.key === "Enter") {
+              ev.preventDefault();
+              apply();
+            }
+          }}
+          autoComplete="off"
+          className="field min-w-0 flex-1 uppercase tracking-wide"
+          aria-invalid={message || rejected ? true : undefined}
+        />
+        <button type="button" className="btn-outline shrink-0" disabled={pending || !code.trim()} onClick={apply}>
+          {pending ? "…" : "Apply"}
+        </button>
+      </div>
+      {message || rejected ? (
+        <p role="alert" className="mt-1 text-xs text-burgundy">
+          {message ?? rejected}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
   return (
     <fieldset className="space-y-5">
@@ -371,7 +467,7 @@ function TextAreaField({ label, error, hint, ...input }: Extra & ComponentProps<
   );
 }
 
-function Summary({ bag, totals }: { bag: Bag; totals: OrderTotals }) {
+function Summary({ bag, totals, code }: { bag: Bag; totals: OrderTotals; code: string | null }) {
   return (
     <div>
       <ul className="space-y-4">
@@ -396,6 +492,12 @@ function Summary({ bag, totals }: { bag: Bag; totals: OrderTotals }) {
           <dt>Subtotal</dt>
           <dd>{formatINR(totals.subtotalMinor)}</dd>
         </div>
+        {totals.discountMinor ? (
+          <div className="flex justify-between text-olive">
+            <dt>Discount{code ? ` (${code})` : ""}</dt>
+            <dd>−{formatINR(totals.discountMinor)}</dd>
+          </div>
+        ) : null}
         <div className="flex justify-between">
           <dt>Shipping</dt>
           <dd>{totals.shippingMinor ? formatINR(totals.shippingMinor) : "Free"}</dd>

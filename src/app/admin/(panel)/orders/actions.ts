@@ -5,6 +5,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { rupeesToPaise } from "@/lib/money";
 import { requireAdmin } from "@/modules/auth/auth";
+import { notifyRestockedSoon } from "@/modules/alerts/soon";
 import { CATALOG_TAG } from "@/modules/catalog/queries";
 import {
   markCodRemitted,
@@ -41,7 +42,10 @@ async function run(orderId: string, work: (actorId: string) => Promise<unknown>,
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/orders");
   // Pieces back on sale (cancelled, or a parcel came back): the shop must show them again.
-  if (opts.stockChanged) updateTag(CATALOG_TAG);
+  if (opts.stockChanged) {
+    updateTag(CATALOG_TAG);
+    notifyRestockedSoon();
+  }
   return { done: true };
 }
 

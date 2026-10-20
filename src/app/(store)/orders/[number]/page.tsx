@@ -119,7 +119,7 @@ async function OrderView({ params, searchParams }: PageProps<"/orders/[number]">
                   {[i.variant.color, i.variant.size, i.quantity > 1 ? `${i.quantity} pieces` : null].filter(Boolean).join(" · ")}
                 </span>
               </span>
-              <span className="tabular-nums">{formatINR(i.lineTotalMinor)}</span>
+              <span className="tabular-nums">{formatINR(i.unitPriceMinor * i.quantity)}</span>
             </li>
           ))}
         </ul>
@@ -128,6 +128,12 @@ async function OrderView({ params, searchParams }: PageProps<"/orders/[number]">
             <dt>Subtotal</dt>
             <dd>{formatINR(order.subtotalMinor)}</dd>
           </div>
+          {order.discountMinor ? (
+            <div className="flex justify-between text-olive">
+              <dt>Discount{order.discountCode ? ` (${order.discountCode})` : ""}</dt>
+              <dd>−{formatINR(order.discountMinor)}</dd>
+            </div>
+          ) : null}
           <div className="flex justify-between">
             <dt>Shipping</dt>
             <dd>{order.shippingMinor ? formatINR(order.shippingMinor) : "Free"}</dd>

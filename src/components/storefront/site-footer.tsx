@@ -31,6 +31,9 @@ export function SiteFooter() {
             <li>
               <Link className="link" href="/faq">Questions</Link>
             </li>
+            <li>
+              <Link className="link" href="/orders">Find your order</Link>
+            </li>
           </ul>
         </nav>
         <nav aria-label="Policies" className="md:col-span-2">
