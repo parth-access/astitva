@@ -1,13 +1,9 @@
 import Image from "next/image";
-import Link from "next/link";
-import type { ReactNode } from "react";
 import { Letter } from "@/components/brand/letter";
 import { MASCOT_GROUND } from "@/components/brand/mascot-data";
-import { pieceHref } from "@/components/brand/piece-caption";
-import { pieceTransitionName, Plate } from "@/components/brand/plate";
-import { Price } from "@/components/storefront/price";
 import { firstSentence, formatPieceNumber, paragraphs } from "@/lib/format";
 import type { LookbookPiece, PieceColour, Storefront } from "@/modules/catalog/queries";
+import { Folio, RunningHead } from "./print";
 
 /**
  * The home page as a printed lookbook: a cover spread, Krishna's note, a
@@ -16,35 +12,12 @@ import type { LookbookPiece, PieceColour, Storefront } from "@/modules/catalog/q
  * a turned leaf.
  */
 
-/** Lowercase Roman folios for the front matter, Arabic for the plates. */
-function Folio({ children, side, wideOnly = false }: { children: ReactNode; side: "left" | "right"; wideOnly?: boolean }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={`folio absolute bottom-5 ${side === "left" ? "left-5 sm:left-8" : "right-5 sm:right-8"} ${wideOnly ? "hidden md:inline" : ""}`}
-    >
-      {children}
-    </span>
-  );
-}
-
-function RunningHead({ children, side = "right", wideOnly = false }: { children: ReactNode; side?: "left" | "right"; wideOnly?: boolean }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={`folio absolute top-5 ${side === "left" ? "left-5 sm:left-8" : "right-5 sm:right-8"} ${wideOnly ? "hidden md:inline" : ""}`}
-    >
-      {children}
-    </span>
-  );
-}
-
-function pieceTitle(p: LookbookPiece) {
+export function pieceTitle(p: Pick<LookbookPiece, "pieceName" | "name">) {
   return p.pieceName ?? p.name;
 }
 
 /** The lookbook's name, used as the running head on every page. */
-function headOf(store: Storefront) {
+export function headOf(store: Pick<Storefront, "title">) {
   return store.title ?? "Astitva";
 }
 
@@ -53,49 +26,6 @@ function colourLine(colours: PieceColour[]) {
   const named = colours.filter((c) => c.name);
   if (named.length === 0) return null;
   return named.length === 1 ? `In ${named[0]!.name}` : `In ${named.length} colours`;
-}
-
-/** The style's colours as small swatches; sold-out colours are struck through. */
-export function Swatches({ colours, size = "md" }: { colours: PieceColour[]; size?: "sm" | "md" }) {
-  const named = colours.filter((c) => c.name);
-  if (named.length < 1) return null;
-  const dot = size === "sm" ? "size-3.5" : "size-5";
-  return (
-    <ul className="flex flex-wrap items-center gap-2" aria-label="Colours">
-      {named.map((c) => (
-        <li key={c.name} className="flex items-center gap-1.5 text-sm">
-          <span
-            className={`swatch relative inline-block ${dot} rounded-full ${c.available <= 0 ? "swatch-out" : ""}`}
-            style={{ backgroundColor: c.hex ?? "#d9c7ad" }}
-            aria-hidden="true"
-          />
-          <span className={size === "sm" ? "sr-only" : c.available <= 0 ? "text-espresso-soft line-through decoration-1" : ""}>
-            {c.name}
-            {c.available <= 0 ? <span className="sr-only"> (sold out)</span> : null}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/** The plate for a piece: its photograph, or until there is one, the painted sketch. It morphs into the piece page. */
-function PiecePlate({ piece, priority }: { piece: LookbookPiece; priority?: boolean }) {
-  const label = `${piece.pieceNumber ? `${formatPieceNumber(piece.pieceNumber)} ` : ""}${pieceTitle(piece)}, ${piece.name}`;
-  return (
-    <Plate
-      transitionName={pieceTransitionName(piece.slug)}
-      src={piece.imageUrl}
-      alt={piece.imageUrl ? piece.imageAlt || label : label}
-      tone={piece.tone}
-      pieceNumber={piece.pieceNumber}
-      pieceName={piece.pieceName}
-      category={piece.categorySlug}
-      sketchNote
-      sizes="(min-width: 768px) 42vw, 86vw"
-      priority={priority}
-    />
-  );
 }
 
 export function LookbookCover({ store, pieces }: { store: Storefront; pieces: LookbookPiece[] }) {
@@ -211,61 +141,6 @@ export function LookbookContents({ store, pieces, folio = "iii" }: { store: Stor
       </div>
       <Folio side="right">{folio}</Folio>
     </section>
-  );
-}
-
-export function LookbookPage({ store, piece, index }: { store: Storefront; piece: LookbookPiece; index: number }) {
-  const flip = index % 2 === 1;
-  const gone = piece.onHand <= 0;
-  return (
-    <article id={piece.slug} aria-labelledby={`${piece.slug}-title`} className="leaf relative scroll-mt-0">
-      <div className={`mx-auto grid max-w-7xl items-center gap-10 px-6 pb-20 pt-16 md:min-h-[100svh] md:grid-cols-12 md:gap-8 md:px-12 md:py-16`}>
-        <RunningHead side={flip ? "right" : "left"}>{headOf(store)}</RunningHead>
-
-        <div className={`mx-auto w-[86%] max-w-[34rem] md:col-span-6 md:w-full ${flip ? "md:order-2 md:col-start-7" : ""}`}>
-          <Link href={pieceHref(piece.slug)} transitionTypes={["nav-forward"]} aria-label={`${pieceTitle(piece)}, ${piece.name}`} className={gone ? "opacity-75 saturate-50" : ""}>
-            <PiecePlate piece={piece} priority={index === 0} />
-          </Link>
-        </div>
-
-        <div className={`md:col-span-5 ${flip ? "md:order-1 md:col-start-1" : "md:col-start-8"}`}>
-          {piece.pieceNumber ? (
-            <p className="font-display text-[clamp(3rem,7vw,6rem)] leading-none tabular-nums text-espresso-soft/70">
-              {formatPieceNumber(piece.pieceNumber)}
-            </p>
-          ) : null}
-          <h2 id={`${piece.slug}-title`} className="mt-2 text-[clamp(3.25rem,8vw,7rem)] italic leading-[0.9]">
-            {pieceTitle(piece)}
-          </h2>
-          {piece.pieceName ? <p className="mt-4 text-sm text-espresso-soft">{piece.name}</p> : null}
-
-          {piece.story ? <p className="caption mt-8 max-w-md text-xl leading-snug md:text-2xl">{firstSentence(piece.story, 200)}</p> : null}
-
-          {piece.stylingNote ? (
-            <figure className="mt-8 max-w-md border-l border-taupe pl-4">
-              <blockquote className="text-sm leading-relaxed">{piece.stylingNote}</blockquote>
-              {store.noteSignature ? <figcaption className="signature mt-1 text-2xl">{store.noteSignature}</figcaption> : null}
-            </figure>
-          ) : null}
-
-          <div className="mt-8">
-            <Swatches colours={piece.colours} />
-          </div>
-
-          <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
-            {gone ? (
-              <p className="caption text-xl">Sold out for now</p>
-            ) : (
-              <Price priceMinor={piece.priceMinor} compareAtMinor={piece.compareAtMinor} className="text-lg" />
-            )}
-            <Link href={pieceHref(piece.slug)} className="link text-sm">
-              {gone ? "See the piece" : "Choose colour and size"}
-            </Link>
-          </div>
-        </div>
-      </div>
-      <Folio side={flip ? "left" : "right"}>{index + 1}</Folio>
-    </article>
   );
 }
 

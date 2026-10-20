@@ -38,6 +38,15 @@ All mascot artwork is generated from the logo by `python3 scripts/mascot/build.p
 
 The logo was generated with ChatGPT and exists only as a 1067 px raster. Before print (cards, packaging), have a designer redraw it as layered vector art; then replace this pipeline with their files and keep `mascot-data.ts`'s shape.
 
+## Choosing a colour
+
+The signature interaction. Wherever a style shows its swatches (its lookbook page, the shop card, the piece page), choosing a colour repaints the plate: the sketch's watercolour eases to the new colour, or that colour's photographs fade in. The choice travels with the shopper (`?colour=Sage` on the piece page, kept in the address without a reload, so a shared link opens on it).
+
+- **Swatches** (`components/storefront/swatch-picker.tsx`): real radio buttons (arrow keys, screen-reader names); a ring grows round the chosen one; sold-out colours are struck through but still choosable, to see them.
+- **Piece page:** colour, then only the sizes that colour is made in (sold-out sizes struck through), a stock line ("Only 2 left in M"), the size guide in a slide-over sheet, and on phones a bar with the choice and the button once the main button scrolls away. The WhatsApp link names the chosen colour and size.
+- **Shop:** pointing at a swatch previews that colour on the card; choosing it opens the piece in it.
+- **Loading:** skeletons shaped like each page (arches, swatch dots, size chips) with a slow sheen; none of the sheen under reduced motion.
+
 ## Motion
 
 One moment per page, never decoration (the first-visit intro aside):

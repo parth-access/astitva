@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { GridSkeleton } from "@/components/lookbook/skeletons";
 import { ProductGrid } from "@/components/storefront/product-grid";
 import { listCategories, listPieces, PRODUCT_SORTS, type ProductSort } from "@/modules/catalog/queries";
 
 export const metadata: Metadata = {
-  title: "All pieces",
-  description: "Every Astitva piece in one place. Most of them exist only once.",
+  title: "Shop",
+  description: "Every Astitva piece in one place, in every colour we have.",
 };
 
 function first(value: string | string[] | undefined) {
@@ -71,7 +72,11 @@ async function Catalogue({ searchParams }: Pick<PageProps<"/shop">, "searchParam
         </nav>
       </div>
       <p className="mb-10 mt-6 text-sm text-espresso-soft" aria-live="polite">
-        {items.length === 1 ? "One piece" : `${items.length} pieces`}, numbered in the order they were found
+        {items.length === 1 ? "One style" : `${items.length} styles`}
+        {(() => {
+          const n = new Set(items.flatMap((p) => p.colours.flatMap((c) => (c.name ? [c.name.toLowerCase()] : [])))).size;
+          return n > 1 ? `, in ${n} colours` : "";
+        })()}
       </p>
       <ProductGrid pieces={items} priorityCount={2} />
     </>
@@ -82,8 +87,8 @@ export default function ShopPage(props: PageProps<"/shop">) {
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-8">
       <p className="caption text-xl">Every style, every colour</p>
-      <h1 className="mb-10 mt-1 text-6xl italic md:text-7xl">All pieces</h1>
-      <Suspense fallback={<div className="h-96" aria-busy="true" />}>
+      <h1 className="mb-10 mt-1 text-6xl italic md:text-7xl">The shop</h1>
+      <Suspense fallback={<GridSkeleton />}>
         <Catalogue searchParams={props.searchParams} />
       </Suspense>
     </div>

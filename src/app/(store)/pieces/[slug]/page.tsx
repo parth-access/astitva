@@ -5,15 +5,16 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { AskAboutPiece } from "@/components/brand/concierge";
 import { pieceHref } from "@/components/brand/piece-caption";
-import { pieceTransitionName, Plate } from "@/components/brand/plate";
 import { BuyPanel } from "@/components/storefront/buy-panel";
+import { PieceGallery } from "@/components/storefront/piece-gallery";
+import { PieceSelection } from "@/components/storefront/piece-selection";
 import { Price } from "@/components/storefront/price";
 import { PACKED_BY_HAND, showPromise } from "@/content/brand";
 import { cloudinaryUrl } from "@/lib/cloudinary-url";
 import { db } from "@/db/client";
 import type { Measurements } from "@/db/schema";
 import { formatPieceNumber } from "@/lib/format";
-import { PieceSkeleton } from "@/components/lookbook/skeletons";
+import { OptionsSkeleton, PieceSkeleton } from "@/components/lookbook/skeletons";
 import { getAdjacentPieces, getProductBySlug, getStorefront, listPieces, type ProductDetail } from "@/modules/catalog/queries";
 import { getAvailability } from "@/modules/inventory/service";
 
@@ -61,6 +62,7 @@ async function LiveBuyPanel({ product, orderingOpen }: { product: ProductDetail;
   return (
     <BuyPanel
       orderingOpen={orderingOpen}
+      sizeGuide={<MeasurementsTable variants={product.variants} />}
       variants={product.variants.map((v) => ({
         id: v.id,
         size: v.size,
@@ -152,36 +154,28 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
   const prices = product.variants.map((v) => v.priceMinor);
   const lowest = product.variants.find((v) => v.priceMinor === Math.min(...prices))!;
   const condition = product.variants[0]!.condition;
-  const [hero, ...rest] = product.images;
   const title = product.pieceName ?? product.name;
+  // The colours this piece comes in, in the order they were added, with their swatches.
+  const colours: { name: string | null; hex: string | null }[] = [];
+  for (const v of product.variants) if (!colours.some((c) => c.name === v.color)) colours.push({ name: v.color, hex: v.colorHex });
+  const firstInStock = product.variants.find((v) => v.onHand > 0)?.color ?? colours[0]?.name ?? null;
   const signature = store.noteSignature;
 
   return (
-    <>
+    <PieceSelection colours={colours} initialColour={firstInStock}>
       <article className="mx-auto grid max-w-6xl gap-10 px-4 pb-28 pt-6 sm:px-8 md:grid-cols-12 md:gap-8 md:pb-0 md:pt-10">
         {/* On phones the arch is narrowed so the piece's name shows without scrolling. */}
         <div className="mx-auto w-[84%] md:col-span-7 md:w-full">
-          <Plate
-            transitionName={pieceTransitionName(product.slug)}
-            src={hero?.url ?? null}
-            alt={hero?.alt || `${title}, ${product.name}`}
+          <PieceGallery
+            slug={product.slug}
+            title={title}
+            name={product.name}
             tone={product.tone}
             pieceNumber={product.pieceNumber}
             pieceName={product.pieceName}
             category={product.categorySlug}
-            sketchNote
-            sizes="(min-width: 768px) 56vw, 92vw"
-            priority
+            images={product.images.map((i) => ({ url: i.url, alt: i.alt, color: i.color }))}
           />
-          {rest.length > 0 && (
-            <ul className="mt-6 grid grid-cols-2 gap-6">
-              {rest.map((img, i) => (
-                <li key={img.url}>
-                  <Plate src={img.url} alt={img.alt || `${title}, view ${i + 2}`} tone={product.tone} sizes="(min-width: 768px) 27vw, 46vw" />
-                </li>
-              ))}
-            </ul>
-          )}
         </div>
 
         <div className="md:sticky md:top-8 md:col-span-4 md:col-start-9 md:self-start">
@@ -202,11 +196,11 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
 
           {product.story ? <p className="caption mt-8 text-xl">{product.story}</p> : null}
 
-          <Suspense fallback={<p className="mt-8 h-24 text-sm text-espresso-soft">Checking availability…</p>}>
+          <Suspense fallback={<OptionsSkeleton />}>
             <LiveBuyPanel product={product} orderingOpen={store.orderingOpen} />
           </Suspense>
 
-          <AskAboutPiece piece={product} className="mt-6 inline-block text-sm" />
+          <AskAboutPiece piece={product} withSelection className="mt-6 inline-block text-sm" />
 
           <dl className="mt-10 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2.5 border-t border-taupe/30 pt-6 text-sm">
             {condition && (
@@ -268,7 +262,7 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
       </div>
 
       {product.pieceNumber ? <Neighbours pieceNumber={product.pieceNumber} /> : null}
-    </>
+    </PieceSelection>
   );
 }
 

@@ -1,7 +1,8 @@
 import { cacheLife } from "next/cache";
 import { Suspense } from "react";
 import { ConciergeBand } from "@/components/brand/concierge";
-import { LookbookContents, LookbookCover, LookbookNote, LookbookPage } from "@/components/lookbook/lookbook";
+import { headOf, LookbookContents, LookbookCover, LookbookNote } from "@/components/lookbook/lookbook";
+import { LookbookPage } from "@/components/lookbook/lookbook-style";
 import { LookbookSkeleton } from "@/components/lookbook/skeletons";
 import { getStorefront, listLookbookPieces } from "@/modules/catalog/queries";
 
@@ -23,7 +24,7 @@ async function Home() {
       <LookbookNote store={store} />
       <LookbookContents store={store} pieces={pieces} folio={hasNote ? "iv" : "iii"} />
       {pieces.map((p, i) => (
-        <LookbookPage key={p.id} store={store} piece={p} index={i} />
+        <LookbookPage key={p.id} head={headOf(store)} signature={store.noteSignature} piece={p} index={i} />
       ))}
       {/* End matter scrolls normally and covers the last leaf. */}
       <div className="relative z-10 border-t border-sand bg-ivory pb-10 pt-24 md:pt-32">

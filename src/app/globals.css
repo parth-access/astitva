@@ -648,3 +648,187 @@ html[data-intro] .intro.is-skipped {
   background: var(--color-espresso-soft);
   transform: rotate(-45deg);
 }
+
+/* ------------------------------------------------------------------ */
+/* Colour choice and small interactions                                */
+/* ------------------------------------------------------------------ */
+
+/* Choosing a colour repaints the sketch: the wash eases to the new colour. */
+.sketch-wash path {
+  transition: fill 650ms var(--ease-unhurried), stroke 650ms var(--ease-unhurried);
+}
+
+/* A photo of a newly chosen colour fades in over the paper. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.fade-in {
+  animation: fade-in 420ms var(--ease-unhurried) both;
+}
+
+/* Swatch buttons: a ring grows round the chosen colour. */
+.swatch-option {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 160ms var(--ease-unhurried);
+}
+.swatch-option::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 999px;
+  border: 1px solid var(--color-espresso);
+  opacity: 0;
+  transform: scale(0.8);
+  transition:
+    opacity 200ms var(--ease-unhurried),
+    transform 260ms var(--ease-unhurried);
+}
+.swatch-option:hover::before {
+  opacity: 0.35;
+  transform: scale(1);
+}
+.swatch-option:has(input:checked)::before,
+.swatch-option[data-active="true"]::before {
+  opacity: 1;
+  transform: scale(1);
+}
+.swatch-option:has(input:focus-visible) {
+  outline: 2px solid var(--color-burgundy);
+  outline-offset: 6px;
+}
+.swatch-option:active {
+  transform: scale(0.92);
+}
+
+/* Size chips. */
+.size-chip {
+  display: inline-flex;
+  min-height: 2.75rem;
+  min-width: 3.25rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.9rem;
+  border: 1px solid var(--color-taupe);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition:
+    background-color 180ms var(--ease-unhurried),
+    color 180ms var(--ease-unhurried),
+    border-color 180ms var(--ease-unhurried),
+    transform 120ms var(--ease-unhurried);
+}
+.size-chip:hover {
+  border-color: var(--color-espresso);
+}
+.size-chip:active {
+  transform: scale(0.96);
+}
+.size-chip:has(input:checked) {
+  background: var(--color-espresso);
+  border-color: var(--color-espresso);
+  color: var(--color-ivory);
+}
+.size-chip:has(input:focus-visible) {
+  outline: 2px solid var(--color-burgundy);
+  outline-offset: 2px;
+}
+.size-chip[data-out="true"] {
+  color: var(--color-espresso-soft);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+/* Buttons give under the finger. */
+.btn-primary,
+.btn-outline {
+  transition-property: background-color, color, border-color, transform;
+}
+.btn-primary:active:not(:disabled),
+.btn-outline:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+/* Links draw their underline in from the left. */
+.link-draw {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: 0% 1px;
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  transition: background-size 320ms var(--ease-unhurried);
+}
+.link-draw:hover,
+.link-draw:focus-visible {
+  background-size: 100% 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sketch-wash path,
+  .swatch-option,
+  .swatch-option::before,
+  .size-chip,
+  .link-draw {
+    transition: none;
+  }
+  .fade-in {
+    animation: none;
+  }
+}
+
+/* A side sheet (size guide): slides in from the right; from the bottom on phones. */
+dialog.sheet {
+  margin: 0 0 0 auto;
+  height: 100dvh;
+  max-height: none;
+  width: min(32rem, 100vw);
+  border: 0;
+  padding: 0;
+  background: var(--color-ivory);
+  color: var(--color-espresso);
+  box-shadow: -24px 0 60px -30px rgb(52 37 30 / 0.45);
+}
+dialog.sheet::backdrop {
+  background: rgb(52 37 30 / 0.28);
+  backdrop-filter: blur(2px);
+}
+@media (max-width: 767px) {
+  dialog.sheet {
+    margin: auto 0 0;
+    width: 100vw;
+    max-width: none;
+    height: auto;
+    max-height: 85dvh;
+    border-radius: 14px 14px 0 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  dialog.sheet[open] {
+    animation: sheet-in 360ms var(--ease-unhurried);
+  }
+  dialog.sheet[open]::backdrop {
+    animation: fade-in 300ms ease both;
+  }
+}
+@keyframes sheet-in {
+  from {
+    transform: translateX(100%);
+  }
+}
+@media (max-width: 767px) and (prefers-reduced-motion: no-preference) {
+  dialog.sheet[open] {
+    animation-name: sheet-up;
+  }
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}

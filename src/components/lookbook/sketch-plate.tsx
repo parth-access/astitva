@@ -81,7 +81,7 @@ export function washColour(tone: string): string {
   const l = luminance(tone);
   const toward = l > 0.6 ? [0x34, 0x25, 0x1e] : l < 0.06 ? [0xf7, 0xf1, 0xe7] : null;
   if (!toward) return tone;
-  const amount = l > 0.6 ? 0.28 : 0.3;
+  const amount = l > 0.6 ? 0.28 : 0.16;
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(tone.slice(i, i + 2), 16));
   return `#${[r!, g!, b!].map((c, k) => Math.round(c * (1 - amount) + toward[k]! * amount).toString(16).padStart(2, "0")).join("")}`;
 }

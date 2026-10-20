@@ -71,3 +71,24 @@ export function GridSkeleton({ count = 6 }: { count?: number }) {
     </ul>
   );
 }
+
+/** The colour and size choice while live stock is checked. */
+export function OptionsSkeleton() {
+  return (
+    <div className="mt-8 flex flex-col gap-5" role="status" aria-label="Checking what's in stock">
+      <Bar className="h-4 w-28" />
+      <div className="flex gap-3.5">
+        {[0, 1, 2, 3].map((i) => (
+          <span key={i} aria-hidden="true" className="skeleton size-9 rounded-full" />
+        ))}
+      </div>
+      <Bar className="mt-2 h-4 w-12" />
+      <div className="flex gap-2">
+        {[0, 1, 2].map((i) => (
+          <Bar key={i} className="h-11 w-14" />
+        ))}
+      </div>
+      <Bar className="mt-3 h-12 w-full" />
+    </div>
+  );
+}

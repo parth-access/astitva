@@ -54,7 +54,7 @@ export function PieceCaption({
       {story ? <p className={`caption ${big ? "mt-6 max-w-sm" : "mt-2"}`}>{story}</p> : null}
       <div className={`flex flex-wrap items-baseline gap-x-4 ${big ? "mt-6 text-base" : "mt-2 text-sm"}`}>
         {piece.onHand > 0 ? (
-          <Price priceMinor={piece.priceMinor} compareAtMinor={piece.compareAtMinor} from={piece.variantCount > 1} />
+          <Price priceMinor={piece.priceMinor} compareAtMinor={piece.compareAtMinor} />
         ) : null}
         {note ? (
           <span className={`font-accent italic ${big ? "text-xl" : "text-lg"} ${piece.onHand > 0 ? "text-olive" : "text-espresso-soft"}`}>
