@@ -23,7 +23,7 @@ export const POLICY_PAGES: PolicyPage[] = [
     summary: "Whether a piece can be returned or exchanged, and how.",
     status: "draft",
     body: [
-      "Our return and exchange policy is being finalised. Many of our pieces are one of one, so exchanges depend on what is in stock.",
+      "Our return and exchange policy is being finalised. Exchanges depend on what is in stock in your size and colour.",
       "Until this page is final, please contact us before placing an order if you have questions about returns.",
     ],
   },

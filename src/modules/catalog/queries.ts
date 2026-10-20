@@ -4,10 +4,6 @@ import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   categories,
-  chapters,
-  inventoryMovements,
-  orderItems,
-  orders,
   productCategories,
   productImages,
   productVariants,
@@ -36,6 +32,17 @@ export const PRODUCT_SORTS: Record<ProductSort, string> = {
   price_desc: "Price, high to low",
 };
 
+/** One colour of a style, as the storefront offers it. */
+export type PieceColour = {
+  /** Null for a style that has no colour choice. */
+  name: string | null;
+  hex: string | null;
+  /** Units in stock across this colour's sizes. */
+  available: number;
+  imageUrl: string | null;
+  imageAlt: string | null;
+};
+
 export type PieceCard = {
   id: string;
   slug: string;
@@ -52,6 +59,8 @@ export type PieceCard = {
   categorySlug: string | null;
   onHand: number;
   variantCount: number;
+  /** Colours that exist for this style (active variants only), in the order they were added. */
+  colours: PieceColour[];
 };
 
 const minPrice = sql<number>`min(${productVariants.priceMinor})::bigint`;
@@ -59,7 +68,7 @@ const minPrice = sql<number>`min(${productVariants.priceMinor})::bigint`;
 const firstCategorySlug = sql<string | null>`(select c.slug from product_categories pc join categories c on c.id = pc.category_id where pc.product_id = products.id order by c.sort_order limit 1)`;
 
 export async function listPieces(
-  opts: { categorySlug?: string; chapterId?: string; sort?: ProductSort; featuredOnly?: boolean; limit?: number } = {},
+  opts: { categorySlug?: string; sort?: ProductSort; featuredOnly?: boolean; limit?: number } = {},
 ) {
   "use cache";
   cacheLife("hours");
@@ -99,7 +108,6 @@ export async function listPieces(
       and(
         eq(products.status, "active"),
         opts.featuredOnly ? eq(products.isFeatured, true) : undefined,
-        opts.chapterId ? eq(products.chapterId, opts.chapterId) : undefined,
         categoryFilter,
       ),
     )
@@ -116,7 +124,8 @@ export async function listPieces(
     )
     .limit(opts.limit ?? 200);
 
-  const images = await firstImages(rows.map((r) => r.id));
+  const ids = rows.map((r) => r.id);
+  const [images, colours] = await Promise.all([firstImages(ids), coloursOf(ids)]);
 
   return rows.map(
     (r): PieceCard => ({
@@ -127,8 +136,48 @@ export async function listPieces(
       imageAlt: images.get(r.id)?.alt || r.name,
       onHand: Number(r.onHand),
       variantCount: Number(r.variantCount),
+      colours: colours.get(r.id) ?? [],
     }),
   );
+}
+
+/**
+ * The colours each style is offered in, with stock and the first photo of
+ * each colour (a photo with no colour counts for every colour).
+ */
+async function coloursOf(productIds: string[]): Promise<Map<string, PieceColour[]>> {
+  const out = new Map<string, PieceColour[]>();
+  if (productIds.length === 0) return out;
+  const [variants, images] = await Promise.all([
+    db
+      .select({
+        productId: productVariants.productId,
+        color: productVariants.color,
+        hex: productVariants.colorHex,
+        onHand: productVariants.onHand,
+      })
+      .from(productVariants)
+      .where(and(inArray(productVariants.productId, productIds), eq(productVariants.isActive, true)))
+      .orderBy(asc(productVariants.createdAt)),
+    db
+      .select({ productId: productImages.productId, color: productImages.color, url: productImages.url, alt: productImages.altText })
+      .from(productImages)
+      .where(inArray(productImages.productId, productIds))
+      .orderBy(asc(productImages.sortOrder)),
+  ]);
+  for (const v of variants) {
+    const list = out.get(v.productId) ?? [];
+    let c = list.find((x) => x.name === v.color);
+    if (!c) {
+      const photo = images.find((i) => i.productId === v.productId && i.color === v.color) ?? images.find((i) => i.productId === v.productId && !i.color);
+      c = { name: v.color, hex: v.hex, available: 0, imageUrl: photo?.url ?? null, imageAlt: photo?.alt || null };
+      list.push(c);
+    }
+    c.available += Math.max(0, v.onHand);
+    c.hex ??= v.hex;
+    out.set(v.productId, list);
+  }
+  return out;
 }
 
 async function firstImages(productIds: string[]) {
@@ -166,158 +215,6 @@ export async function listCategories() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Chapters                                                            */
-/* ------------------------------------------------------------------ */
-
-const chapterColumns = {
-  id: chapters.id,
-  number: chapters.number,
-  slug: chapters.slug,
-  title: chapters.title,
-  subtitle: chapters.subtitle,
-  letter: chapters.letter,
-  letterSignature: chapters.letterSignature,
-  coverImageUrl: chapters.coverImageUrl,
-  coverImageAlt: chapters.coverImageAlt,
-  tone: chapters.tone,
-  releaseAt: chapters.releaseAt,
-  // Written out in full: inside a subquery Drizzle would render ${chapters.id} unqualified, which would bind to p.id.
-  pieceCount: sql<number>`(select count(*)::int from products p where p.chapter_id = "chapters"."id" and p.status = 'active')`,
-};
-
-export type Chapter = NonNullable<Awaited<ReturnType<typeof getCurrentChapter>>>;
-
-/** The newest published chapter: the one the homepage opens on. */
-export async function getCurrentChapter() {
-  "use cache";
-  cacheLife("hours");
-  cacheTag(CATALOG_TAG);
-
-  const [row] = await db
-    .select(chapterColumns)
-    .from(chapters)
-    .where(eq(chapters.status, "published"))
-    .orderBy(desc(chapters.number))
-    .limit(1);
-  return row ?? null;
-}
-
-export async function getChapterBySlug(slug: string) {
-  "use cache";
-  cacheLife("hours");
-  cacheTag(CATALOG_TAG);
-
-  const [row] = await db
-    .select(chapterColumns)
-    .from(chapters)
-    .where(and(eq(chapters.slug, slug), eq(chapters.status, "published")));
-  return row ?? null;
-}
-
-export async function listChapters() {
-  "use cache";
-  cacheLife("hours");
-  cacheTag(CATALOG_TAG);
-
-  return db
-    .select({ number: chapters.number, slug: chapters.slug, title: chapters.title })
-    .from(chapters)
-    .where(eq(chapters.status, "published"))
-    .orderBy(desc(chapters.number));
-}
-
-/* ------------------------------------------------------------------ */
-/* Archive: pieces that have found their home                          */
-/* ------------------------------------------------------------------ */
-
-export type ArchivedPiece = {
-  id: string;
-  slug: string;
-  name: string;
-  pieceNumber: number | null;
-  pieceName: string | null;
-  tone: string | null;
-  categorySlug: string | null;
-  imageUrl: string | null;
-  imageAlt: string;
-  soldAt: Date;
-  /** Only when the buyer opted in at checkout. */
-  city: string | null;
-};
-
-/**
- * Published pieces with nothing left to sell that have actually been sold
- * (a piece that was merely never stocked is not "found its home").
- */
-export async function listArchive(limit = 60) {
-  "use cache";
-  cacheLife("hours");
-  cacheTag(CATALOG_TAG);
-
-  const lastSale = sql<Date>`max(${inventoryMovements.createdAt})`;
-  const rows = await db
-    .select({
-      id: products.id,
-      slug: products.slug,
-      name: products.name,
-      pieceNumber: products.pieceNumber,
-      pieceName: products.pieceName,
-      tone: products.tone,
-      categorySlug: firstCategorySlug,
-      soldAt: lastSale,
-    })
-    .from(products)
-    .innerJoin(productVariants, eq(productVariants.productId, products.id))
-    .innerJoin(
-      inventoryMovements,
-      and(eq(inventoryMovements.variantId, productVariants.id), eq(inventoryMovements.movementType, "sale")),
-    )
-    .where(eq(products.status, "active"))
-    .groupBy(products.id)
-    .having(
-      sql`(select coalesce(sum(v.on_hand), 0) from ${productVariants} v where v.product_id = ${products.id} and v.is_active) = 0`,
-    )
-    .orderBy(desc(lastSale))
-    .limit(limit);
-
-  const ids = rows.map((r) => r.id);
-  const [images, cities] = await Promise.all([firstImages(ids), consentedCities(ids)]);
-
-  return rows.map(
-    (r): ArchivedPiece => ({
-      ...r,
-      soldAt: new Date(r.soldAt),
-      imageUrl: images.get(r.id)?.url ?? null,
-      imageAlt: images.get(r.id)?.alt || r.name,
-      city: cities.get(r.id) ?? null,
-    }),
-  );
-}
-
-/** City of the most recent non-cancelled order for each product, where the buyer agreed to share it. */
-async function consentedCities(productIds: string[]) {
-  if (productIds.length === 0) return new Map<string, string>();
-  const rows = await db
-    .selectDistinctOn([productVariants.productId], {
-      productId: productVariants.productId,
-      city: sql<string | null>`${orders.addressSnapshot}->>'city'`,
-    })
-    .from(orderItems)
-    .innerJoin(orders, eq(orders.id, orderItems.orderId))
-    .innerJoin(productVariants, eq(productVariants.id, orderItems.variantId))
-    .where(
-      and(
-        inArray(productVariants.productId, productIds),
-        eq(orders.shareCityInArchive, true),
-        sql`${orders.orderStatus} <> 'cancelled'`,
-        isNotNull(orderItems.variantId),
-      ),
-    )
-    .orderBy(productVariants.productId, desc(orders.createdAt));
-  return new Map(rows.filter((r) => r.city).map((r) => [r.productId, r.city!]));
-}
-
-/* ------------------------------------------------------------------ */
 /* Piece detail                                                        */
 /* ------------------------------------------------------------------ */
 
@@ -346,16 +243,8 @@ export async function getProductBySlug(slug: string) {
       categorySlug: firstCategorySlug,
       seoTitle: products.seoTitle,
       seoDescription: products.seoDescription,
-      chapter: {
-        number: chapters.number,
-        slug: chapters.slug,
-        title: chapters.title,
-        releaseAt: chapters.releaseAt,
-        letterSignature: chapters.letterSignature,
-      },
     })
     .from(products)
-    .leftJoin(chapters, and(eq(chapters.id, products.chapterId), eq(chapters.status, "published")))
     .where(and(eq(products.slug, slug), eq(products.status, "active")));
   if (!product) return null;
 
@@ -366,6 +255,7 @@ export async function getProductBySlug(slug: string) {
         sku: productVariants.sku,
         size: productVariants.size,
         color: productVariants.color,
+        colorHex: productVariants.colorHex,
         priceMinor: productVariants.priceMinor,
         compareAtMinor: productVariants.compareAtMinor,
         condition: productVariants.condition,
@@ -373,9 +263,16 @@ export async function getProductBySlug(slug: string) {
         measurements: productVariants.measurements,
       })
       .from(productVariants)
-      .where(and(eq(productVariants.productId, product.id), eq(productVariants.isActive, true))),
+      .where(and(eq(productVariants.productId, product.id), eq(productVariants.isActive, true)))
+      .orderBy(asc(productVariants.createdAt)),
     db
-      .select({ url: productImages.url, alt: productImages.altText, width: productImages.width, height: productImages.height })
+      .select({
+        url: productImages.url,
+        alt: productImages.altText,
+        color: productImages.color,
+        width: productImages.width,
+        height: productImages.height,
+      })
       .from(productImages)
       .where(eq(productImages.productId, product.id))
       .orderBy(asc(productImages.sortOrder)),
@@ -383,12 +280,18 @@ export async function getProductBySlug(slug: string) {
 
   return {
     ...product,
-    chapter: product.chapter?.slug ? product.chapter : null,
+    // Colour order is the order they were added; sizes within a colour run small to large.
     variants: variants
-      .sort((a, b) => compareSizes(a.size, b.size))
+      .map((v, i) => ({ v, i }))
+      .sort((a, b) => colourRank(variants, a.v.color) - colourRank(variants, b.v.color) || compareSizes(a.v.size, b.v.size) || a.i - b.i)
+      .map(({ v }) => v)
       .map((v) => ({ ...v, measurements: (v.measurements ?? null) as Measurements | null })),
     images,
   };
+}
+
+function colourRank(variants: { color: string | null }[], color: string | null) {
+  return variants.findIndex((v) => v.color === color);
 }
 
 /** Neighbouring pieces in the house sequence, for "previous / next piece". */
@@ -435,6 +338,27 @@ export async function getConcierge() {
   return row ?? { whatsapp: null, name: null, email: null };
 }
 
+/** The home page lookbook's words, and whether customers can order yet. */
+export async function getStorefront() {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(SETTINGS_TAG);
+
+  const [row] = await db
+    .select({
+      orderingOpen: storeSettings.orderingOpen,
+      title: storeSettings.lookbookTitle,
+      subtitle: storeSettings.lookbookSubtitle,
+      note: storeSettings.note,
+      noteSignature: storeSettings.noteSignature,
+    })
+    .from(storeSettings)
+    .where(eq(storeSettings.id, 1));
+  return row ?? { orderingOpen: false, title: null, subtitle: null, note: "", noteSignature: null };
+}
+
+export type Storefront = Awaited<ReturnType<typeof getStorefront>>;
+
 /* Lookbook ------------------------------------------------------------ */
 
 export type LookbookPiece = {
@@ -453,10 +377,11 @@ export type LookbookPiece = {
   variantCount: number;
   imageUrl: string | null;
   imageAlt: string;
+  colours: PieceColour[];
 };
 
-/** Every published piece of a chapter, in house order, with what a lookbook page shows. */
-export async function listLookbookPieces(chapterId: string): Promise<LookbookPiece[]> {
+/** Every published style, in house order, with what a lookbook page shows. */
+export async function listLookbookPieces(): Promise<LookbookPiece[]> {
   "use cache";
   cacheLife("hours");
   cacheTag(CATALOG_TAG);
@@ -479,16 +404,18 @@ export async function listLookbookPieces(chapterId: string): Promise<LookbookPie
     })
     .from(products)
     .innerJoin(productVariants, and(eq(productVariants.productId, products.id), eq(productVariants.isActive, true)))
-    .where(and(eq(products.status, "active"), eq(products.chapterId, chapterId)))
+    .where(eq(products.status, "active"))
     .groupBy(products.id)
     .orderBy(sql`${products.pieceNumber} asc nulls last`, asc(products.name));
 
-  const images = await firstImages(rows.map((r) => r.id));
+  const ids = rows.map((r) => r.id);
+  const [images, colours] = await Promise.all([firstImages(ids), coloursOf(ids)]);
   return rows.map((r) => ({
     ...r,
     priceMinor: Number(r.priceMinor),
     compareAtMinor: r.compareAtMinor === null ? null : Number(r.compareAtMinor),
     imageUrl: images.get(r.id)?.url ?? null,
     imageAlt: images.get(r.id)?.alt || r.name,
+    colours: colours.get(r.id) ?? [],
   }));
 }

@@ -17,8 +17,8 @@ export default async function PanelLayout({ children }: LayoutProps<"/admin">) {
               <Link href="/admin/pieces" className="link">
                 Pieces
               </Link>
-              <Link href="/admin/chapters" className="link">
-                Chapters
+              <Link href="/admin/settings" className="link">
+                Lookbook &amp; settings
               </Link>
             </nav>
           </div>

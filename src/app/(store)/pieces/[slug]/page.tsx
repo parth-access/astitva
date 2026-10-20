@@ -12,11 +12,10 @@ import { PACKED_BY_HAND, showPromise } from "@/content/brand";
 import { cloudinaryUrl } from "@/lib/cloudinary-url";
 import { db } from "@/db/client";
 import type { Measurements } from "@/db/schema";
-import { formatPieceNumber, toRoman } from "@/lib/format";
-import { getAdjacentPieces, getProductBySlug, listPieces, type ProductDetail } from "@/modules/catalog/queries";
+import { formatPieceNumber } from "@/lib/format";
+import { PieceSkeleton } from "@/components/lookbook/skeletons";
+import { getAdjacentPieces, getProductBySlug, getStorefront, listPieces, type ProductDetail } from "@/modules/catalog/queries";
 import { getAvailability } from "@/modules/inventory/service";
-
-const ORDERING_OPEN = false; // flips on with checkout (M3)
 
 export async function generateStaticParams() {
   const pieces = await listPieces({ limit: 500 });
@@ -56,12 +55,12 @@ const MEASUREMENT_LABEL: [keyof Measurements, string][] = [
 ];
 
 /** Live stock: never cached, streamed in after the piece's content. */
-async function LiveBuyPanel({ product }: { product: ProductDetail }) {
+async function LiveBuyPanel({ product, orderingOpen }: { product: ProductDetail; orderingOpen: boolean }) {
   await connection();
   const available = await getAvailability(db, product.variants.map((v) => v.id));
   return (
     <BuyPanel
-      orderingOpen={ORDERING_OPEN}
+      orderingOpen={orderingOpen}
       variants={product.variants.map((v) => ({
         id: v.id,
         size: v.size,
@@ -75,7 +74,10 @@ async function LiveBuyPanel({ product }: { product: ProductDetail }) {
 }
 
 function MeasurementsTable({ variants }: { variants: ProductDetail["variants"] }) {
-  const withMeasurements = variants.filter((v) => v.measurements && Object.keys(v.measurements).length > 0);
+  // Measurements belong to a size; every colour of that size shares them.
+  const bySize = new Map<string, ProductDetail["variants"][number]>();
+  for (const v of variants) if (v.measurements && Object.keys(v.measurements).length > 0 && !bySize.has(v.size ?? "")) bySize.set(v.size ?? "", v);
+  const withMeasurements = [...bySize.values()];
   if (withMeasurements.length === 0) return null;
   const columns = MEASUREMENT_LABEL.filter(([key]) => withMeasurements.some((v) => v.measurements?.[key] != null));
   return (
@@ -144,17 +146,15 @@ async function Neighbours({ pieceNumber }: { pieceNumber: number }) {
 
 async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">) {
   const { slug } = await params;
-  const product = await getProductBySlug(slug);
+  const [product, store] = await Promise.all([getProductBySlug(slug), getStorefront()]);
   if (!product || product.variants.length === 0) notFound();
 
   const prices = product.variants.map((v) => v.priceMinor);
   const lowest = product.variants.find((v) => v.priceMinor === Math.min(...prices))!;
-  const single = product.variants.length === 1;
-  const oneOfOne = single && product.variants[0]!.onHand <= 1;
-  const condition = single ? product.variants[0]!.condition : null;
+  const condition = product.variants[0]!.condition;
   const [hero, ...rest] = product.images;
   const title = product.pieceName ?? product.name;
-  const signature = product.chapter?.letterSignature;
+  const signature = store.noteSignature;
 
   return (
     <>
@@ -185,15 +185,9 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
         </div>
 
         <div className="md:sticky md:top-8 md:col-span-4 md:col-start-9 md:self-start">
-          {product.chapter ? (
-            <Link href={`/chapters/${product.chapter.slug}#pieces`} transitionTypes={["nav-back"]} className="caption link text-lg no-underline hover:underline">
-              Chapter {toRoman(product.chapter.number)}, {product.chapter.title}
-            </Link>
-          ) : (
-            <Link href="/shop" className="caption link text-lg no-underline hover:underline">
-              All pieces
-            </Link>
-          )}
+          <Link href={`/#${product.slug}`} transitionTypes={["nav-back"]} className="caption link text-lg no-underline hover:underline">
+            {store.title ? `${store.title}, the lookbook` : "The lookbook"}
+          </Link>
 
           {product.pieceNumber ? (
             <p className="mt-5 font-display text-2xl tabular-nums text-espresso-soft md:mt-8">{formatPieceNumber(product.pieceNumber)}</p>
@@ -203,14 +197,13 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
 
           <div className="mt-6 flex flex-wrap items-baseline gap-x-4">
             <Price className="text-xl" priceMinor={lowest.priceMinor} compareAtMinor={lowest.compareAtMinor} from={new Set(prices).size > 1} />
-            {oneOfOne && <span className="font-accent text-xl italic text-olive">One of one</span>}
           </div>
           <p className="mt-1 text-xs text-espresso-soft">Inclusive of all taxes</p>
 
           {product.story ? <p className="caption mt-8 text-xl">{product.story}</p> : null}
 
           <Suspense fallback={<p className="mt-8 h-24 text-sm text-espresso-soft">Checking availability…</p>}>
-            <LiveBuyPanel product={product} />
+            <LiveBuyPanel product={product} orderingOpen={store.orderingOpen} />
           </Suspense>
 
           <AskAboutPiece piece={product} className="mt-6 inline-block text-sm" />
@@ -263,7 +256,7 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
               <h2 className="text-3xl">{PACKED_BY_HAND.title}</h2>
               <p className="mt-4 leading-relaxed">
                 {PACKED_BY_HAND.body}
-                {product.pieceNumber ? ` This one's card will read ${formatPieceNumber(product.pieceNumber)}, ${title}.` : ""}
+                {product.pieceNumber ? ` Its card will read ${formatPieceNumber(product.pieceNumber)}, ${title}.` : ""}
               </p>
             </div>
           ) : null}
@@ -281,7 +274,7 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
 
 export default function PiecePage(props: PageProps<"/pieces/[slug]">) {
   return (
-    <Suspense fallback={<div className="mx-auto h-[80vh] max-w-6xl" aria-busy="true" />}>
+    <Suspense fallback={<PieceSkeleton />}>
       <PieceView params={props.params} />
     </Suspense>
   );

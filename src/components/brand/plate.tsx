@@ -18,16 +18,16 @@ type Props = {
   ratio?: "4/5" | "3/4" | "2/3";
   sizes: string;
   priority?: boolean;
-  /** Dim the plate (a piece that has found its home). */
+  /** Dim the plate (a sold-out piece). */
   muted?: boolean;
-  /** Shown centred on a photo-less plate that has no number or name (e.g. a chapter cover). */
+  /** Shown centred on a photo-less plate that has no number or name (e.g. brand art). */
   emblem?: ReactNode;
   /** "cover" fills the arch (photographs); "illustration" fits the image inside, resting on the base. */
   fit?: "cover" | "illustration";
   /**
    * A piece's category slug. Without a photograph, a piece with a known
    * category is shown as a painted sketch of its garment instead of a plain
-   * tone (undefined keeps the plain tone, e.g. for chapter art).
+   * tone (undefined keeps the plain tone, e.g. for brand art).
    */
   category?: string | null;
   /** Show "Sketched until photographed" under a sketch (large plates only). */

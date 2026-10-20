@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { and, eq, inArray, max, sql } from "drizzle-orm";
 import type { Db, Tx } from "@/db/create";
 import { auditLogs, productCategories, productVariants, products } from "@/db/schema";
+import { InsufficientStockError } from "@/modules/inventory/errors";
 import { adjustStock } from "@/modules/inventory/service";
 import { productMachine, type ProductStatus } from "@/modules/orders/machines";
 import type { FieldErrors, PieceInput } from "./input";
@@ -23,7 +24,7 @@ export class PieceRuleError extends Error {
 const UNIQUE_FIELDS: Record<string, [string, string]> = {
   products_slug_unique: ["slug", "Another piece already uses this web address."],
   products_piece_number_unique: ["pieceNumber", "Another piece already has this number. Numbers are never reused."],
-  product_variants_attrs_uq: ["form", "Two sizes have the same name."],
+  product_variants_attrs_uq: ["form", "Two colours or sizes ended up with the same name."],
 };
 
 /** Turns a unique-constraint clash into a field error. */
@@ -49,7 +50,6 @@ function productValues(input: PieceInput) {
     pieceName: input.pieceName,
     name: input.name,
     slug: input.slug,
-    chapterId: input.chapterId,
     tone: input.tone,
     story: input.story,
     stylingNote: input.stylingNote,
@@ -62,12 +62,18 @@ function productValues(input: PieceInput) {
   };
 }
 
-/** Creates a draft piece, or updates one. Returns the product id. */
-export async function savePiece(
-  db: Db,
-  input: PieceInput,
-  ctx: { productId?: string; actorId: string },
-): Promise<string> {
+const keyOf = (color: string | null, size: string | null) => `${color ?? ""}\u0000${size ?? ""}`;
+
+/**
+ * Creates a draft piece, or updates one, from the editor's colour × size grid.
+ *
+ * Every combination with a number becomes an active variant with that much
+ * stock; the difference from today's count is recorded as an inventory
+ * movement. Combinations left blank, and colours or sizes removed, are
+ * switched off (never deleted: orders refer to them). Renaming a colour or
+ * size renames its variants, so their stock and history carry over.
+ */
+export async function savePiece(db: Db, input: PieceInput, ctx: { productId?: string; actorId: string }): Promise<string> {
   try {
     return await db.transaction(async (tx) => {
       let productId = ctx.productId;
@@ -91,44 +97,75 @@ export async function savePiece(
       await tx.delete(productCategories).where(eq(productCategories.productId, productId));
       if (input.categoryId) await tx.insert(productCategories).values({ productId, categoryId: input.categoryId });
 
-      const existingIds = input.variants.flatMap((v) => (v.id ? [v.id] : []));
-      if (existingIds.length) {
-        const owned = await tx
-          .select({ id: productVariants.id })
-          .from(productVariants)
-          .where(and(eq(productVariants.productId, productId), inArray(productVariants.id, existingIds)));
-        if (owned.length !== new Set(existingIds).size) throw new PieceRuleError({ form: "A size doesn't belong to this piece." });
+      // Renames first, so a renamed colour or size keeps its variants.
+      for (const c of input.colours) {
+        if (c.was !== null && c.was !== c.name) {
+          await tx
+            .update(productVariants)
+            .set({ color: c.name })
+            .where(and(eq(productVariants.productId, productId), eq(productVariants.color, c.was)));
+        }
+      }
+      for (const s of input.sizes) {
+        if (s.was !== null && s.was !== s.name) {
+          await tx
+            .update(productVariants)
+            .set({ size: s.name })
+            .where(and(eq(productVariants.productId, productId), eq(productVariants.size, s.was)));
+        }
       }
 
-      for (const v of input.variants) {
-        const values = {
-          size: v.size,
-          priceMinor: v.priceMinor,
-          compareAtMinor: v.compareAtMinor,
-          condition: v.condition,
-          isActive: v.isActive,
-          measurements: v.measurements,
-          acquisitionCostMinor: v.acquisitionCostMinor,
-          acquiredAt: v.acquiredAt ? new Date(`${v.acquiredAt}T00:00:00+05:30`) : null,
-          internalRef: v.internalRef,
-        };
-        if (v.id) {
-          await tx.update(productVariants).set(values).where(eq(productVariants.id, v.id));
-        } else {
-          const [variant] = await tx
-            .insert(productVariants)
-            .values({ ...values, productId, sku: newSku() })
-            .returning({ id: productVariants.id });
-          if (v.initialStock) {
-            await adjustStock(tx, {
-              variantId: variant!.id,
-              delta: v.initialStock,
-              type: "receipt",
-              reason: "Added in the piece editor",
-              actorId: ctx.actorId,
-            });
+      const existing = await tx.select().from(productVariants).where(eq(productVariants.productId, productId)).for("update");
+      const byKey = new Map(existing.map((v) => [keyOf(v.color, v.size), v]));
+      const wanted = new Set<string>();
+      const shared = {
+        priceMinor: input.priceMinor,
+        compareAtMinor: input.compareAtMinor,
+        condition: input.condition,
+        acquisitionCostMinor: input.acquisitionCostMinor,
+        acquiredAt: input.acquiredAt ? new Date(`${input.acquiredAt}T00:00:00+05:30`) : null,
+        internalRef: input.internalRef,
+      };
+
+      for (const [i, colour] of input.colours.entries()) {
+        for (const [j, size] of input.sizes.entries()) {
+          const target = input.stock[i]?.[j] ?? null;
+          if (target === null) continue;
+          const key = keyOf(colour.name, size.name);
+          wanted.add(key);
+          const values = { ...shared, color: colour.name, colorHex: colour.hex, size: size.name, measurements: size.measurements, isActive: true };
+          let variant = byKey.get(key);
+          if (variant) {
+            await tx.update(productVariants).set(values).where(eq(productVariants.id, variant.id));
+          } else {
+            [variant] = await tx.insert(productVariants).values({ ...values, productId, sku: newSku() }).returning();
+          }
+          const delta = target - variant!.onHand;
+          if (delta !== 0) {
+            try {
+              await adjustStock(tx, {
+                variantId: variant!.id,
+                delta,
+                type: delta > 0 && variant!.onHand === 0 && !byKey.has(key) ? "receipt" : "adjustment",
+                reason: "Count set in the piece editor",
+                actorId: ctx.actorId,
+              });
+            } catch (err) {
+              if (err instanceof InsufficientStockError) {
+                throw new PieceRuleError({ [`stock.${i}.${j}`]: "Some are in customers' bags right now. Try again shortly." });
+              }
+              throw err;
+            }
           }
         }
+      }
+
+      const retired = existing.filter((v) => v.isActive && !wanted.has(keyOf(v.color, v.size)));
+      if (retired.length) {
+        await tx
+          .update(productVariants)
+          .set({ isActive: false })
+          .where(inArray(productVariants.id, retired.map((v) => v.id)));
       }
 
       await tx.insert(auditLogs).values({
@@ -136,7 +173,7 @@ export async function savePiece(
         action: ctx.productId ? "piece.updated" : "piece.created",
         resourceType: "product",
         resourceId: productId,
-        metadata: { pieceNumber: input.pieceNumber, slug: input.slug },
+        metadata: { pieceNumber: input.pieceNumber, slug: input.slug, variants: wanted.size },
       });
       return productId;
     });
@@ -157,7 +194,7 @@ export async function publishProblems(tx: Db | Tx, productId: string): Promise<s
     .select({ live: sql<number>`count(*)::int` })
     .from(productVariants)
     .where(and(eq(productVariants.productId, productId), eq(productVariants.isActive, true)));
-  if (!live) problems.push("Add at least one size that's on sale.");
+  if (!live) problems.push("Enter stock for at least one colour and size.");
   return problems;
 }
 
@@ -182,19 +219,5 @@ export async function setPieceStatus(db: Db, productId: string, to: ProductStatu
       resourceId: productId,
       metadata: { from: p.status, to },
     });
-  });
-}
-
-export type StockChange = { variantId: string; delta: number; type: "receipt" | "adjustment" | "damage"; reason: string };
-
-/** Changes stock for one size through the inventory service, which records the movement. */
-export async function changePieceStock(db: Db, productId: string, change: StockChange, actorId: string): Promise<number> {
-  return db.transaction(async (tx) => {
-    const [v] = await tx
-      .select({ id: productVariants.id })
-      .from(productVariants)
-      .where(and(eq(productVariants.id, change.variantId), eq(productVariants.productId, productId)));
-    if (!v) throw new PieceRuleError({ form: "That size doesn't belong to this piece." });
-    return adjustStock(tx, { ...change, actorId });
   });
 }

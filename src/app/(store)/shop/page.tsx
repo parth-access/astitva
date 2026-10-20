@@ -81,7 +81,7 @@ async function Catalogue({ searchParams }: Pick<PageProps<"/shop">, "searchParam
 export default function ShopPage(props: PageProps<"/shop">) {
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-8">
-      <p className="caption text-xl">Every chapter, every piece</p>
+      <p className="caption text-xl">Every style, every colour</p>
       <h1 className="mb-10 mt-1 text-6xl italic md:text-7xl">All pieces</h1>
       <Suspense fallback={<div className="h-96" aria-busy="true" />}>
         <Catalogue searchParams={props.searchParams} />

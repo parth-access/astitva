@@ -16,7 +16,6 @@ export default async function NewPiecePage() {
         <PieceEditor
           productId={null}
           initial={{}}
-          rows={[{ index: 0, id: null, sku: null, onHand: 0 }]}
           options={options}
           locked={false}
         />

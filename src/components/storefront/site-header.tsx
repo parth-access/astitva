@@ -1,11 +1,11 @@
 import Link from "next/link";
 
 const left = [
-  { href: "/#chapter", label: "The chapter" },
-  { href: "/shop", label: "All pieces" },
+  { href: "/#pieces", label: "Lookbook" },
+  { href: "/shop", label: "Shop" },
 ];
 const right = [
-  { href: "/archive", label: "Archive" },
+  { href: "/size-guide", label: "Size guide" },
   { href: "/about", label: "About" },
 ];
 

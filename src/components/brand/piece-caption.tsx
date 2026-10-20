@@ -13,8 +13,8 @@ export function pieceTitle(p: { pieceName: string | null; name: string }) {
 }
 
 export function availabilityNote(p: Pick<PieceCard, "onHand" | "variantCount">) {
-  if (p.onHand <= 0) return "Found its home";
-  if (p.variantCount === 1 && p.onHand === 1) return "One of one";
+  if (p.onHand <= 0) return "Sold out";
+  if (p.onHand <= 2) return `Only ${p.onHand} left`;
   return null;
 }
 

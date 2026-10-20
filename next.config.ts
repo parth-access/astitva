@@ -13,7 +13,12 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     // Pieces used to live at /products/<slug>.
-    return [{ source: "/products/:slug", destination: "/pieces/:slug", permanent: true }];
+    return [
+      { source: "/products/:slug", destination: "/pieces/:slug", permanent: true },
+      // Chapters and the archive were retired: the home page is the lookbook.
+      { source: "/chapters/:slug", destination: "/", permanent: true },
+      { source: "/archive", destination: "/", permanent: true },
+    ];
   },
 };
 

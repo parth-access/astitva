@@ -10,7 +10,7 @@ export class InventoryError extends Error {
   }
 }
 
-/** Not enough unreserved stock. For a one-of-one piece this means "someone else just got it". */
+/** Not enough unreserved stock: for the last one in a size, "someone else just got it". */
 export class InsufficientStockError extends InventoryError {
   constructor(readonly shortages: Shortage[]) {
     super("insufficient_stock", `Insufficient stock for ${shortages.map((s) => s.variantId).join(", ")}`);

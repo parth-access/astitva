@@ -1,6 +1,5 @@
 import { defineMachine } from "@/lib/state-machine";
 import type {
-  chapterStatus,
   codCollectionStatus,
   orderPaymentStatus,
   orderStatus,
@@ -19,7 +18,6 @@ export type ReservationStatus = EnumValues<typeof reservationStatus>;
 export type CodCollectionStatus = EnumValues<typeof codCollectionStatus>;
 export type RefundStatus = EnumValues<typeof refundStatus>;
 export type ProductStatus = EnumValues<typeof productStatus>;
-export type ChapterStatus = EnumValues<typeof chapterStatus>;
 
 /**
  * Fulfilment lifecycle. Returns happen after `delivered` through return
@@ -87,10 +85,4 @@ export const productMachine = defineMachine<ProductStatus>("product", {
   draft: ["active", "archived"],
   active: ["archived"],
   archived: ["active"],
-});
-
-/** A chapter (release). Unpublishing hides it again. */
-export const chapterMachine = defineMachine<ChapterStatus>("chapter", {
-  draft: ["published"],
-  published: ["draft"],
 });

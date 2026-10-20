@@ -7,13 +7,24 @@ import { cloudinaryUrl } from "@/lib/cloudinary-url";
 import { FormError } from "./ui";
 import { IMAGE_ACCEPT, uploadToCloudinary } from "./upload";
 
-export type PanelPhoto = { id: string; url: string; altText: string };
+export type PanelPhoto = { id: string; url: string; altText: string; color: string | null };
 
 /**
  * A piece's photographs: upload (straight to Cloudinary), describe, reorder,
  * remove. The first photo is the cover in the piece's arch.
  */
-export function PhotosPanel({ productId, photos, pieceLabel }: { productId: string; photos: PanelPhoto[]; pieceLabel: string }) {
+export function PhotosPanel({
+  productId,
+  photos,
+  pieceLabel,
+  colours,
+}: {
+  productId: string;
+  photos: PanelPhoto[];
+  pieceLabel: string;
+  /** The style's colour names, so each photo can be tied to one. */
+  colours: string[];
+}) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<string | null>(null);
@@ -54,7 +65,7 @@ export function PhotosPanel({ productId, photos, pieceLabel }: { productId: stri
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-display text-xl">Photos</h2>
-          <p className="text-sm text-espresso-soft">The first one is the cover. Shot 4:5 (portrait) looks best in the arch.</p>
+          <p className="text-sm text-espresso-soft">The first is the cover. Tie photos to a colour and they show when that colour is chosen. Portrait 4:5 suits the arch.</p>
         </div>
         <label className={`btn-primary cursor-pointer ${busy ? "pointer-events-none opacity-60" : ""}`}>
           {progress ?? "Add photos"}
@@ -77,7 +88,7 @@ export function PhotosPanel({ productId, photos, pieceLabel }: { productId: stri
 
       {photos.length === 0 ? (
         <p className="text-sm text-espresso-soft">
-          No photos yet. Until there are, the site shows the piece in its tone with its number and name.
+          No photos yet. Until there are, the site shows a painted sketch of the piece in each colour.
         </p>
       ) : (
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -105,6 +116,24 @@ export function PhotosPanel({ productId, photos, pieceLabel }: { productId: stri
                   }}
                 />
               </label>
+              {colours.length > 1 ? (
+                <label className="block">
+                  <span className="sr-only">Which colour photo {i + 1} shows</span>
+                  <select
+                    value={p.color ?? ""}
+                    disabled={busy}
+                    onChange={(e) => change({ kind: "colour", photoId: p.id, colour: e.target.value || null })}
+                    className="block w-full border border-taupe bg-ivory px-2 py-1.5 text-sm"
+                  >
+                    <option value="">Every colour</option>
+                    {colours.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
               <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
                 {i > 0 ? (
                   <>

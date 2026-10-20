@@ -36,7 +36,7 @@ export async function AskAboutPiece({ piece, className = "" }: { piece: PieceRef
   );
 }
 
-/** The concierge band on the homepage and chapter pages. */
+/** The concierge band at the end of the home page lookbook. */
 export async function ConciergeBand() {
   const c = await getConcierge();
   const who = c.name ?? "us";

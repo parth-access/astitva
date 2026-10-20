@@ -1,25 +1,33 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { auditLogs, inventoryMovements, productVariants, products, users } from "../../src/db/schema";
 import { parsePieceForm, type PieceInput } from "../../src/modules/catalog-admin/input";
-import {
-  changePieceStock,
-  nextPieceNumber,
-  PieceRuleError,
-  savePiece,
-  setPieceStatus,
-} from "../../src/modules/catalog-admin/service";
-import { hasDb, makeDb, movementSum, onHand, resetData } from "./helpers";
+import { nextPieceNumber, PieceRuleError, savePiece, setPieceStatus } from "../../src/modules/catalog-admin/service";
+import { createOrder, hasDb, makeDb, movementSum, resetData } from "./helpers";
+import { reserveForOrder } from "../../src/modules/inventory/service";
 
 function input(fields: Record<string, string>): PieceInput {
   const f = new FormData();
-  for (const [k, v] of Object.entries({ name: "Olive linen wrap dress", "v.0.priceMinor": "3499", "v.0.isActive": "on", ...fields })) {
-    f.append(k, v);
-  }
+  const all = { name: "Linen wrap dress", pieceName: "Neem", priceMinor: "3499", ...fields };
+  for (const [k, v] of Object.entries(all)) f.append(k, v);
   const r = parsePieceForm(f);
   if (!r.ok) throw new Error(JSON.stringify(r.errors));
   return r.data;
 }
+
+/** Sage and Ink, in M and L. */
+const grid = {
+  "c.0.name": "Sage",
+  "c.0.hex": "#8a8f6a",
+  "c.1.name": "Ink",
+  "c.1.hex": "#2c3140",
+  "s.0.name": "M",
+  "s.1.name": "L",
+  "stock.0.0": "2",
+  "stock.0.1": "1",
+  "stock.1.0": "3",
+  "stock.1.1": "",
+};
 
 async function expectRule(p: Promise<unknown>, field: string) {
   const err = await p.catch((e: unknown) => e);
@@ -31,6 +39,15 @@ describe.skipIf(!hasDb)("piece editor writes", () => {
   const db = makeDb(4);
   let actorId: string;
 
+  const variantsOf = (productId: string) =>
+    db
+      .select({ color: productVariants.color, size: productVariants.size, onHand: productVariants.onHand, isActive: productVariants.isActive, id: productVariants.id })
+      .from(productVariants)
+      .where(eq(productVariants.productId, productId))
+      .orderBy(asc(productVariants.createdAt));
+  const active = async (productId: string) =>
+    (await variantsOf(productId)).filter((v) => v.isActive).map((v) => `${v.color}/${v.size}:${v.onHand}`).sort();
+
   beforeEach(async () => {
     await resetData(db);
     const [u] = await db.insert(users).values({ name: "Krishna", email: "k@example.com" }).returning();
@@ -40,100 +57,72 @@ describe.skipIf(!hasDb)("piece editor writes", () => {
     await db.$client.end();
   });
 
-  it("creates a draft whose opening stock is a recorded receipt", async () => {
-    const id = await savePiece(db, input({ pieceNumber: "7", pieceName: "Neem", "v.0.initialStock": "1" }), { actorId });
-    const [p] = await db.select().from(products).where(eq(products.id, id));
-    expect(p).toMatchObject({ status: "draft", slug: "neem-olive-linen-wrap-dress", pieceNumber: 7, publishedAt: null });
-
-    const [v] = await db.select().from(productVariants).where(eq(productVariants.productId, id));
-    expect(v!.priceMinor).toBe(349_900);
-    expect(await onHand(db, v!.id)).toBe(1);
-    expect(await movementSum(db, v!.id)).toBe(1);
-    const [m] = await db.select().from(inventoryMovements).where(eq(inventoryMovements.variantId, v!.id));
+  it("makes a variant per filled cell, with its stock recorded as receipts", async () => {
+    const id = await savePiece(db, input({ pieceNumber: "1", ...grid }), { actorId });
+    expect(await active(id)).toEqual(["Ink/M:3", "Sage/L:1", "Sage/M:2"]);
+    for (const v of await variantsOf(id)) expect(await movementSum(db, v.id)).toBe(v.onHand);
+    const [m] = await db.select().from(inventoryMovements).limit(1);
     expect(m).toMatchObject({ movementType: "receipt", actorId });
-
-    const audit = await db.select().from(auditLogs).where(eq(auditLogs.resourceId, id));
-    expect(audit.map((a) => a.action)).toEqual(["piece.created"]);
-    expect(await nextPieceNumber(db)).toBe(8);
+    const [ink] = (await variantsOf(id)).filter((v) => v.color === "Ink");
+    const [row] = await db.select({ hex: productVariants.colorHex }).from(productVariants).where(eq(productVariants.id, ink!.id));
+    expect(row!.hex).toBe("#2c3140");
+    expect((await db.select().from(auditLogs).where(eq(auditLogs.resourceId, id))).map((a) => a.action)).toEqual(["piece.created"]);
+    expect(await nextPieceNumber(db)).toBe(2);
   });
 
-  it("refuses a piece number that's already taken", async () => {
-    await savePiece(db, input({ pieceNumber: "3", pieceName: "Jamun" }), { actorId });
-    await expectRule(savePiece(db, input({ pieceNumber: "3", pieceName: "Mitti" }), { actorId }), "pieceNumber");
-  });
+  it("sets new counts as adjustments, retires blanks, and keeps stock through a rename", async () => {
+    const id = await savePiece(db, input({ pieceNumber: "1", ...grid }), { actorId });
+    const sageM = (await variantsOf(id)).find((v) => v.color === "Sage" && v.size === "M")!;
 
-  it("won't publish an incomplete piece, and fixes number and address once published", async () => {
-    const id = await savePiece(db, input({ pieceName: "Neem" }), { actorId });
-    await expectRule(setPieceStatus(db, id, "active", actorId), "form");
-    const [v] = await db.select().from(productVariants).where(eq(productVariants.productId, id));
-    const edit = (fields: Record<string, string>) =>
-      savePiece(db, input({ pieceName: "Neem", "v.0.id": v!.id, ...fields }), { productId: id, actorId });
-
-    await edit({ pieceNumber: "9" });
-    await setPieceStatus(db, id, "active", actorId);
-    const [p] = await db.select().from(products).where(eq(products.id, id));
-    expect(p!.status).toBe("active");
-    expect(p!.publishedAt).toBeInstanceOf(Date);
-
-    await expectRule(edit({ pieceNumber: "10" }), "pieceNumber");
-    await expectRule(edit({ pieceNumber: "9", slug: "neem" }), "slug");
-    // Other fields still change.
-    await edit({ pieceNumber: "9", story: "Found on a slow afternoon." });
-
-    // Hidden and back again keeps the original publish date; it never returns to draft.
-    await setPieceStatus(db, id, "archived", actorId);
-    await setPieceStatus(db, id, "active", actorId);
-    const [again] = await db.select().from(products).where(eq(products.id, id));
-    expect(again!.publishedAt).toEqual(p!.publishedAt);
-    await expect(setPieceStatus(db, id, "draft", actorId)).rejects.toThrow(/cannot move/);
-  });
-
-  it("changes stock only through recorded movements, and not below what's held", async () => {
-    const id = await savePiece(db, input({ pieceNumber: "4", pieceName: "Chandni", "v.0.initialStock": "1" }), { actorId });
-    const [v] = await db.select().from(productVariants).where(eq(productVariants.productId, id));
-
-    await changePieceStock(db, id, { variantId: v!.id, delta: 2, type: "receipt", reason: "Found two more" }, actorId);
-    await changePieceStock(db, id, { variantId: v!.id, delta: -1, type: "damage", reason: "Torn seam" }, actorId);
-    expect(await onHand(db, v!.id)).toBe(2);
-    expect(await movementSum(db, v!.id)).toBe(2);
-    await expect(
-      changePieceStock(db, id, { variantId: v!.id, delta: -5, type: "adjustment", reason: "Recount" }, actorId),
-    ).rejects.toThrow(/Insufficient stock/);
-
-    // A size from another piece is refused.
-    const other = await savePiece(db, input({ pieceNumber: "5", pieceName: "Mitti" }), { actorId });
-    await expectRule(changePieceStock(db, other, { variantId: v!.id, delta: 1, type: "receipt", reason: "x x x" }, actorId), "form");
-  });
-
-  it("edits sizes in place, adds new ones, and refuses a size from another piece", async () => {
-    const id = await savePiece(db, input({ pieceNumber: "1", pieceName: "Saanjh" }), { actorId });
-    const [v] = await db.select().from(productVariants).where(eq(productVariants.productId, id));
+    // Sage renamed Moss; Sage/M down to 1; Sage/L no longer made; Ink/L added with 2.
     await savePiece(
       db,
-      input({
-        pieceNumber: "1",
-        pieceName: "Saanjh",
-        "v.0.id": v!.id,
-        "v.0.size": "S",
-        "v.0.priceMinor": "2999",
-        "v.0.isActive": "on",
-        "v.1.size": "M",
-        "v.1.priceMinor": "2999",
-        "v.1.isActive": "on",
-        "v.1.initialStock": "0",
-      }),
+      input({ pieceNumber: "1", ...grid, "c.0.name": "Moss", "c.0.was": "Sage", "c.1.was": "Ink", "s.0.was": "M", "s.1.was": "L", "stock.0.0": "1", "stock.0.1": "", "stock.1.1": "2" }),
       { productId: id, actorId },
     );
-    const sizes = await db.select().from(productVariants).where(eq(productVariants.productId, id));
-    expect(sizes.map((s) => [s.size, s.priceMinor]).sort()).toEqual([
-      ["M", 299_900],
-      ["S", 299_900],
+    expect(await active(id)).toEqual(["Ink/L:2", "Ink/M:3", "Moss/M:1"]);
+    const all = await variantsOf(id);
+    expect(all.find((v) => v.id === sageM.id)).toMatchObject({ color: "Moss", onHand: 1 });
+    expect(all.find((v) => v.color === "Moss" && v.size === "L")).toMatchObject({ isActive: false });
+    expect(await movementSum(db, sageM.id)).toBe(1);
+    const moves = await db.select().from(inventoryMovements).where(eq(inventoryMovements.variantId, sageM.id));
+    expect(moves.map((m) => [m.movementType, m.quantityDelta])).toEqual([
+      ["receipt", 2],
+      ["adjustment", -1],
     ]);
 
-    const other = await savePiece(db, input({ pieceNumber: "2", pieceName: "Jamun" }), { actorId });
+    // Bringing a retired combination back reactivates it rather than duplicating it.
+    await savePiece(db, input({ pieceNumber: "1", ...grid, "c.0.name": "Moss", "c.0.was": "Moss", "c.1.was": "Ink", "s.0.was": "M", "s.1.was": "L", "stock.0.1": "4" }), { productId: id, actorId });
+    expect((await variantsOf(id)).filter((v) => v.color === "Moss" && v.size === "L")).toHaveLength(1);
+  });
+
+  it("won't count stock below what's in customers' bags", async () => {
+    const id = await savePiece(db, input({ pieceNumber: "1", ...grid }), { actorId });
+    const inkM = (await variantsOf(id)).find((v) => v.color === "Ink" && v.size === "M")!;
+    await db.update(products).set({ status: "active", publishedAt: new Date() }).where(eq(products.id, id));
+    const order = await createOrder(db);
+    await db.transaction((tx) => reserveForOrder(tx, { orderId: order.id, lines: [{ variantId: inkM.id, quantity: 3 }], mode: "hold", ttlMinutes: 15 }));
     await expectRule(
-      savePiece(db, input({ pieceNumber: "2", pieceName: "Jamun", "v.0.id": v!.id }), { productId: other, actorId }),
-      "form",
+      savePiece(db, input({ pieceNumber: "1", ...grid, "c.0.was": "Sage", "c.1.was": "Ink", "s.0.was": "M", "s.1.was": "L", "stock.1.0": "1" }), { productId: id, actorId }),
+      "stock.1.0",
     );
+  });
+
+  it("refuses a taken number, needs stock to publish, and fixes number and address once published", async () => {
+    await savePiece(db, input({ pieceNumber: "3", ...grid }), { actorId });
+    await expectRule(savePiece(db, input({ pieceNumber: "3", pieceName: "Mitti", ...grid }), { actorId }), "pieceNumber");
+
+    const id = await savePiece(db, input({ pieceName: "Kahwa", "c.0.name": "", "s.0.name": "Free size", "stock.0.0": "0" }), { actorId });
+    await expectRule(setPieceStatus(db, id, "active", actorId), "form"); // no number yet
+    const edit = (fields: Record<string, string>) =>
+      savePiece(db, input({ pieceName: "Kahwa", "c.0.name": "", "s.0.name": "Free size", "s.0.was": "Free size", "stock.0.0": "1", ...fields }), { productId: id, actorId });
+    await edit({ pieceNumber: "9" });
+    await setPieceStatus(db, id, "active", actorId);
+    await expectRule(edit({ pieceNumber: "10" }), "pieceNumber");
+    await expectRule(edit({ pieceNumber: "9", slug: "kahwa" }), "slug");
+    await edit({ pieceNumber: "9", story: "Warm brown." });
+    const [p] = await db.select().from(products).where(and(eq(products.id, id)));
+    expect(p).toMatchObject({ status: "active", story: "Warm brown." });
+    await expect(setPieceStatus(db, id, "draft", actorId)).rejects.toThrow(/cannot move/);
   });
 });

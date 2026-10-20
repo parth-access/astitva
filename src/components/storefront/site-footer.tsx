@@ -18,9 +18,6 @@ export function SiteFooter() {
               <Link className="link" href="/about">About</Link>
             </li>
             <li>
-              <Link className="link" href="/archive">Archive</Link>
-            </li>
-            <li>
               <Link className="link" href="/contact">Contact</Link>
             </li>
           </ul>

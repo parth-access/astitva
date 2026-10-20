@@ -9,42 +9,62 @@ function form(fields: Record<string, string>) {
   return f;
 }
 
+/** Two colours × two sizes; Ink isn't made in L. */
 const base = {
   pieceNumber: "7",
   pieceName: "Neem",
-  name: "Olive linen wrap dress",
-  "v.0.priceMinor": "3,499",
-  "v.0.isActive": "on",
-  "v.0.initialStock": "1",
+  name: "Linen wrap dress",
+  priceMinor: "3,499",
+  "c.0.name": "Sage",
+  "c.0.hex": "#8A8F6A",
+  "c.4.name": "Ink",
+  "c.4.hex": "",
+  "s.0.name": "M",
+  "s.0.bustCm": "94",
+  "s.2.name": "L",
+  "stock.0.0": "2",
+  "stock.0.2": "0",
+  "stock.4.0": "1",
+  "stock.4.2": "",
 };
 
 describe("piece form", () => {
-  it("parses rupees to paise, makes the web address and drops blank fields", () => {
-    const r = parsePieceForm(form({ ...base, tone: "#6B6B46", story: "  ", "v.0.bustCm": "96" }));
+  it("reads colours, sizes and a stock grid, with blank meaning not made", () => {
+    const r = parsePieceForm(form(base));
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.data.slug).toBe("neem-olive-linen-wrap-dress");
-    expect(r.data.tone).toBe("#6b6b46");
-    expect(r.data.story).toBeNull();
-    expect(r.data.variants[0]).toMatchObject({ priceMinor: 349_900, isActive: true, initialStock: 1, measurements: { bustCm: 96 } });
+    expect(r.data.slug).toBe("neem-linen-wrap-dress");
+    expect(r.data.priceMinor).toBe(349_900);
+    expect(r.data.colours).toEqual([
+      { name: "Sage", hex: "#8a8f6a", was: null },
+      { name: "Ink", hex: null, was: null },
+    ]);
+    expect(r.data.sizes.map((s) => [s.name, s.measurements])).toEqual([
+      ["M", { bustCm: 94 }],
+      ["L", null],
+    ]);
+    expect(r.data.stock).toEqual([
+      [2, 0],
+      [1, null],
+    ]);
   });
 
-  it("keys errors by field so the form can show them in place", () => {
+  it("keys errors by the field the editor shows", () => {
     const r = parsePieceForm(
-      form({ ...base, name: "", "v.0.priceMinor": "abc", "v.3.priceMinor": "100", "v.3.compareAtMinor": "90", tone: "olive" }),
+      form({ ...base, name: "", priceMinor: "abc", "c.4.name": "sage", "stock.0.2": "-1", compareAtMinor: "100" }),
     );
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(Object.keys(r.errors).sort()).toEqual(["name", "tone", "v.0.priceMinor", "v.3.compareAtMinor"]);
+    expect(Object.keys(r.errors).sort()).toEqual(["c.4.name", "name", "priceMinor", "stock.0.2"]);
+    expect(r.errors["c.4.name"]).toMatch(/Two colours/);
   });
 
-  it("reads an unticked On sale box as off", () => {
-    const r = parsePieceForm(form({ ...base, "v.0.isActive": "" }));
-    expect(r.ok && r.data.variants[0]!.isActive).toBe(false);
-    const missing = { ...base } as Record<string, string>;
-    delete missing["v.0.isActive"];
-    const r2 = parsePieceForm(form(missing));
-    expect(r2.ok && r2.data.variants[0]!.isActive).toBe(false);
+  it("allows a single unnamed colour and size, but needs some stock", () => {
+    const one = { name: "Shawl", priceMinor: "1999", "c.0.name": "", "s.0.name": "", "stock.0.0": "" };
+    const empty = parsePieceForm(form(one));
+    expect(!empty.ok && empty.errors.stock).toMatch(/at least one/);
+    const ok = parsePieceForm(form({ ...one, "stock.0.0": "3" }));
+    expect(ok.ok && ok.data.stock).toEqual([[3]]);
   });
 
   it("strips accents and punctuation from web addresses", () => {

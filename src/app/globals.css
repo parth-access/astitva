@@ -11,7 +11,7 @@
  *   champagne  raised surfaces (the concierge band, notices, footer)
  *   sand       image frames while photos load
  *   taupe      rules and borders only (fails contrast as text)
- *   olive      availability and "one of one"
+ *   olive      availability
  *   burgundy   the one action colour: buttons, active links, focus
  *   espresso   text
  *   gold       ornaments only (the monogram); never text
@@ -479,12 +479,20 @@ html[data-intro] .intro.is-skipped {
   font-size: clamp(5rem, 22vw, 12.5rem);
   letter-spacing: -0.03em;
 }
-/* On a spread the title is set large enough to run across the fold and over
-   the edge of the arch, the way a magazine headline crosses the gutter. */
+/* On a spread a short title is set large enough to run across the fold and
+   over the edge of the arch, the way a magazine headline crosses the gutter.
+   Longer titles ("Autumn–Winter 2026") step down and wrap in balanced lines. */
+.lookbook-title[data-length="long"] {
+  font-size: clamp(3.75rem, 14vw, 9rem);
+  text-wrap: balance;
+}
 @media (min-width: 1024px) {
-  .lookbook-title {
+  .lookbook-title[data-length="short"] {
     font-size: clamp(10rem, 15vw, 16rem);
     white-space: nowrap;
+  }
+  .lookbook-title[data-length="long"] {
+    font-size: clamp(5rem, 7.2vw, 8.5rem);
   }
 }
 
@@ -599,4 +607,44 @@ html[data-intro] .intro.is-skipped {
   to {
     opacity: 1;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Loading skeletons and swatches                                      */
+/* ------------------------------------------------------------------ */
+
+.skeleton {
+  background-color: color-mix(in oklab, var(--color-sand) 55%, var(--color-ivory));
+  background-image: linear-gradient(100deg, transparent 30%, rgb(255 252 245 / 0.55) 50%, transparent 70%);
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton {
+    animation: skeleton-sheen 1.6s var(--ease-unhurried) infinite;
+  }
+}
+@keyframes skeleton-sheen {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
+/* A colour swatch: a soft ring so pale colours still read on ivory; a fine
+   diagonal stroke when that colour is sold out. */
+.swatch {
+  box-shadow:
+    inset 0 0 0 1px rgb(52 37 30 / 0.18),
+    0 0 0 1px rgb(255 252 245 / 0.6);
+}
+.swatch-out::after {
+  content: "";
+  position: absolute;
+  inset: 45% -8%;
+  height: 1px;
+  background: var(--color-espresso-soft);
+  transform: rotate(-45deg);
 }

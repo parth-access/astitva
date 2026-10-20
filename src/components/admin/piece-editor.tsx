@@ -3,12 +3,11 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { savePieceAction, type FormState } from "@/app/admin/(panel)/pieces/actions";
-import { CONDITION_LABELS, CONDITIONS, MEASUREMENT_FIELDS, slugify } from "@/modules/catalog-admin/fields";
+import { CONDITION_LABELS, CONDITIONS, slugify } from "@/modules/catalog-admin/fields";
 import { Field, FormError, Section, Select, SubmitButton, TextArea } from "./ui";
+import { VariantBuilder } from "./variant-builder";
 
-export type EditorRow = { index: number; id: string | null; sku: string | null; onHand: number };
 export type EditorOptions = {
-  chapters: { id: string; number: number; title: string }[];
   categories: { id: string; name: string }[];
   suggestedNumber: number;
 };
@@ -17,7 +16,6 @@ type Props = {
   productId: string | null;
   /** Saved values by form field name (see modules/catalog-admin/input.ts). */
   initial: Record<string, string>;
-  rows: EditorRow[];
   options: EditorOptions;
   /** True once the piece has ever been published: number and address are fixed. */
   locked: boolean;
@@ -25,9 +23,8 @@ type Props = {
 
 const empty: FormState = { errors: {} };
 
-export function PieceEditor({ productId, initial, rows: initialRows, options, locked }: Props) {
+export function PieceEditor({ productId, initial, options, locked }: Props) {
   const [state, action, pending] = useActionState(savePieceAction.bind(null, productId), empty);
-  const [rows, setRows] = useState(initialRows);
   // After a failed save React resets the form; show what was typed, not what was saved.
   const values = state.values ?? initial;
   const v = (name: string) => values[name] ?? "";
@@ -80,14 +77,6 @@ export function PieceEditor({ productId, initial, rows: initialRows, options, lo
           onChange={(ev) => setNames((n) => ({ ...n, name: ev.target.value }))}
         />
         <div className="grid gap-5 sm:grid-cols-2">
-          <Select label="Chapter" name="chapterId" defaultValue={v("chapterId")} error={e("chapterId")}>
-            <option value="">Not in a chapter yet</option>
-            {options.chapters.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.number}. {c.title}
-              </option>
-            ))}
-          </Select>
           <Select label="Category" name="categoryId" defaultValue={v("categoryId")} error={e("categoryId")}>
             <option value="">None</option>
             {options.categories.map((c) => (
@@ -107,7 +96,7 @@ export function PieceEditor({ productId, initial, rows: initialRows, options, lo
                 onChange={(ev) => setTone(ev.target.value)}
                 placeholder="#6b6b46"
                 error={e("tone")}
-                hint="The piece's main colour. Shown while photos load, and instead of them until they exist."
+                hint="Optional. Shown while photos load. Each colour's own swatch is used where there is one."
               />
             </div>
             <input
@@ -140,7 +129,7 @@ export function PieceEditor({ productId, initial, rows: initialRows, options, lo
           rows={4}
           defaultValue={v("story")}
           error={e("story")}
-          hint="Where and how it was found. The first sentence shows under the photo."
+          hint="What makes it special. The first sentence shows on its lookbook page."
         />
         <TextArea
           label="Styling note"
@@ -167,135 +156,52 @@ export function PieceEditor({ productId, initial, rows: initialRows, options, lo
         />
       </Section>
 
-      <Section title="Sizes and price" intro="Most pieces are one of one: a single size with 1 in stock.">
-        {rows.map((row, i) => {
-          const p = `v.${row.index}.`;
-          return (
-            <fieldset key={row.index} className="space-y-5 border border-sand p-4">
-              <legend className="px-2 text-sm text-espresso-soft">
-                {rows.length > 1 ? `Size ${i + 1}` : "Size"}
-                {row.sku ? ` · ${row.sku}` : " · new"}
-              </legend>
-              {row.id ? <input type="hidden" name={`${p}id`} value={row.id} /> : null}
-              <div className="grid gap-5 sm:grid-cols-3">
-                <Field label="Size" name={`${p}size`} defaultValue={v(`${p}size`)} placeholder="M, or Free size" error={e(`${p}size`)} />
-                <Field
-                  label="Price (₹)"
-                  name={`${p}priceMinor`}
-                  inputMode="decimal"
-                  defaultValue={v(`${p}priceMinor`)}
-                  placeholder="3499"
-                  error={e(`${p}priceMinor`)}
-                  hint="Including tax."
-                />
-                <Field
-                  label="Original price (₹)"
-                  name={`${p}compareAtMinor`}
-                  inputMode="decimal"
-                  defaultValue={v(`${p}compareAtMinor`)}
-                  error={e(`${p}compareAtMinor`)}
-                  hint="Only if it's reduced. Shown struck through."
-                />
-              </div>
-              <div className="grid gap-5 sm:grid-cols-3">
-                <Select label="Condition" name={`${p}condition`} defaultValue={v(`${p}condition`)} error={e(`${p}condition`)}>
-                  <option value="">Not stated</option>
-                  {CONDITIONS.map((c) => (
-                    <option key={c} value={c}>
-                      {CONDITION_LABELS[c]}
-                    </option>
-                  ))}
-                </Select>
-                {row.id ? (
-                  <div>
-                    <span className="text-sm font-medium">In stock</span>
-                    <p className="mt-1.5 flex min-h-12 items-center text-lg">
-                      {/* From the latest server render, so a stock change shows without losing edits here. */}
-                      {initialRows.find((r) => r.id === row.id)?.onHand ?? row.onHand}
-                    </p>
-                    <span className="block text-xs text-espresso-soft">Change it under Stock, below.</span>
-                  </div>
-                ) : (
-                  <Field
-                    label="In stock"
-                    name={`${p}initialStock`}
-                    inputMode="numeric"
-                    defaultValue={v(`${p}initialStock`) || "1"}
-                    error={e(`${p}initialStock`)}
-                  />
-                )}
-                <label className="flex items-center gap-3 self-center text-sm sm:mt-6">
-                  <input
-                    type="checkbox"
-                    name={`${p}isActive`}
-                    // Unticked boxes aren't submitted, so after a failed save "missing" means off.
-                    defaultChecked={state.values ? state.values[`${p}isActive`] === "on" : (initial[`${p}isActive`] ?? "on") === "on"}
-                    className="size-4 accent-burgundy"
-                  />
-                  On sale
-                </label>
-              </div>
+      <Section title="Price">
+        <div className="grid gap-5 sm:grid-cols-3">
+          <Field
+            label="Price (₹)"
+            name="priceMinor"
+            inputMode="decimal"
+            defaultValue={v("priceMinor")}
+            placeholder="3499"
+            error={e("priceMinor")}
+            hint="Including tax. Same for every colour and size."
+          />
+          <Field
+            label="Original price (₹)"
+            name="compareAtMinor"
+            inputMode="decimal"
+            defaultValue={v("compareAtMinor")}
+            error={e("compareAtMinor")}
+            hint="Only if it's reduced. Shown struck through."
+          />
+          <Select label="Condition" name="condition" defaultValue={v("condition")} error={e("condition")}>
+            <option value="">New (not stated)</option>
+            {CONDITIONS.map((c) => (
+              <option key={c} value={c}>
+                {CONDITION_LABELS[c]}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </Section>
 
-              <details>
-                <summary className="cursor-pointer text-sm font-medium">Measurements (cm)</summary>
-                <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-6">
-                  {MEASUREMENT_FIELDS.map(([key, label]) => (
-                    <Field
-                      key={key}
-                      label={label}
-                      name={`${p}${key}`}
-                      inputMode="decimal"
-                      defaultValue={v(`${p}${key}`)}
-                      error={e(`${p}${key}`)}
-                    />
-                  ))}
-                </div>
-                <p className="mt-2 text-xs text-espresso-soft">Garment measurements, laid flat and doubled where it wraps around.</p>
-              </details>
+      <Section title="Colours, sizes and stock" intro="Add the colours and sizes you have, then how many of each. The shop shows only what's here.">
+        <VariantBuilder values={values} errors={state.errors} />
+      </Section>
 
-              <details>
-                <summary className="cursor-pointer text-sm font-medium">Private: cost and reference</summary>
-                <p className="mt-2 text-xs text-espresso-soft">Only visible here. Never shown on the site.</p>
-                <div className="mt-4 grid gap-5 sm:grid-cols-3">
-                  <Field
-                    label="What it cost (₹)"
-                    name={`${p}acquisitionCostMinor`}
-                    inputMode="decimal"
-                    defaultValue={v(`${p}acquisitionCostMinor`)}
-                    error={e(`${p}acquisitionCostMinor`)}
-                  />
-                  <Field
-                    label="Bought on"
-                    name={`${p}acquiredAt`}
-                    type="date"
-                    defaultValue={v(`${p}acquiredAt`)}
-                    error={e(`${p}acquiredAt`)}
-                  />
-                  <Field
-                    label="Your reference"
-                    name={`${p}internalRef`}
-                    defaultValue={v(`${p}internalRef`)}
-                    error={e(`${p}internalRef`)}
-                    placeholder="Sarojini, stall 14"
-                  />
-                </div>
-              </details>
-
-              {!row.id && rows.length > 1 ? (
-                <button type="button" className="link text-sm" onClick={() => setRows(rows.filter((r) => r !== row))}>
-                  Remove this size
-                </button>
-              ) : null}
-            </fieldset>
-          );
-        })}
-        <button
-          type="button"
-          className="btn-outline"
-          onClick={() => setRows([...rows, { index: Math.max(-1, ...rows.map((r) => r.index)) + 1, id: null, sku: null, onHand: 0 }])}
-        >
-          Add another size
-        </button>
+      <Section title="Private" intro="Only visible here. Never shown on the site.">
+        <div className="grid gap-5 sm:grid-cols-3">
+          <Field
+            label="What one cost (₹)"
+            name="acquisitionCostMinor"
+            inputMode="decimal"
+            defaultValue={v("acquisitionCostMinor")}
+            error={e("acquisitionCostMinor")}
+          />
+          <Field label="Bought on" name="acquiredAt" type="date" defaultValue={v("acquiredAt")} error={e("acquiredAt")} />
+          <Field label="Your reference" name="internalRef" defaultValue={v("internalRef")} error={e("internalRef")} placeholder="Supplier, lot" />
+        </div>
       </Section>
 
       <Section title="Search listing" intro="Optional. How the piece appears in Google. Left blank, the name and story are used.">

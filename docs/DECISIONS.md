@@ -2,6 +2,18 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-20 — A fashion label, not a one-of-one boutique
+
+**Decision:** Astitva sells styles in whatever colours and sizes it has: a style (product) has variants for each colour × size, each with its own stock. Nothing fixes how many colours or sizes a style has; the admin builds the grid from what the seller has, and the storefront shows only that. Later, Krishna's own designs use the same model. Chapters, the archive of sold pieces and all one-of-one language ("One of one", "Found its home") are gone.
+
+**Why:** Parth: the launch is a few styles in several colours (3 styles × 4 colours now), and the brand will make its own designs. The one-of-one framing came from an earlier assumption.
+
+**How:**
+- Variants carry a colour name and swatch (`product_variants.color`, `color_hex`); photos can be tied to a colour (`product_images.color`). The painted sketch is washed in the colour's swatch.
+- The piece editor's grid: one row per colour, one column per size; a number is stock, blank means "not made". Saving sets each count through the inventory service ("Count set in the piece editor"); blank or removed combinations are switched off, never deleted; renaming a colour or size keeps its stock. Price, condition and private cost are per style.
+- The home page lookbook's title, subtitle and Krishna's note, and whether ordering is open, are store settings (`/admin/settings`, owners only). Migration 0007 copied the last chapter's title and letter into them before dropping chapters. `/chapters/*` and `/archive` redirect home.
+- Style numbers ("Nº 01") stay: unique, fixed once published.
+
 ## 2026-10-20 — The home page becomes a printed lookbook
 
 **Decision:** The home page and chapter pages are a printed lookbook (cover spread, letter, contents, a page per piece) instead of a cover followed by a grid of spreads. Pieces without photographs show a painted sketch of their garment instead of a flat colour plate, everywhere a plate appears. Details: `docs/DESIGN.md`.

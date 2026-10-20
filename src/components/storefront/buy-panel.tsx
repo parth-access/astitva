@@ -31,7 +31,7 @@ export function BuyPanel({ variants, orderingOpen }: { variants: BuyVariant[]; o
   const soldOut = variants.every((v) => v.available <= 0);
   const selectedOut = selected.available <= 0;
   const disabled = !orderingOpen || selectedOut;
-  const buttonText = soldOut ? "Sold" : selectedOut ? "This size is sold" : "Add to bag";
+  const buttonText = soldOut ? "Sold out" : selectedOut ? "Sold out in this size" : "Add to bag";
 
   return (
     <div>
@@ -68,11 +68,9 @@ export function BuyPanel({ variants, orderingOpen }: { variants: BuyVariant[]; o
 
       <p className="mt-6 text-sm" aria-live="polite">
         {soldOut ? (
-          <span className="text-espresso-soft">This piece has found its home.</span>
+          <span className="text-espresso-soft">Sold out for now.</span>
         ) : selectedOut ? (
           <span className="text-espresso-soft">Sold in this size.</span>
-        ) : single && selected.available === 1 ? (
-          <span className="text-olive">Available. There is only this one.</span>
         ) : selected.available <= 2 ? (
           <span className="text-olive">Available. Only {selected.available} left.</span>
         ) : (

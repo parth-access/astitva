@@ -20,7 +20,7 @@ const ROMAN: [number, string][] = [
   [1, "I"],
 ];
 
-/** Chapter numbers are shown in Roman numerals: Chapter I, Chapter II… */
+/** Roman numerals, for the lookbook's front-matter folios (i, ii, iii in lowercase). */
 export function toRoman(n: number): string {
   if (!Number.isInteger(n) || n <= 0 || n >= 4000) throw new RangeError(`Cannot write ${n} in Roman numerals`);
   let out = "";

@@ -7,12 +7,8 @@ export const metadata: Metadata = { title: "Questions", description: "Answers to
 // Answers that depend on undecided policies point to the policy pages instead of guessing.
 const faqs = [
   {
-    q: "What does “one of one” mean?",
-    a: <>There is only one of that piece. Once someone buys it, it is gone, so we mark it sold rather than restocking it.</>,
-  },
-  {
-    q: "Are the pieces new?",
-    a: <>Each product page states the condition of that exact piece.</>,
+    q: "Will a sold-out colour come back?",
+    a: <>Often, yes. Sold-out colours and sizes stay on the piece&apos;s page, marked, so you can see what we make. Ask Krishna on WhatsApp if you&apos;re waiting for one.</>,
   },
   {
     q: "How do I know it will fit?",

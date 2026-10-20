@@ -54,6 +54,12 @@ export async function setPhotoAlt(db: Db, productId: string, photoId: string, al
   await db.update(productImages).set({ altText: alt }).where(eq(productImages.id, photoId));
 }
 
+/** Ties a photo to one colour (shown when that colour is chosen), or to every colour (null). */
+export async function setPhotoColour(db: Db, productId: string, photoId: string, colour: string | null) {
+  await ownPhoto(db, productId, photoId);
+  await db.update(productImages).set({ color: colour?.trim() || null }).where(eq(productImages.id, photoId));
+}
+
 /** Moves a photo one place earlier or later. Moving to the front makes it the cover. */
 export async function movePhoto(db: Db, productId: string, photoId: string, direction: "earlier" | "later" | "first") {
   await db.transaction(async (tx) => {

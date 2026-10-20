@@ -17,10 +17,10 @@ export default async function AdminHome() {
           <span className="ml-2 text-sm text-espresso-soft">Add and edit pieces, photos, prices and stock.</span>
         </li>
         <li>
-          <Link href="/admin/chapters" className="link text-lg">
-            Chapters
+          <Link href="/admin/settings" className="link text-lg">
+            Lookbook &amp; settings
           </Link>
-          <span className="ml-2 text-sm text-espresso-soft">Releases, their letters and covers.</span>
+          <span className="ml-2 text-sm text-espresso-soft">The home page&apos;s title and Krishna&apos;s note, ordering, WhatsApp.</span>
         </li>
         <li>
           <Link href="/" className="link text-lg">

@@ -2,8 +2,8 @@ import Link from "next/link";
 import { paragraphs } from "@/lib/format";
 
 /**
- * The founder's letter that opens a chapter. `excerpt` shows the first
- * paragraphs with a link to the full letter on the chapter page.
+ * Krishna's note, set like a printed letter. `excerpt` shows the first
+ * paragraphs with a link to the rest.
  */
 export function Letter({
   text,

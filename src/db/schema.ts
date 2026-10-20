@@ -46,7 +46,6 @@ const money = (name: string) => bigint(name, { mode: "number" });
 
 export const productSourceType = pgEnum("product_source_type", ["curated", "own_brand"]);
 export const productStatus = pgEnum("product_status", ["draft", "active", "archived"]);
-export const chapterStatus = pgEnum("chapter_status", ["draft", "published"]);
 export const itemCondition = pgEnum("item_condition", ["new_with_tags", "new", "like_new", "gently_used"]);
 
 export const adminRole = pgEnum("admin_role", ["owner", "staff"]);
@@ -247,41 +246,6 @@ export const collections = pgTable("collections", {
   isActive: boolean("is_active").notNull().default(true),
 }).enableRLS();
 
-/**
- * A chapter is a release: a set of pieces launched together with a letter
- * from Krishna. Chapter I is the launch collection; own-label clothing later
- * arrives as further chapters.
- */
-export const chapters = pgTable(
-  "chapters",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    /** 1 for "Chapter I". Shown in Roman numerals. */
-    number: smallint("number").notNull().unique(),
-    slug: varchar("slug", { length: 96 }).notNull().unique(),
-    title: varchar("title", { length: 80 }).notNull(),
-    /** One line under the title, e.g. what the chapter is about. */
-    subtitle: varchar("subtitle", { length: 200 }),
-    /** The founder's letter that opens the chapter. Blank lines separate paragraphs. */
-    letter: text("letter").notNull().default(""),
-    letterSignature: varchar("letter_signature", { length: 60 }),
-    coverImageUrl: text("cover_image_url"),
-    coverImageAlt: varchar("cover_image_alt", { length: 240 }),
-    /** Hex colour shown while the cover loads, or instead of it. */
-    tone: varchar("tone", { length: 7 }),
-    status: chapterStatus("status").notNull().default("draft"),
-    /** When the chapter opens for purchase. Shown on the site; enforced at checkout. */
-    releaseAt: timestamp("release_at", { withTimezone: true }),
-    createdAt: createdAt(),
-    updatedAt: updatedAt(),
-  },
-  (t) => [
-    check("chapters_number_pos", sql`${t.number} > 0`),
-    check("chapters_tone_hex", sql`${t.tone} is null or ${t.tone} ~ '^#[0-9a-fA-F]{6}$'`),
-    check("chapters_published_has_release", sql`${t.status} <> 'published' or ${t.releaseAt} is not null`),
-  ],
-).enableRLS();
-
 export const products = pgTable(
   "products",
   {
@@ -295,8 +259,7 @@ export const products = pgTable(
     fit: varchar("fit", { length: 160 }),
     careInstructions: text("care_instructions"),
     isFeatured: boolean("is_featured").notNull().default(false),
-    chapterId: uuid("chapter_id").references(() => chapters.id, { onDelete: "set null" }),
-    /** The piece's place in the house's sequence: "Nº 07". Unique across all chapters, never reused. */
+    /** The style's number in the house's sequence: "Nº 07". Unique, never reused. */
     pieceNumber: integer("piece_number").unique(),
     /** The piece's given name, e.g. "Saanjh". `name` stays the plain description ("Taupe knit midi dress"). */
     pieceName: varchar("piece_name", { length: 60 }),
@@ -314,7 +277,6 @@ export const products = pgTable(
   },
   (t) => [
     index("products_status_published_idx").on(t.status, t.publishedAt.desc()),
-    index("products_chapter_idx").on(t.chapterId, t.pieceNumber),
     check("products_piece_number_pos", sql`${t.pieceNumber} is null or ${t.pieceNumber} > 0`),
     check("products_tone_hex", sql`${t.tone} is null or ${t.tone} ~ '^#[0-9a-fA-F]{6}$'`),
     check(
@@ -376,7 +338,10 @@ export const productVariants = pgTable(
       .references(() => products.id, { onDelete: "restrict" }),
     sku: varchar("sku", { length: 64 }).notNull().unique(),
     size: varchar("size", { length: 24 }),
+    /** Colour name as the customer sees it, e.g. "Sage". Variants of one colour share it exactly. */
     color: varchar("color", { length: 48 }),
+    /** The colour's swatch (hex). Also tints the painted sketch until there are photos. */
+    colorHex: varchar("color_hex", { length: 7 }),
     priceMinor: money("price_minor").notNull(),
     compareAtMinor: money("compare_at_minor"),
     currency: varchar("currency", { length: 3 }).notNull().default("INR"),
@@ -410,6 +375,7 @@ export const productVariants = pgTable(
     check("product_variants_low_stock_nonneg", sql`${t.lowStockThreshold} >= 0`),
     check("product_variants_cost_nonneg", sql`${t.acquisitionCostMinor} is null or ${t.acquisitionCostMinor} >= 0`),
     check("product_variants_currency_inr", sql`${t.currency} = 'INR'`),
+    check("product_variants_color_hex", sql`${t.colorHex} is null or ${t.colorHex} ~ '^#[0-9a-fA-F]{6}$'`),
   ],
 ).enableRLS();
 
@@ -421,6 +387,8 @@ export const productImages = pgTable(
       .notNull()
       .references(() => products.id, { onDelete: "cascade" }),
     url: text("url").notNull(),
+    /** The colour this photo shows (matches product_variants.color); null for photos of every colour. */
+    color: varchar("color", { length: 48 }),
     altText: varchar("alt_text", { length: 240 }).notNull().default(""),
     width: integer("width"),
     height: integer("height"),
@@ -452,6 +420,14 @@ export const storeSettings = pgTable(
     /** Who answers WhatsApp, shown as "Ask Krishna". Null shows "Ask us". */
     conciergeName: varchar("concierge_name", { length: 40 }),
     gstin: varchar("gstin", { length: 15 }),
+    /** Customers can add to bag and check out. Off while the site is a preview. */
+    orderingOpen: boolean("ordering_open").notNull().default(false),
+    /** The home page lookbook's title and line, e.g. "Autumn–Winter 2026". */
+    lookbookTitle: varchar("lookbook_title", { length: 80 }),
+    lookbookSubtitle: varchar("lookbook_subtitle", { length: 200 }),
+    /** Krishna's note on the home page. Blank lines separate paragraphs. */
+    note: text("note").notNull().default(""),
+    noteSignature: varchar("note_signature", { length: 60 }),
     updatedAt: updatedAt(),
   },
   (t) => [

@@ -6,7 +6,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.APP_URL ?? "http://localhost:3000"),
   title: { default: "Astitva — Your True Form", template: "%s | Astitva" },
-  description: "Curated womenswear, chosen piece by piece. Many of our pieces are one of one.",
+  description: "Womenswear by Astitva. Pieces chosen and made with care, in the colours and sizes we have.",
   openGraph: { siteName: "Astitva", type: "website", locale: "en_IN" },
 };
 

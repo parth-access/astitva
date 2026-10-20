@@ -9,7 +9,7 @@ The specification is the revised PRD (Astitva PRD Review and Revised Specificati
 | Milestone | State |
 | --- | --- |
 | M0 Foundation: repo, schema, tokens, CI-ready scripts | Done |
-| M1 Catalogue: storefront as a lookbook (chapters, numbered pieces, archive, concierge) | Done: storefront, admin sign-in (password + required 2FA), piece and chapter editors, photos on Cloudinary |
+| M1 Catalogue: the lookbook storefront, styles in colours × sizes, admin | Done: storefront lookbook, admin sign-in (password + required 2FA), style editor with colour × size stock grid, photos on Cloudinary, lookbook settings. Storefront colour/size UX next |
 | M2 Inventory engine: reservations, movements, state machines | Done, with concurrency tests |
 | M3 Cart, guest checkout, COD | Not started |
 | M4 Razorpay | Not started |
@@ -80,7 +80,8 @@ src/
   proxy.ts            sends signed-out visitors of /admin to the login page (a shortcut, not the check)
   app/api/health/     uptime check
   components/         UI (storefront/)
-  components/brand/   the lookbook: plates, spreads, chapter cover, letter, archive, concierge, first-visit intro
+  components/brand/   plates, painted sketches, letter, concierge, first-visit intro
+  components/lookbook/ the home page lookbook and loading skeletons
 assets/brand/         the logo source the mascot assets are generated from
 scripts/mascot/       mascot pipeline: python3 scripts/mascot/build.py
   content/            policy drafts and brand promises (must be confirmed before launch)

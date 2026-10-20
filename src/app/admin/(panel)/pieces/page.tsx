@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { StatusBadge } from "@/components/admin/ui";
-import { formatPieceNumber, toRoman } from "@/lib/format";
+import { formatPieceNumber } from "@/lib/format";
 import { formatINR } from "@/lib/money";
 import { requireAdmin } from "@/modules/auth/auth";
 import { listAdminPieces, type AdminPieceRow } from "@/modules/catalog-admin/queries";
@@ -9,8 +9,19 @@ import { listAdminPieces, type AdminPieceRow } from "@/modules/catalog-admin/que
 export const metadata: Metadata = { title: "Pieces" };
 
 function stockLabel(p: AdminPieceRow) {
-  if (p.onHand > 0) return `${p.onHand} in stock`;
-  return p.sold > 0 ? "Found its home" : "None in stock";
+  return p.onHand > 0 ? `${p.onHand} in stock` : "Sold out";
+}
+
+function Swatches({ colours }: { colours: AdminPieceRow["colours"] }) {
+  const named = colours.filter((c) => c.name);
+  if (named.length === 0) return null;
+  return (
+    <span className="mt-1.5 flex items-center gap-1.5" aria-label={named.map((c) => c.name).join(", ")}>
+      {named.map((c) => (
+        <span key={c.name} title={c.name ?? ""} className="inline-block size-3.5 rounded-full border border-taupe" style={{ backgroundColor: c.hex ?? "#d9c7ad" }} />
+      ))}
+    </span>
+  );
 }
 
 export default async function PiecesPage() {
@@ -43,8 +54,9 @@ export default async function PiecesPage() {
                   <span className="font-display italic">{p.pieceName ?? "Unnamed"}</span>
                   <span className="block text-sm text-espresso-soft">
                     {p.name}
-                    {p.chapterNumber ? ` · Chapter ${toRoman(p.chapterNumber)}` : ""}
+                    {p.sizes > 1 ? ` · ${p.sizes} sizes` : ""}
                   </span>
+                  <Swatches colours={p.colours} />
                 </span>
                 <span className="text-sm sm:text-right">{p.priceMinor === null ? "No price" : formatINR(p.priceMinor)}</span>
                 <span className="text-sm text-espresso-soft sm:text-right">{stockLabel(p)}</span>

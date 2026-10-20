@@ -1,17 +1,17 @@
 # Storefront design: the Lookbook
 
-Astitva is presented as a house that releases **chapters** of hand-chosen pieces, not as a shop with stock. The site reads like a printed lookbook: a cover, a letter, then the pieces as plates, each numbered and named.
+Astitva is a fashion label whose store reads like a printed lookbook rather than a shop grid: a cover, a note from Krishna, contents, then each style as a plate, numbered and named, in the colours and sizes the house has.
 
 ## The ideas the design carries
 
 | Idea | Where it shows | Data |
 | --- | --- | --- |
-| Every piece is numbered and named | Plates, captions, piece page, archive, WhatsApp message | `products.piece_number` (unique, never reused), `products.piece_name`; `products.name` stays the plain description |
+| Every style is numbered and named | Plates, captions, piece page, WhatsApp message | `products.piece_number` (unique, never reused), `products.piece_name`; `products.name` stays the plain description |
 | Every piece has a provenance | Caption under each plate (first sentence), piece page | `products.story` |
-| Releases are chapters with a letter | Homepage cover and letter, `/chapters/[slug]` | `chapters` table: number (shown in Roman), title, subtitle, letter, signature, release date, cover, tone |
-| Sold pieces stay visible | "Found their home" on the homepage, `/archive` | Derived: active product, nothing left on hand, at least one sale. City shown only if the buyer opted in (`orders.share_city_in_archive`) |
+| The lookbook opens with a note | Home cover and note page | `store_settings`: lookbook title, subtitle, note, note signature (edited at `/admin/settings`) |
+| Colours as the brand offers them | Swatches on lookbook pages, the shop and the piece page; sold-out colours struck through | `product_variants.color`, `color_hex`; photos per colour in `product_images.color` |
 | A person, not a bot | "Ask Krishna about the fit" on each piece, concierge band | `store_settings.support_whatsapp`, `store_settings.concierge_name` |
-| How she would wear it | Quote on the piece page, signed | `products.styling_note`, chapter `letter_signature` |
+| How she would wear it | Quote on the piece page, signed | `products.styling_note`, `store_settings.note_signature` |
 
 ## Signature devices
 
@@ -48,11 +48,11 @@ One moment per page, never decoration (the first-visit intro aside):
 - turning the pages of the lookbook (sticky leaves, wide screens);
 - a sketch's ink drawing itself as its plate comes into view (wide screens).
 
-All are disabled under `prefers-reduced-motion`. A transition name must appear once per page: the home page's archive section shows only earlier chapters, so a piece never appears twice.
+All are disabled under `prefers-reduced-motion`. A transition name must appear once per page, so a style appears once on any page.
 
 ## Layout
 
-- **The lookbook** (`components/lookbook/lookbook.tsx`): the home page and every chapter page are a printed lookbook. A cover spread (chapter title set huge, running across the fold and over the arch; the opening line of the letter, signed), on chapter pages the whole letter as its own page, a contents page (numbers, names, dotted leaders, page numbers; sold pieces marked), then one page per piece, alternating sides. Pages carry print furniture: running heads, folios (roman for front matter), a gutter shadow on spreads, paper grain. On wide screens each page sticks and the next slides over it like a turned leaf; on phones pages simply follow one another. Sold pieces keep their page, marked "Found its home"; the end matter's archive shows only earlier chapters.
+- **The lookbook** (`components/lookbook/lookbook.tsx`): the home page is a printed lookbook. A cover spread (the lookbook title set huge; short titles run across the fold and over the arch, long ones wrap; the opening line of Krishna's note, signed), the whole note as its own page, a contents page (numbers, names, colours, dotted leaders, page numbers), then one page per style with its colour swatches, alternating sides. Pages carry print furniture: running heads, folios (roman for front matter), a gutter shadow on spreads, paper grain. On wide screens each page sticks and the next slides over it like a turned leaf; on phones pages simply follow one another. A sold-out style keeps its page, marked "Sold out for now".
 - **Grid** (`/shop`): every piece at once for people who know what they want; middle column stepped down.
 - **Masthead**: wordmark centred with the tagline beneath, navigation split either side; a no-JavaScript disclosure on phones.
 
@@ -85,9 +85,9 @@ Text on a plate switches between ivory and espresso by the tone's luminance (`li
 - On a phone, the piece's name shows without scrolling and the price and buy button stay fixed at the bottom.
 - "Inclusive of all taxes" under every price.
 - Garment measurements in centimetres on every piece, linked to the size guide.
-- Sold pieces can't be added to the bag; they say "Found its home".
+- Sold-out colours and sizes can't be added to the bag; they say "Sold out".
 - Visible focus ring, skip link, reduced motion respected.
 
 ## Copy that needs Krishna
 
-Everything in her voice is a draft: the chapter letter, each story and styling note (sample data), and any promise in `src/content/brand.ts` (e.g. "Packed by hand"), which is hidden in production until marked `confirmed`.
+Everything in her voice is a draft: the lookbook note, each story and styling note (sample data), and any promise in `src/content/brand.ts` (e.g. "Packed by hand"), which is hidden in production until marked `confirmed`.

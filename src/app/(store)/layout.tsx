@@ -1,11 +1,14 @@
 import { Intro } from "@/components/brand/intro";
 import { SiteFooter } from "@/components/storefront/site-footer";
 import { SiteHeader } from "@/components/storefront/site-header";
+import { getStorefront } from "@/modules/catalog/queries";
 
-// TODO(launch): remove the notice once checkout (M3) is live.
-const PREVIEW_NOTICE = "Preview. Ordering opens with Chapter I.";
+/** While ordering is closed (store settings), every page says so at the top. */
+const PREVIEW_NOTICE = "Preview. Ordering opens soon.";
 
-export default function StoreLayout({ children }: LayoutProps<"/">) {
+
+export default async function StoreLayout({ children }: LayoutProps<"/">) {
+  const { orderingOpen } = await getStorefront();
   return (
     <>
       <Intro />
@@ -15,7 +18,7 @@ export default function StoreLayout({ children }: LayoutProps<"/">) {
       >
         Skip to content
       </a>
-      <SiteHeader notice={PREVIEW_NOTICE} />
+      <SiteHeader notice={orderingOpen ? null : PREVIEW_NOTICE} />
       <main id="main" className="flex-1">
         {children}
       </main>

@@ -10,7 +10,7 @@ import type { PieceCard } from "@/modules/catalog/queries";
  */
 export function ProductGrid({ pieces, priorityCount = 0 }: { pieces: PieceCard[]; priorityCount?: number }) {
   if (pieces.length === 0) {
-    return <p className="caption py-16 text-2xl">Nothing here at the moment. New pieces arrive one chapter at a time.</p>;
+    return <p className="caption py-16 text-2xl">Nothing here at the moment. New pieces are on their way.</p>;
   }
   return (
     <ul className="grid grid-cols-2 gap-x-4 gap-y-14 sm:gap-x-8 lg:grid-cols-3 lg:gap-x-12 lg:[&>li:nth-child(3n+2)]:translate-y-16">
