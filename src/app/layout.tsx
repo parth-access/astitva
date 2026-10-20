@@ -5,9 +5,14 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.APP_URL ?? "http://localhost:3000"),
-  title: { default: "Astitva — Your True Form", template: "%s | Astitva" },
-  description: "Womenswear by Astitva. Pieces chosen and made with care, in the colours and sizes we have.",
+  title: { default: "Astitva — Your true form", template: "%s | Astitva" },
+  description: "Womenswear by Astitva: a few considered styles, each in the colours we couldn't choose between. See the lookbook and shop online.",
+  applicationName: "Astitva",
+  category: "fashion",
   openGraph: { siteName: "Astitva", type: "website", locale: "en_IN" },
+  twitter: { card: "summary_large_image" },
+  // Order numbers and prices aren't phone numbers.
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {

@@ -10,10 +10,12 @@ import { PieceGallery } from "@/components/storefront/piece-gallery";
 import { PieceSelection } from "@/components/storefront/piece-selection";
 import { Price } from "@/components/storefront/price";
 import { PACKED_BY_HAND, showPromise } from "@/content/brand";
-import { cloudinaryUrl } from "@/lib/cloudinary-url";
 import { db } from "@/db/client";
 import type { Measurements } from "@/db/schema";
 import { formatPieceNumber } from "@/lib/format";
+import { formatINR } from "@/lib/money";
+import { breadcrumbLd, productLd } from "@/lib/seo";
+import { JsonLd } from "@/components/brand/json-ld";
 import { OptionsSkeleton, PieceSkeleton } from "@/components/lookbook/skeletons";
 import { getAdjacentPieces, getProductBySlug, getStorefront, listPieces, type ProductDetail } from "@/modules/catalog/queries";
 import { getAvailability } from "@/modules/inventory/service";
@@ -23,19 +25,43 @@ export async function generateStaticParams() {
   return pieces.map((p) => ({ slug: p.slug }));
 }
 
-function titleOf(p: Pick<ProductDetail, "pieceName" | "name" | "pieceNumber">) {
-  const name = p.pieceName ? `${p.pieceName}, ${p.name.toLowerCase()}` : p.name;
-  return p.pieceNumber ? `${formatPieceNumber(p.pieceNumber)} ${name}` : name;
+/** "Sage, Ivory, Rust and Ink". */
+function listWords(words: string[]) {
+  return words.length <= 1 ? (words[0] ?? "") : `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
+}
+
+/** What a search result or a shared link says about a piece, from what the page shows. */
+function describe(p: ProductDetail) {
+  const colours = [...new Set(p.variants.map((v) => v.color).filter((c): c is string => Boolean(c)))];
+  const sizes = [...new Set(p.variants.map((v) => v.size).filter((s): s is string => Boolean(s)))];
+  const lowest = Math.min(...p.variants.map((v) => v.priceMinor));
+  const facts = [
+    colours.length ? `In ${listWords(colours)}.` : null,
+    sizes.length ? `${sizes.length > 1 ? "Sizes" : "Size"} ${listWords(sizes)}.` : null,
+    p.material ? `${p.material}.` : null,
+    `${formatINR(lowest)}.`,
+  ].filter(Boolean);
+  const lead = p.seoDescription ?? p.story ?? p.description.split(/\n/)[0] ?? "";
+  return { colours, text: `${lead ? `${lead.trim()} ` : ""}${facts.join(" ")}`.slice(0, 300) };
 }
 
 export async function generateMetadata({ params }: PageProps<"/pieces/[slug]">): Promise<Metadata> {
   const product = await getProductBySlug((await params).slug);
-  if (!product) return { title: "Not found" };
+  if (!product || product.variants.length === 0) return { title: "Not found", robots: { index: false } };
+  const { colours, text } = describe(product);
+  // e.g. "Neem linen wrap dress in Sage, Ivory, Rust and Ink"; the brand is added by the template.
+  const named = product.pieceName ? `${product.pieceName} ${product.name.toLowerCase()}` : product.name;
+  const title = product.seoTitle ?? (colours.length > 1 && named.length < 40 ? `${named} in ${listWords(colours)}` : named);
   return {
-    title: product.seoTitle ?? titleOf(product),
-    description: product.seoDescription ?? product.story?.slice(0, 160) ?? product.description.slice(0, 160),
+    title,
+    description: text,
     alternates: { canonical: pieceHref(product.slug) },
-    openGraph: { images: product.images[0] ? [{ url: cloudinaryUrl(product.images[0].url, { width: 1200 }) }] : undefined },
+    openGraph: {
+      title: `${title} | Astitva`,
+      description: text,
+      url: pieceHref(product.slug),
+      images: [{ url: `${pieceHref(product.slug)}/share.png`, width: 1200, height: 630, alt: `${title}, by Astitva` }],
+    },
   };
 }
 
@@ -160,9 +186,33 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
   for (const v of product.variants) if (!colours.some((c) => c.name === v.color)) colours.push({ name: v.color, hex: v.colorHex });
   const firstInStock = product.variants.find((v) => v.onHand > 0)?.color ?? colours[0]?.name ?? null;
   const signature = store.noteSignature;
+  const ld = [
+    breadcrumbLd([
+      { name: "Astitva", path: "/" },
+      { name: "Shop", path: "/shop" },
+      { name: title, path: pieceHref(product.slug) },
+    ]),
+    // Offers only once ordering is open: before that nothing can be bought.
+    ...(store.orderingOpen
+      ? [
+          productLd({
+            slug: product.slug,
+            name: product.name,
+            pieceName: product.pieceName,
+            pieceNumber: product.pieceNumber,
+            description: describe(product).text,
+            material: product.material,
+            category: product.categorySlug,
+            images: product.images.map((i) => ({ url: i.url, color: i.color })),
+            variants: product.variants.map((v) => ({ sku: v.sku, size: v.size, color: v.color, priceMinor: v.priceMinor, condition: v.condition, available: v.onHand })),
+          }),
+        ]
+      : []),
+  ];
 
   return (
     <PieceSelection colours={colours} initialColour={firstInStock}>
+      <JsonLd data={ld} />
       <article className="mx-auto grid max-w-6xl gap-10 px-4 pb-28 pt-6 sm:px-8 md:grid-cols-12 md:gap-8 md:pb-0 md:pt-10">
         {/* On phones the arch is narrowed so the piece's name shows without scrolling. */}
         <div className="mx-auto w-[84%] md:col-span-7 md:w-full">

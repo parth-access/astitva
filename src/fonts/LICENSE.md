@@ -9,3 +9,8 @@ Google Fonts being reachable.
 - Cormorant Infant — tagline and short accents
 
 https://openfontlicense.org
+
+`og/` holds static (non-variable) `.woff` files of Playfair Display and Montserrat from the
+same Fontsource packages, for the generated share images: the image renderer reads neither
+`woff2` nor variable fonts.
+- `playfair-display-latin-ext-400-normal.woff` is there only for the rupee sign (₹).

@@ -2,6 +2,18 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-21 — Search and sharing
+
+**Decision:** Every public page says what it is to search engines and to the apps people share links in, using only facts the page already shows.
+
+**How** (`src/lib/seo.ts`, `src/lib/og.tsx`):
+- **Titles and descriptions:** the home page leads with the brand and the lookbook's title; a piece reads "Neem linen wrap dress in Sage, Ivory, Rust and Ink | Astitva", and its description adds its colours, sizes, fabric and price to its story. A piece's SEO title/description fields in the editor override these. Every public page has a canonical address; the shop's sort and filter views point to `/shop`.
+- **Structured data (JSON-LD):** Organization (with WhatsApp and email when set) and WebSite on the home page; BreadcrumbList on each piece; each style as a **ProductGroup** with one Product per colour and size (price in INR, stock, condition, the colour's photos), so search can show the right price and colour. Product data is published **only while ordering is open**: before that nothing can be bought. Text is escaped so it can't break out of its script tag.
+- **Share cards** (1200×630, what WhatsApp, Instagram and search show): the site's card has the lookbook title in arches of the season's colours; each piece's card has its photo (or its colour), number, name, swatches, sizes and price. Pieces' cards live at a stable address, `/pieces/<slug>/share.png`, because Next's `opengraph-image` convention adds a build hash to the address, which the sitemap and product data can't use. The renderer needs static fonts: `src/fonts/og` (Playfair and Montserrat `.woff`, plus Playfair's latin-ext file for the ₹ sign).
+- **Sitemap:** last-changed dates and an image for each piece; draft policies left out. Draft policy pages also say `noindex` until they're final.
+
+**After launch:** add the site to Google Search Console and submit `/sitemap.xml`; check a piece with Google's Rich Results Test.
+
 ## 2026-10-21 — Alerts, emails, scheduled jobs, backups and hardening (M6, part 1)
 
 **Decision:** Owners hear about orders by email; every email goes through the outbox and Resend; housekeeping runs from GitHub Actions; backups are encrypted pg_dumps kept as workflow downloads.

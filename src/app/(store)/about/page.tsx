@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { TextPage } from "@/components/storefront/text-page";
 
-export const metadata: Metadata = { title: "About", description: "The story behind Astitva." };
+export const metadata: Metadata = {
+  title: "About",
+  description: "Astitva means existence: being yourself. The story of the brand, and how its pieces are chosen.",
+  alternates: { canonical: "/about" },
+};
 
 // TODO(brand): replace with Krishna's own story before launch.
 export default function AboutPage() {

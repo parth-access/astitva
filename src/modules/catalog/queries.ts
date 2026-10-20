@@ -61,6 +61,8 @@ export type PieceCard = {
   variantCount: number;
   /** Colours that exist for this style (active variants only), in the order they were added. */
   colours: PieceColour[];
+  /** Last edit, for the sitemap. */
+  updatedAt: Date;
 };
 
 const minPrice = sql<number>`min(${productVariants.priceMinor})::bigint`;
@@ -101,6 +103,7 @@ export async function listPieces(
       compareAtMinor: sql<number | null>`max(${productVariants.compareAtMinor})::bigint`,
       onHand: sql<number>`sum(${productVariants.onHand})::int`,
       variantCount: sql<number>`count(${productVariants.id})::int`,
+      updatedAt: products.updatedAt,
     })
     .from(products)
     .innerJoin(productVariants, and(eq(productVariants.productId, products.id), eq(productVariants.isActive, true)))

@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { TextPage } from "@/components/storefront/text-page";
 
-export const metadata: Metadata = { title: "Contact", description: "Get in touch with Astitva." };
+export const metadata: Metadata = {
+  title: "Contact",
+  description: "Ask Astitva about a piece, its fit or an order, on WhatsApp or by email.",
+  alternates: { canonical: "/contact" },
+};
 
 // TODO(launch): read support email and WhatsApp number from store_settings once Krishna confirms them.
 export default function ContactPage() {

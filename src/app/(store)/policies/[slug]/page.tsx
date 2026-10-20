@@ -8,7 +8,14 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: PageProps<"/policies/[slug]">): Promise<Metadata> {
   const policy = getPolicy((await params).slug);
-  return policy ? { title: policy.title, description: policy.summary } : { title: "Not found" };
+  if (!policy) return { title: "Not found", robots: { index: false } };
+  return {
+    title: policy.title,
+    description: policy.summary,
+    alternates: { canonical: `/policies/${policy.slug}` },
+    // A draft isn't a promise yet: keep it out of search until Krishna confirms it.
+    ...(policy.status === "draft" ? { robots: { index: false, follow: true } } : {}),
+  };
 }
 
 export default async function PolicyPage({ params }: PageProps<"/policies/[slug]">) {

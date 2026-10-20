@@ -6,8 +6,10 @@ import { ProductGrid } from "@/components/storefront/product-grid";
 import { listCategories, listPieces, PRODUCT_SORTS, type ProductSort } from "@/modules/catalog/queries";
 
 export const metadata: Metadata = {
-  title: "Shop",
-  description: "Every Astitva piece in one place, in every colour we have.",
+  title: "Shop womenswear",
+  description: "Every Astitva style in one place, in every colour we have. Choose a colour to see it, and the sizes it comes in.",
+  // Sorting and filtering are views of this one page.
+  alternates: { canonical: "/shop" },
 };
 
 function first(value: string | string[] | undefined) {

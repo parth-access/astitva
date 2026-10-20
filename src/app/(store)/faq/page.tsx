@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { TextPage } from "@/components/storefront/text-page";
 
-export const metadata: Metadata = { title: "Questions", description: "Answers to common questions about Astitva." };
+export const metadata: Metadata = {
+  title: "Questions",
+  description: "Answers about Astitva's pieces, sizes, ordering, payment and delivery.",
+  alternates: { canonical: "/faq" },
+};
 
 // Answers that depend on undecided policies point to the policy pages instead of guessing.
 const faqs = [
