@@ -57,6 +57,13 @@
       "when": 1792502454191,
       "tag": "0007_colours_and_lookbook_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792517581747,
+      "tag": "0008_order_returned",
+      "breakpoints": true
     }
   ]
 }

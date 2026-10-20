@@ -5,56 +5,9 @@ import { emailOutbox, inventoryReservations, orderEvents, orders, paymentEvents,
 import { addToBag, openBag, readBag } from "../../src/modules/bag/service";
 import type { CheckoutInput } from "../../src/modules/checkout/input";
 import { placeOrder } from "../../src/modules/checkout/service";
-import { createRazorpay, hmacHex, type RazorpayPayment } from "../../src/modules/payments/razorpay";
 import { confirmFromCheckout, handleWebhook, openPayment, PaymentError } from "../../src/modules/payments/service";
+import { fakeRazorpay } from "./fake-razorpay";
 import { createVariant, expireHolds, hasDb, makeDb, movementSum, onHand, resetData } from "./helpers";
-
-const SECRET = "test_secret_value";
-
-/** Stands in for Razorpay's API: remembers orders, and payments we tell it about. */
-function fakeRazorpay() {
-  const orderAmounts = new Map<string, number>();
-  const paymentsById = new Map<string, RazorpayPayment>();
-  let down = false;
-  const fetchImpl = (async (url: string | URL, init?: RequestInit) => {
-    if (down) return new Response(JSON.stringify({ error: { description: "Service unavailable" } }), { status: 503 });
-    const path = new URL(String(url)).pathname.replace("/v1", "");
-    if (init?.method === "POST" && path === "/orders") {
-      const body = JSON.parse(String(init.body)) as { amount: number; receipt: string };
-      const id = `order_${randomUUID().slice(0, 14)}`;
-      orderAmounts.set(id, body.amount);
-      return Response.json({ id, amount: body.amount, currency: "INR", receipt: body.receipt, status: "created" });
-    }
-    const capture = /^\/payments\/([^/]+)\/capture$/.exec(path);
-    if (capture) {
-      const p = paymentsById.get(capture[1]!)!;
-      p.status = "captured";
-      return Response.json(p);
-    }
-    const fetchP = /^\/payments\/([^/]+)$/.exec(path);
-    if (fetchP && paymentsById.has(fetchP[1]!)) return Response.json(paymentsById.get(fetchP[1]!));
-    return new Response(JSON.stringify({ error: { description: "Not found" } }), { status: 404 });
-  }) as typeof fetch;
-
-  return {
-    rzp: createRazorpay({ keyId: "rzp_test_abc", keySecret: SECRET }, fetchImpl),
-    setDown: (v: boolean) => (down = v),
-    /** The buyer pays in Razorpay's window. Returns what the browser would send back. */
-    pay(razorpayOrderId: string, opts: { amount?: number; status?: string } = {}) {
-      const id = `pay_${randomUUID().slice(0, 14)}`;
-      const payment: RazorpayPayment = {
-        id,
-        order_id: razorpayOrderId,
-        amount: opts.amount ?? orderAmounts.get(razorpayOrderId)!,
-        currency: "INR",
-        status: opts.status ?? "captured",
-        method: "upi",
-      };
-      paymentsById.set(id, payment);
-      return { payment, reply: { razorpayOrderId, razorpayPaymentId: id, signature: hmacHex(SECRET, `${razorpayOrderId}|${id}`) } };
-    },
-  };
-}
 
 function buyer(key = randomUUID()): CheckoutInput {
   return {

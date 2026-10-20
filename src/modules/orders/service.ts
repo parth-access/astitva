@@ -5,7 +5,7 @@
  */
 import { and, asc, desc, eq, isNull, or, sql } from "drizzle-orm";
 import type { DbOrTx, Db } from "@/db/create";
-import { auditLogs, codCollections, orderEvents, orderItems, orders, payments } from "@/db/schema";
+import { auditLogs, codCollections, orderEvents, orderItems, orders, payments, refunds, shipments } from "@/db/schema";
 import { formatINR } from "@/lib/money";
 import { InvalidTransitionError } from "@/lib/state-machine";
 import { restockCancelledOrder } from "@/modules/inventory/service";
@@ -58,8 +58,23 @@ export async function getOrderForBuyer(db: DbOrTx, orderNumber: string) {
     .from(orders)
     .where(eq(orders.orderNumber, orderNumber));
   if (!order) return null;
-  const items = await db.select(itemFields).from(orderItems).where(eq(orderItems.orderId, order.id)).orderBy(asc(orderItems.id));
+  const [items, [shipment], refunded] = await Promise.all([
+    db.select(itemFields).from(orderItems).where(eq(orderItems.orderId, order.id)).orderBy(asc(orderItems.id)),
+    db
+      .select({ carrierName: shipments.carrierName, trackingNumber: shipments.trackingNumber, trackingUrl: shipments.trackingUrl, shippedAt: shipments.shippedAt, deliveredAt: shipments.deliveredAt })
+      .from(shipments)
+      .where(eq(shipments.orderId, order.id))
+      .orderBy(desc(shipments.createdAt))
+      .limit(1),
+    db
+      .select({ id: refunds.id, amountMinor: refunds.amountMinor, status: refunds.status })
+      .from(refunds)
+      .where(and(eq(refunds.orderId, order.id), sql`${refunds.status} <> 'failed'`))
+      .orderBy(asc(refunds.createdAt)),
+  ]);
   return {
+    shipment: shipment ?? null,
+    refunds: refunded.map((r) => money(r, ["amountMinor"])),
     ...money(order, ["subtotalMinor", "shippingMinor", "codFeeMinor", "totalMinor"]),
     items: items.map((i) => money(i, ["unitPriceMinor", "lineTotalMinor"])),
   };
@@ -75,7 +90,8 @@ const needsKrishna = or(
 
 /**
  * Newest first. "to_check": orders waiting on Krishna. "open": everything not
- * finished, except online checkouts nobody paid for (they're under "all").
+ * finished (including COD cash the courier still owes), except online
+ * checkouts nobody paid for (they're under "all").
  */
 export async function listOrders(db: DbOrTx, filter: OrderListFilter = "open") {
   const where =
@@ -84,7 +100,9 @@ export async function listOrders(db: DbOrTx, filter: OrderListFilter = "open") {
       : filter === "open"
         ? or(
             eq(orders.needsResolution, true),
-            sql`${orders.orderStatus} not in ('delivered', 'cancelled') and not (${orders.orderStatus} = 'pending_payment' and ${orders.paymentStatus} = 'unpaid')`,
+            sql`${orders.orderStatus} not in ('delivered', 'cancelled', 'returned') and not (${orders.orderStatus} = 'pending_payment' and ${orders.paymentStatus} = 'unpaid')`,
+            // Delivered on cash, but the courier hasn't paid it over yet.
+            and(eq(orders.orderStatus, "delivered"), eq(orders.paymentMethod, "cod"), eq(orders.paymentStatus, "unpaid")),
           )
         : undefined;
   const rows = await db
@@ -121,7 +139,7 @@ export async function countOrdersToCheck(db: DbOrTx): Promise<number> {
 export async function getOrderForAdmin(db: DbOrTx, orderId: string) {
   const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
   if (!order) return null;
-  const [items, events, [cod], [payment]] = await Promise.all([
+  const [items, events, [cod], [payment], sent, refunded] = await Promise.all([
     db.select({ ...itemFields, sku: orderItems.skuSnapshot }).from(orderItems).where(eq(orderItems.orderId, orderId)).orderBy(asc(orderItems.id)),
     db.select().from(orderEvents).where(eq(orderEvents.orderId, orderId)).orderBy(asc(orderEvents.createdAt)),
     db.select().from(codCollections).where(eq(codCollections.orderId, orderId)),
@@ -131,6 +149,8 @@ export async function getOrderForAdmin(db: DbOrTx, orderId: string) {
       .where(eq(payments.orderId, orderId))
       .orderBy(desc(payments.createdAt))
       .limit(1),
+    db.select().from(shipments).where(eq(shipments.orderId, orderId)).orderBy(desc(shipments.createdAt)),
+    db.select().from(refunds).where(eq(refunds.orderId, orderId)).orderBy(asc(refunds.createdAt)),
   ]);
   return {
     ...money(order, ["subtotalMinor", "discountMinor", "shippingMinor", "codFeeMinor", "taxIncludedMinor", "totalMinor"]),
@@ -138,6 +158,8 @@ export async function getOrderForAdmin(db: DbOrTx, orderId: string) {
     events,
     cod: cod ? money(cod, ["amountDueMinor"]) : null,
     payment: payment ?? null,
+    shipment: sent[0] ?? null,
+    refunds: refunded.map((r) => money(r, ["amountMinor"])),
   };
 }
 

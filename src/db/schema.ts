@@ -58,6 +58,8 @@ export const orderStatus = pgEnum("order_status", [
   "shipped",
   "delivered",
   "cancelled",
+  /** Shipped, but the courier brought it back undelivered (RTO). The stock is back on the shelf. */
+  "returned",
 ]);
 /** Roll-up of money actually received for the order. */
 export const orderPaymentStatus = pgEnum("order_payment_status", [

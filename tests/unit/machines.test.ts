@@ -33,7 +33,13 @@ describe("order machine", () => {
   });
 
   it("has terminal states that go nowhere", () => {
-    expect([...orderMachine.terminal].sort()).toEqual(["cancelled", "delivered"]);
+    expect([...orderMachine.terminal].sort()).toEqual(["cancelled", "delivered", "returned"]);
+  });
+
+  it("lets only a shipped parcel come back undelivered", () => {
+    expect(orderMachine.can("shipped", "returned")).toBe(true);
+    expect(orderMachine.can("delivered", "returned")).toBe(false);
+    expect(orderMachine.can("packed", "returned")).toBe(false);
   });
 });
 

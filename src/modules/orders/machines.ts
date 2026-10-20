@@ -22,15 +22,17 @@ export type ProductStatus = EnumValues<typeof productStatus>;
 /**
  * Fulfilment lifecycle. Returns happen after `delivered` through return
  * requests (post-launch), so `delivered` is terminal here. Cancelling after
- * dispatch is not allowed: that is a return or an RTO, not a cancellation.
+ * dispatch is not allowed: a parcel the courier brings back undelivered is
+ * `returned` (RTO), with its stock put back.
  */
 export const orderMachine = defineMachine<OrderStatus>("order", {
   pending_payment: ["confirmed", "cancelled"],
   confirmed: ["packed", "cancelled"],
   packed: ["shipped", "confirmed", "cancelled"],
-  shipped: ["delivered"],
+  shipped: ["delivered", "returned"],
   delivered: [],
   cancelled: [],
+  returned: [],
 });
 
 /** One Razorpay payment attempt. An order may have several. */

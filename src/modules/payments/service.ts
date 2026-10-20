@@ -22,7 +22,8 @@ import { cartItems, orderEvents, orderItems, orders, paymentEvents, payments } f
 import { commitOrderReservations, releaseOrderHolds } from "@/modules/inventory/service";
 import { queueOrderEmail } from "@/modules/checkout/service";
 import { orderMachine, orderPaymentMachine, paymentAttemptMachine } from "@/modules/orders/machines";
-import type { Razorpay, RazorpayPayment } from "./razorpay";
+import type { Razorpay, RazorpayPayment, RazorpayRefund } from "./razorpay";
+import { refundUpdateFromRazorpay } from "./refunds";
 
 export type PaymentErrorCode = "not_found" | "not_payable" | "bad_signature" | "mismatch" | "not_paid" | "provider";
 
@@ -205,7 +206,7 @@ async function emptyBagOf(tx: Tx, orderId: string, bagId: string) {
 
 type WebhookPayload = {
   event: string;
-  payload?: { payment?: { entity?: RazorpayPayment } };
+  payload?: { payment?: { entity?: RazorpayPayment }; refund?: { entity?: RazorpayRefund } };
 };
 
 export type WebhookResult = "processed" | "duplicate" | "ignored";
@@ -217,9 +218,11 @@ export type WebhookResult = "processed" | "duplicate" | "ignored";
  */
 export async function handleWebhook(db: Db, eventId: string, body: WebhookPayload): Promise<WebhookResult> {
   const p = body.payload?.payment?.entity;
-  const summary = p
-    ? { paymentId: p.id, orderId: p.order_id, amount: p.amount, currency: p.currency, status: p.status, method: p.method ?? null }
-    : {};
+  const r = body.payload?.refund?.entity;
+  const summary = {
+    ...(p ? { paymentId: p.id, orderId: p.order_id, amount: p.amount, currency: p.currency, status: p.status, method: p.method ?? null } : {}),
+    ...(r ? { refundId: r.id, refundPaymentId: r.payment_id, refundAmount: r.amount, refundStatus: r.status } : {}),
+  };
   const [attempt] = p?.order_id ? await db.select({ id: payments.id }).from(payments).where(eq(payments.providerOrderId, p.order_id)) : [];
 
   const [inserted] = await db
@@ -239,6 +242,11 @@ export async function handleWebhook(db: Db, eventId: string, body: WebhookPayloa
   }
 
   try {
+    if (r && (body.event === "refund.processed" || body.event === "refund.failed")) {
+      const known = await refundUpdateFromRazorpay(db, r);
+      await markEvent(db, row.id, null);
+      return known ? "processed" : "ignored";
+    }
     if (!p || !attempt) {
       await markEvent(db, row.id, null);
       return "ignored";

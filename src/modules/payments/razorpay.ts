@@ -22,6 +22,15 @@ export type RazorpayPayment = {
   error_description?: string | null;
 };
 
+export type RazorpayRefund = {
+  id: string;
+  payment_id: string;
+  amount: number;
+  /** pending | processed | failed */
+  status: string;
+  notes?: Record<string, string> | unknown[];
+};
+
 export class RazorpayError extends Error {
   constructor(
     message: string,
@@ -39,6 +48,8 @@ export type Razorpay = {
   createOrder(input: { amountMinor: number; receipt: string; notes: Record<string, string> }): Promise<RazorpayOrder>;
   fetchPayment(paymentId: string): Promise<RazorpayPayment>;
   capturePayment(paymentId: string, amountMinor: number): Promise<RazorpayPayment>;
+  /** Refund part or all of a captured payment, back to how it was paid. */
+  refundPayment(paymentId: string, amountMinor: number, notes: Record<string, string>): Promise<RazorpayRefund>;
   /** Standard Checkout's handler signature: HMAC-SHA256 of "order_id|payment_id" with the key secret. */
   isCheckoutSignature(orderId: string, paymentId: string, signature: string): boolean;
 };
@@ -91,6 +102,8 @@ export function createRazorpay(keys: RazorpayKeys, fetchImpl: typeof fetch = fet
     fetchPayment: (paymentId) => call<RazorpayPayment>("GET", `/payments/${encodeURIComponent(paymentId)}`),
     capturePayment: (paymentId, amountMinor) =>
       call<RazorpayPayment>("POST", `/payments/${encodeURIComponent(paymentId)}/capture`, { amount: amountMinor, currency: "INR" }),
+    refundPayment: (paymentId, amountMinor, notes) =>
+      call<RazorpayRefund>("POST", `/payments/${encodeURIComponent(paymentId)}/refund`, { amount: amountMinor, speed: "normal", notes }),
     isCheckoutSignature: (orderId, paymentId, signature) => sameHex(hmacHex(keys.keySecret, `${orderId}|${paymentId}`), signature),
   };
 }

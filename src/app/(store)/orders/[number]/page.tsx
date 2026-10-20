@@ -41,26 +41,57 @@ async function OrderView({ params, searchParams }: PageProps<"/orders/[number]">
   const a = order.address;
   const hello = `Hello${concierge.name ? ` ${concierge.name}` : ""}, I've just placed order ${order.orderNumber} (${formatINR(order.totalMinor)}, ${cod ? "cash on delivery" : paid ? "paid online" : "not paid yet"}).`;
   const lead = "mx-auto mt-6 max-w-xl text-lg leading-relaxed";
-  const heading = cancelled ? "This order was cancelled" : awaitingPayment ? "Almost there" : `Thank you, ${firstName}.`;
+  const status = order.orderStatus;
+  const refundedMinor = order.refunds.reduce((n, r) => n + r.amountMinor, 0);
+  const parcel = order.shipment;
+  const heading =
+    cancelled ? "This order was cancelled"
+    : awaitingPayment ? "Almost there"
+    : status === "shipped" ? "On its way"
+    : status === "delivered" ? `It's with you, ${firstName}.`
+    : status === "returned" ? "It came back to us"
+    : `Thank you, ${firstName}.`;
 
   return (
     <div className="mx-auto max-w-3xl px-4 pb-28 pt-10 sm:px-8 md:pt-16">
       <div className="text-center">
-        {cancelled || awaitingPayment || attention ? null : <Tick />}
+        {cancelled || awaitingPayment || attention || status === "returned" ? null : <Tick />}
         <p className="caption mt-6 text-xl">Order {order.orderNumber}</p>
         <h1 className="mt-2 text-5xl italic md:text-6xl">{heading}</h1>
         {attention ? (
           <p className={lead}>
-            We&apos;ve received your payment of {formatINR(order.totalMinor)}, but one of your pieces sold just before it arrived. {who} will message you on
-            WhatsApp today to offer another colour or size, or a full refund.
+            There&apos;s something we need to sort out with your order. {who} will message you on WhatsApp today; anything owed back to you is
+            refunded in full.
           </p>
         ) : cancelled ? (
-          <p className={lead}>If this is a surprise, please message us. Nothing was charged for it.</p>
+          <p className={lead}>
+            {refundedMinor
+              ? `Your refund of ${formatINR(refundedMinor)} is on its way back to how you paid. Banks usually take 5–7 working days.`
+              : "If this is a surprise, please message us. Nothing was charged for it."}
+          </p>
         ) : awaitingPayment ? (
           <>
             <p className={lead}>Your pieces are held while you pay. If the payment window closed, you can open it again here.</p>
             <PayNow orderId={order.id} linkKey={typeof k === "string" ? k : ""} totalMinor={order.totalMinor} />
           </>
+        ) : status === "returned" ? (
+          <p className={lead}>The courier couldn&apos;t deliver it and brought it back. {who} will message you to send it again{paid ? " or refund you" : ""}.</p>
+        ) : status === "delivered" ? (
+          <p className={lead}>We hope it feels like you. If anything isn&apos;t right, message us.</p>
+        ) : status === "shipped" && parcel ? (
+          <>
+            <p className={lead}>
+              Packed by hand and handed to {parcel.carrierName} on {formatLongDate(parcel.shippedAt)}. Tracking number{" "}
+              <span className="whitespace-nowrap font-medium">{parcel.trackingNumber}</span>.
+            </p>
+            {parcel.trackingUrl ? (
+              <a href={parcel.trackingUrl} target="_blank" rel="noopener noreferrer" className="btn-primary mt-8">
+                Track your parcel
+              </a>
+            ) : null}
+          </>
+        ) : status === "packed" ? (
+          <p className={lead}>Packed by hand. It goes to the courier next.</p>
         ) : !cod ? (
           <p className={lead}>Paid, thank you. We&apos;re packing it by hand and will send it soon.</p>
         ) : order.codVerifiedAt ? (
@@ -72,8 +103,8 @@ async function OrderView({ params, searchParams }: PageProps<"/orders/[number]">
           </p>
         )}
         {concierge.whatsapp && !cancelled && !awaitingPayment ? (
-          <a href={whatsappLink(concierge.whatsapp, hello)} target="_blank" rel="noopener noreferrer" className="btn-outline mt-8">
-            Say hello on WhatsApp
+          <a href={whatsappLink(concierge.whatsapp, hello)} target="_blank" rel="noopener noreferrer" className={`btn-outline mt-8 ${parcel?.trackingUrl && status === "shipped" ? "ml-3" : ""}`}>
+            {status === "pending_payment" || status === "confirmed" ? "Say hello on WhatsApp" : "Message us"}
           </a>
         ) : null}
       </div>
@@ -108,9 +139,15 @@ async function OrderView({ params, searchParams }: PageProps<"/orders/[number]">
             </div>
           ) : null}
           <div className="flex items-baseline justify-between border-t border-taupe/40 pt-3">
-            <dt>{cod && !cancelled ? "To pay on delivery" : paid ? "Paid" : "Total"}</dt>
+            <dt>{cod && !paid && !cancelled && status !== "returned" ? "To pay on delivery" : paid ? "Paid" : "Total"}</dt>
             <dd className="font-display text-2xl">{formatINR(order.totalMinor)}</dd>
           </div>
+          {order.refunds.map((r) => (
+            <div key={r.id} className="flex justify-between text-espresso-soft">
+              <dt>{r.status === "succeeded" ? "Refunded" : "Refund on its way"}</dt>
+              <dd>−{formatINR(r.amountMinor)}</dd>
+            </div>
+          ))}
         </dl>
       </section>
 

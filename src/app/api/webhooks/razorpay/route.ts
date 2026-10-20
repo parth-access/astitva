@@ -7,7 +7,8 @@ import { handleWebhook } from "@/modules/payments/service";
 
 /**
  * Razorpay → us. Set this URL in Razorpay's dashboard (Settings → Webhooks)
- * with events payment.captured, payment.failed and order.paid, and the same
+ * with events payment.captured, payment.failed, order.paid, refund.processed
+ * and refund.failed, and the same
  * secret as RAZORPAY_WEBHOOK_SECRET.
  *
  * The signature is checked over the raw body before anything is parsed. A

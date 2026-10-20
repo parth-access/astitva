@@ -307,7 +307,13 @@ export async function releaseOrderHolds(tx: Tx, orderId: string): Promise<number
  * Exactly once: the status guard in the UPDATE makes a second call a no-op,
  * even when two cancellations race.
  */
-export async function restockCancelledOrder(tx: Tx, orderId: string, actorId?: string): Promise<number> {
+export async function restockCancelledOrder(
+  tx: Tx,
+  orderId: string,
+  actorId?: string,
+  /** A parcel the courier brought back (RTO) is recorded as a return, not a cancellation. */
+  type: "cancellation_restock" | "return_restock" = "cancellation_restock",
+): Promise<number> {
   await releaseOrderHolds(tx, orderId);
   const rows = await tx
     .update(inventoryReservations)
@@ -320,7 +326,7 @@ export async function restockCancelledOrder(tx: Tx, orderId: string, actorId?: s
     await changeOnHand(tx, {
       variantId: r.variantId,
       delta: r.quantity,
-      type: "cancellation_restock",
+      type,
       orderId,
       actorId,
     });

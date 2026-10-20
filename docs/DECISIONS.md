@@ -2,6 +2,20 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-20 — Packing, shipping, returns and refunds (M5)
+
+**Decision:** Krishna runs every order to its end from the admin's order page; the buyer's private order page follows along. No courier integration yet: she books with the courier and types the courier and AWB in.
+
+**How:**
+- **Steps** (`src/modules/orders/fulfilment.ts`): confirmed → packed → shipped → delivered, or shipped → **returned** when the courier brings it back (RTO). `returned` is a new order status (migration 0008); cancelling after dispatch stays refused. Shipping straight from "confirmed" packs it on the way. A COD order can't be packed until it's confirmed with the buyer; an online one until it's paid; a flagged one until it's sorted.
+- **Came back:** the pieces go back on sale as a `return_restock` movement (`restockCancelledOrder` takes the movement type), COD collection fails, and a paid order is flagged for a refund.
+- **COD money:** delivered → the courier holds the cash (`collected_by_courier`); "The courier has paid us" → `remitted` and only then is the order `paid`. Delivered-but-unremitted orders stay in the admin's Open list.
+- **Refunds** (`src/modules/payments/refunds.ts`, owners only): Razorpay (back to the card or UPI it came from) or a UPI/bank refund Krishna already sent herself, recorded with its reference. The refund row is written under the order lock before Razorpay is called, so two clicks can't refund twice; never more than was received minus refunds not failed. Razorpay's reply or the `refund.processed` / `refund.failed` webhook settles it, once. Payment status follows: partially refunded, then refunded. A paid-too-late order refunded in full is closed as cancelled, and a flag clears itself on a full refund; otherwise "Mark as sorted" with a note.
+- **Buyer's page:** packed, on its way (courier, AWB, "Track your parcel"), delivered, came back, refunds on their way.
+- Shipping emails go into `email_outbox` (`order_shipped:<id>`) for when Resend is set up.
+
+**Not yet:** customer-initiated returns and exchanges after delivery (a return request flow); courier booking and live tracking (Shiprocket or similar) if volume grows.
+
 ## 2026-10-20 — Online payment with Razorpay (M4), test mode first
 
 **Decision:** Razorpay Standard Checkout (its own payment window: UPI, cards, netbanking) beside cash on delivery. Built and run in test mode until Krishna's current account is opened and Razorpay activates live payments; switching is only a change of keys.

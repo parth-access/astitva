@@ -7,6 +7,7 @@ const LABEL: Record<OrderStatus, string> = {
   shipped: "Shipped",
   delivered: "Delivered",
   cancelled: "Cancelled",
+  returned: "Came back",
 };
 
 /**
@@ -29,7 +30,7 @@ export function OrderStatusBadge({
   const tone =
     needsResolution || toConfirm
       ? "bg-burgundy text-ivory"
-      : status === "cancelled" || status === "pending_payment"
+      : status === "cancelled" || status === "pending_payment" || status === "returned"
         ? "bg-sand text-espresso-soft"
         : status === "delivered"
           ? "border border-taupe text-espresso-soft"
