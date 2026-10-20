@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { SettingsForm } from "@/components/admin/settings-form";
 import { Notice } from "@/components/admin/ui";
 import { db } from "@/db/client";
+import { paiseToRupeesText } from "@/lib/money";
 import { requireAdmin } from "@/modules/auth/auth";
 import { settingsRow } from "@/modules/catalog-admin/settings";
 
@@ -20,6 +21,11 @@ export default async function SettingsPage({ searchParams }: PageProps<"/admin/s
     supportWhatsapp: s?.supportWhatsapp ?? "",
     conciergeName: s?.conciergeName ?? "",
     supportEmail: s?.supportEmail ?? "",
+    shippingFlatMinor: paiseToRupeesText(Number(s?.shippingFlatMinor ?? 0)),
+    freeShippingThresholdMinor: s?.freeShippingThresholdMinor == null ? "" : paiseToRupeesText(Number(s.freeShippingThresholdMinor)),
+    codEnabled: s?.codEnabled ? "on" : "",
+    codFeeMinor: paiseToRupeesText(Number(s?.codFeeMinor ?? 0)),
+    codMaxOrderMinor: paiseToRupeesText(Number(s?.codMaxOrderMinor ?? 500_000)),
   };
   return (
     <div className="max-w-3xl">

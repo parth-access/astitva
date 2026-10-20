@@ -1,0 +1,280 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useRef, type ComponentProps, type ReactNode } from "react";
+import { placeOrderAction, type CheckoutState } from "@/app/(store)/checkout/actions";
+import { Plate } from "@/components/brand/plate";
+import { INDIAN_STATES } from "@/lib/india";
+import { formatINR } from "@/lib/money";
+import type { Bag } from "@/modules/bag/types";
+import type { OrderTotals } from "@/modules/checkout/pricing";
+import { useBag } from "./bag/bag-context";
+
+const empty: CheckoutState = { errors: {} };
+
+/**
+ * One calm page: who you are, where it goes, how you'll pay, and the bag
+ * beside it. Totals shown here are for reading only; the server prices the
+ * order again from the database when it's placed.
+ */
+export function CheckoutForm({
+  bag,
+  totals,
+  codEnabled,
+  overCodLimit,
+  who,
+  idempotencyKey,
+}: {
+  bag: Bag;
+  totals: OrderTotals;
+  codEnabled: boolean;
+  overCodLimit: boolean;
+  who: string | null;
+  idempotencyKey: string;
+}) {
+  const [state, action, pending] = useActionState(placeOrderAction, empty);
+  const router = useRouter();
+  const { open: openBag } = useBag();
+  const form = useRef<HTMLFormElement>(null);
+  const v = (k: string) => state.values?.[k] ?? "";
+  const e = (k: string) => state.errors[k];
+  const errorCount = Object.keys(state.errors).length;
+
+  // Take the buyer to the first thing to fix.
+  useEffect(() => {
+    if (!errorCount) return;
+    form.current?.querySelector<HTMLElement>("[aria-invalid='true']")?.focus();
+  }, [state, errorCount]);
+
+  // Something sold while they were here: show the bag as it now stands.
+  useEffect(() => {
+    if (state.bagChanged) router.refresh();
+  }, [state, router]);
+
+  const blocked = !codEnabled || overCodLimit || bag.hasProblems;
+  const contact = who ?? "We";
+
+  return (
+    <div className="mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-8 md:pt-10">
+      <h1 className="text-5xl italic md:text-6xl">Checkout</h1>
+
+      {/* Phones: the summary folds away above the form. */}
+      <details className="group mt-6 border-y border-taupe/40 md:hidden">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between text-sm [&::-webkit-details-marker]:hidden">
+          <span>
+            <span className="group-open:hidden">Show</span>
+            <span className="hidden group-open:inline">Hide</span> your bag ({bag.count})
+          </span>
+          <span className="font-display text-lg tabular-nums">{formatINR(totals.totalMinor)}</span>
+        </summary>
+        <div className="pb-6">
+          <Summary bag={bag} totals={totals} />
+        </div>
+      </details>
+
+      <div className="mt-8 grid gap-12 md:mt-12 md:grid-cols-12 md:gap-8">
+        <form ref={form} action={action} noValidate className="space-y-12 md:col-span-7">
+          <input type="hidden" name="key" value={idempotencyKey} />
+          <input type="hidden" name="payment" value="cod" />
+
+          {errorCount ? (
+            <p role="alert" className="border-l-2 border-burgundy bg-champagne px-4 py-3 text-sm">
+              {errorCount === 1 ? "One thing to fix below." : `${errorCount} things to fix below.`}
+            </p>
+          ) : null}
+
+          <Step n={1} title="You">
+            <Field label="Full name" name="name" autoComplete="name" defaultValue={v("name")} error={e("name")} />
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field
+                label="Mobile"
+                name="phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel-national"
+                placeholder="98123 45678"
+                defaultValue={v("phone")}
+                error={e("phone")}
+                hint={`${contact} will WhatsApp you here to confirm.`}
+              />
+              <Field
+                label="Email (optional)"
+                name="email"
+                type="email"
+                autoComplete="email"
+                defaultValue={v("email")}
+                error={e("email")}
+                hint="For your receipt."
+              />
+            </div>
+          </Step>
+
+          <Step n={2} title="Where it goes">
+            <Field label="House or flat, street" name="line1" autoComplete="address-line1" defaultValue={v("line1")} error={e("line1")} />
+            <Field label="Area or locality (optional)" name="line2" autoComplete="address-line2" defaultValue={v("line2")} error={e("line2")} />
+            <Field label="Landmark (optional)" name="landmark" defaultValue={v("landmark")} error={e("landmark")} hint="Helps the courier find you." />
+            <div className="grid gap-5 sm:grid-cols-3">
+              <Field label="Pincode" name="pincode" inputMode="numeric" autoComplete="postal-code" maxLength={6} defaultValue={v("pincode")} error={e("pincode")} />
+              <Field label="Town or city" name="city" autoComplete="address-level2" defaultValue={v("city")} error={e("city")} />
+              <label className="block">
+                <span className="text-sm">State</span>
+                <select
+                  name="state"
+                  autoComplete="address-level1"
+                  defaultValue={v("state")}
+                  aria-invalid={e("state") ? true : undefined}
+                  className="field mt-1.5"
+                >
+                  <option value="" disabled>
+                    Choose
+                  </option>
+                  {INDIAN_STATES.map((s) => (
+                    <option key={s}>{s}</option>
+                  ))}
+                </select>
+                {e("state") ? <span className="mt-1 block text-xs text-burgundy">{e("state")}</span> : null}
+              </label>
+            </div>
+          </Step>
+
+          <Step n={3} title="How you'll pay">
+            {codEnabled ? (
+              <label className="choice-card">
+                <input type="radio" name="payment-choice" value="cod" defaultChecked className="mt-1 accent-burgundy" />
+                <span>
+                  <span className="font-medium">Cash on delivery</span>
+                  <span className="mt-1 block text-sm text-espresso-soft">
+                    Pay in cash or by UPI to the courier when it arrives. {contact} will message you on WhatsApp to confirm before we
+                    pack it.
+                  </span>
+                </span>
+              </label>
+            ) : (
+              <p className="text-sm text-espresso-soft">Cash on delivery is paused for now. Please message us to order.</p>
+            )}
+            <TextAreaField label="A note for us (optional)" name="note" defaultValue={v("note")} error={e("note")} hint="A gift, a delivery time, anything." />
+          </Step>
+
+          <div className="border-t border-taupe/40 pt-8">
+            {state.message ? (
+              <p role="alert" className="mb-5 border-l-2 border-burgundy bg-champagne px-4 py-3 text-sm">
+                {state.message}
+                {state.bagChanged ? (
+                  <>
+                    {" "}
+                    <button type="button" className="link" onClick={openBag}>
+                      Open your bag
+                    </button>
+                  </>
+                ) : null}
+              </p>
+            ) : null}
+            {overCodLimit ? (
+              <p className="mb-5 text-sm text-espresso-soft">This order is over our cash-on-delivery limit. Please message us and we&apos;ll arrange it.</p>
+            ) : null}
+            {bag.hasProblems ? (
+              <p className="mb-5 text-sm text-burgundy">
+                Something in your bag has sold since you added it.{" "}
+                <button type="button" className="link" onClick={openBag}>
+                  Open your bag
+                </button>
+              </p>
+            ) : null}
+            <button type="submit" className="btn-primary w-full text-base" disabled={pending || blocked}>
+              {pending ? "Placing your order…" : `Place order · ${formatINR(totals.totalMinor)}`}
+            </button>
+            <p className="mt-3 text-center text-xs text-espresso-soft">Nothing is paid now. You pay {formatINR(totals.totalMinor)} when it arrives.</p>
+          </div>
+        </form>
+
+        <aside className="hidden md:col-span-4 md:col-start-9 md:block" aria-label="Your bag">
+          <div className="sticky top-8">
+            <p className="caption text-xl">Your bag</p>
+            <div className="mt-4">
+              <Summary bag={bag} totals={totals} />
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
+  return (
+    <fieldset className="space-y-5">
+      <legend className="flex items-baseline gap-3">
+        <span className="folio not-italic tabular-nums">{String(n).padStart(2, "0")}</span>
+        <span className="font-display text-3xl">{title}</span>
+      </legend>
+      {children}
+    </fieldset>
+  );
+}
+
+type Extra = { label: string; error?: string; hint?: string };
+
+function Field({ label, error, hint, ...input }: Extra & ComponentProps<"input">) {
+  return (
+    <label className="block">
+      <span className="text-sm">{label}</span>
+      <input {...input} aria-invalid={error ? true : undefined} className="field mt-1.5" />
+      {error ? <span className="mt-1 block text-xs text-burgundy">{error}</span> : hint ? <span className="mt-1 block text-xs text-espresso-soft">{hint}</span> : null}
+    </label>
+  );
+}
+
+function TextAreaField({ label, error, hint, ...input }: Extra & ComponentProps<"textarea">) {
+  return (
+    <label className="block">
+      <span className="text-sm">{label}</span>
+      <textarea {...input} rows={3} maxLength={500} aria-invalid={error ? true : undefined} className="field mt-1.5 leading-relaxed" />
+      {error ? <span className="mt-1 block text-xs text-burgundy">{error}</span> : hint ? <span className="mt-1 block text-xs text-espresso-soft">{hint}</span> : null}
+    </label>
+  );
+}
+
+function Summary({ bag, totals }: { bag: Bag; totals: OrderTotals }) {
+  return (
+    <div>
+      <ul className="space-y-4">
+        {bag.lines.map((l) => (
+          <li key={l.id} className="flex items-center gap-4">
+            <div className="relative w-14 shrink-0">
+              <Plate src={l.imageUrl} alt={l.imageAlt} tone={l.colourHex ?? l.tone} pieceNumber={l.pieceNumber} category={l.categorySlug} sizes="56px" />
+              {l.quantity > 1 ? (
+                <span className="absolute -right-2 -top-2 grid size-5 place-items-center rounded-full bg-espresso text-[0.7rem] text-ivory tabular-nums">{l.quantity}</span>
+              ) : null}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-display text-lg italic leading-tight">{l.pieceName ?? l.name}</p>
+              <p className="text-xs text-espresso-soft">{[l.colour, l.size].filter(Boolean).join(" · ")}</p>
+            </div>
+            <span className="text-sm tabular-nums">{formatINR(l.priceMinor * l.quantity)}</span>
+          </li>
+        ))}
+      </ul>
+      <dl className="mt-6 space-y-2 border-t border-taupe/40 pt-4 text-sm tabular-nums">
+        <div className="flex justify-between">
+          <dt>Subtotal</dt>
+          <dd>{formatINR(totals.subtotalMinor)}</dd>
+        </div>
+        <div className="flex justify-between">
+          <dt>Shipping</dt>
+          <dd>{totals.shippingMinor ? formatINR(totals.shippingMinor) : "Free"}</dd>
+        </div>
+        {totals.codFeeMinor ? (
+          <div className="flex justify-between">
+            <dt>Cash on delivery</dt>
+            <dd>{formatINR(totals.codFeeMinor)}</dd>
+          </div>
+        ) : null}
+        <div className="flex items-baseline justify-between border-t border-taupe/40 pt-3">
+          <dt>Total</dt>
+          <dd className="font-display text-2xl">{formatINR(totals.totalMinor)}</dd>
+        </div>
+      </dl>
+      <p className="mt-2 text-xs text-espresso-soft">Inclusive of all taxes.</p>
+    </div>
+  );
+}

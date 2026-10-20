@@ -143,13 +143,20 @@ async function main() {
         product_categories, product_collections, product_variants, products, categories, collections, suppliers
       restart identity cascade`);
 
-    await db
-      .insert(storeSettings)
-      .values({ id: 1, lookbookTitle: "Autumn–Winter 2026", lookbookSubtitle: "The first pieces, in the colours we couldn't choose between.", note: NOTE, noteSignature: "Krishna", conciergeName: "Krishna" })
-      .onConflictDoUpdate({
-        target: storeSettings.id,
-        set: { lookbookTitle: "Autumn–Winter 2026", lookbookSubtitle: "The first pieces, in the colours we couldn't choose between.", note: NOTE, noteSignature: "Krishna", conciergeName: "Krishna" },
-      });
+    // Placeholder terms until Krishna sets real ones: free shipping, COD on with no fee, up to ₹5,000.
+    const settings = {
+      lookbookTitle: "Autumn–Winter 2026",
+      lookbookSubtitle: "The first pieces, in the colours we couldn't choose between.",
+      note: NOTE,
+      noteSignature: "Krishna",
+      conciergeName: "Krishna",
+      codEnabled: true,
+      codFeeMinor: 0,
+      codMaxOrderMinor: 500_000,
+      shippingFlatMinor: 0,
+      freeShippingThresholdMinor: null,
+    };
+    await db.insert(storeSettings).values({ id: 1, ...settings }).onConflictDoUpdate({ target: storeSettings.id, set: settings });
 
     const cats = await db.insert(categories).values(CATEGORIES).returning();
     const bySlug = new Map(cats.map((c) => [c.slug, c.id]));

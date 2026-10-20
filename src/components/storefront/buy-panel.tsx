@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { formatINR } from "@/lib/money";
+import { useBag } from "./bag/bag-context";
 import { useSelection } from "./piece-selection";
 import { SwatchPicker } from "./swatch-picker";
 
@@ -17,7 +18,8 @@ export type BuyVariant = {
 /**
  * Colour, size, live availability and the buy button. Rendered with fresh
  * stock on every request. Only the colours and sizes that exist are offered;
- * sold-out ones stay visible, marked. The bag arrives with checkout (M3).
+ * sold-out ones stay visible, marked. Adding sends a dot of the colour to the
+ * bag in the masthead, then opens the bag.
  */
 export function BuyPanel({
   variants,
@@ -30,6 +32,9 @@ export function BuyPanel({
   sizeGuide?: ReactNode;
 }) {
   const { colours, colour, setColour, size, setSize } = useSelection();
+  const bag = useBag();
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<{ variantId: string; message: string } | null>(null);
   const forColour = variants.filter((v) => v.color === colour);
   const sizes = forColour.map((v) => v.size);
   const hasSizes = sizes.some((s) => s !== null) || sizes.length > 1;
@@ -46,8 +51,33 @@ export function BuyPanel({
   }));
   const allOut = variants.every((v) => v.available <= 0);
   const out = !selected || selected.available <= 0;
-  const disabled = !orderingOpen || out;
-  const buttonText = allOut ? "Sold out" : out ? `Sold out${hasSizes && selected?.size ? ` in ${selected.size}` : ""}` : orderingOpen ? "Add to bag" : "Ordering opens soon";
+  const inBag = selected ? (bag.bag.lines.find((l) => l.variantId === selected.id)?.quantity ?? 0) : 0;
+  // Everything left in this colour and size is already in the bag.
+  const allInBag = !!selected && selected.available > 0 && inBag >= selected.available;
+  const disabled = !orderingOpen || out || adding || allInBag;
+  const buttonText = allOut
+    ? "Sold out"
+    : out
+      ? `Sold out${hasSizes && selected?.size ? ` in ${selected.size}` : ""}`
+      : !orderingOpen
+        ? "Ordering opens soon"
+        : adding
+          ? "Adding…"
+          : allInBag
+            ? "In your bag"
+            : "Add to bag";
+
+  async function addSelected(button: HTMLElement) {
+    if (!selected || disabled) return;
+    setAdding(true);
+    setAddError(null);
+    try {
+      const error = await bag.add(selected.id, { el: button, colour: colours.find((c) => c.name === colour)?.hex ?? null });
+      if (error) setAddError({ variantId: selected.id, message: error });
+    } finally {
+      setAdding(false);
+    }
+  }
 
   // The phone bar appears once the main button has scrolled away.
   const mainButton = useRef<HTMLDivElement>(null);
@@ -125,9 +155,21 @@ export function BuyPanel({
       </p>
 
       <div ref={mainButton} className="mt-4">
-        <button type="button" className="btn-primary w-full" disabled={disabled}>
+        <button type="button" className="btn-primary w-full" disabled={disabled} onClick={(e) => addSelected(e.currentTarget)}>
           {buttonText}
         </button>
+        {addError && addError.variantId === selected.id ? (
+          <p role="alert" className="mt-3 text-sm text-burgundy">
+            {addError.message}
+          </p>
+        ) : allInBag ? (
+          <p className="mt-3 text-sm text-espresso-soft">
+            You have all {selected.available} in your bag.{" "}
+            <button type="button" className="link" onClick={bag.open}>
+              Open the bag
+            </button>
+          </p>
+        ) : null}
         {!orderingOpen && !allOut ? <p className="mt-3 text-sm text-espresso-soft">We&apos;re opening soon. Ask Krishna if you&apos;d like this one kept for you.</p> : null}
       </div>
 
@@ -148,7 +190,7 @@ export function BuyPanel({
               {formatINR(selected.priceMinor)}
             </span>
           </p>
-          <button type="button" className="btn-primary flex-1" disabled={disabled} tabIndex={showBar ? 0 : -1}>
+          <button type="button" className="btn-primary flex-1" disabled={disabled} tabIndex={showBar ? 0 : -1} onClick={(e) => addSelected(e.currentTarget)}>
             {buttonText}
           </button>
         </div>

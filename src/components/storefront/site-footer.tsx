@@ -8,7 +8,7 @@ export function SiteFooter() {
         <div className="md:col-span-5">
           <p className="font-display text-3xl italic">Your true form</p>
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-espresso-soft">
-            Clothes chosen by hand, one piece at a time. Most exist only once.
+            A few styles, chosen by hand, in the colours we couldn&apos;t choose between.
           </p>
         </div>
         <nav aria-label="The house" className="md:col-span-2 md:col-start-7">

@@ -47,6 +47,13 @@ The signature interaction. Wherever a style shows its swatches (its lookbook pag
 - **Shop:** pointing at a swatch previews that colour on the card; choosing it opens the piece in it.
 - **Loading:** skeletons shaped like each page (arches, swatch dots, size chips) with a slow sheen; none of the sheen under reduced motion.
 
+## The bag and checkout
+
+- **Adding:** a dot of the chosen colour arcs from the button to "Bag" in the masthead, the count bounces, then the bag slides open. With reduced motion the count simply changes. When every unit of that colour and size is already in the bag, the button reads "In your bag".
+- **The bag** (`components/storefront/bag`): the same side sheet as the size guide (a bottom sheet on phones). Each line is the piece's plate washed in its colour, its number and name, colour · size, a − n + stepper capped at what's in stock, and Remove. A line that sold out since is marked in burgundy and checkout waits until it's changed.
+- **Checkout:** one page, three numbered steps set like the lookbook's folios (You, Where it goes, How you'll pay), the bag beside it (folded into a "Show your bag" line on phones). Quiet fields on paper; on a failed submit the first field to fix takes focus. The button carries the total ("Place order · ₹3,499").
+- **The order page:** an olive tick that draws itself, "Thank you, Asha.", what happens next in a sentence, and a WhatsApp button that opens with the order number already typed.
+
 ## Motion
 
 One moment per page, never decoration (the first-visit intro aside):

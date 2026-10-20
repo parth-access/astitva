@@ -12,8 +12,8 @@ export default function AboutPage() {
         collection of pieces chosen by hand, each one picked because it felt like someone, not like everyone.
       </p>
       <p>
-        Many of our pieces exist only once. We would rather offer fewer things, chosen carefully, than a rail of
-        everything. In time, Astitva will also make clothing of its own.
+        We would rather offer a few styles, in the colours we couldn&apos;t choose between, than a rail of everything.
+        In time, Astitva will also make clothing of its own.
       </p>
     </TextPage>
   );

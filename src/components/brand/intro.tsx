@@ -19,7 +19,7 @@ import { EARRING_PIVOT, MASCOT_GROUND, MASCOT_PARTS, MASCOT_VIEWBOX, SKETCH_PATH
 const STORAGE_KEY = "astitva:intro";
 
 /** Runs in <head>. Keep it tiny and dependency-free. */
-export const INTRO_BOOT = `(function(){try{var p=location.pathname;if(/^\\/(admin|checkout|api)(\\/|$)/.test(p))return;var f=/[?&]intro(=|&|$)/.test(location.search);if(f||!localStorage.getItem("${STORAGE_KEY}"))document.documentElement.setAttribute("data-intro","play")}catch(e){}})();`;
+export const INTRO_BOOT = `(function(){try{var p=location.pathname;if(/^\\/(admin|checkout|orders|api)(\\/|$)/.test(p))return;var f=/[?&]intro(=|&|$)/.test(location.search);if(f||!localStorage.getItem("${STORAGE_KEY}"))document.documentElement.setAttribute("data-intro","play")}catch(e){}})();`;
 
 const INTRO_TIMELINE = `(function(){
 var root=document.documentElement,el=document.getElementById("astitva-intro");

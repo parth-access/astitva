@@ -1,16 +1,20 @@
+import { Suspense } from "react";
 import { Intro } from "@/components/brand/intro";
+import { BagProvider } from "@/components/storefront/bag/bag-context";
+import { BagDrawer } from "@/components/storefront/bag/bag-drawer";
+import { BagSeed } from "@/components/storefront/bag/bag-seed";
 import { SiteFooter } from "@/components/storefront/site-footer";
 import { SiteHeader } from "@/components/storefront/site-header";
 import { getStorefront } from "@/modules/catalog/queries";
+import { getCheckoutSettings } from "@/modules/checkout/queries";
 
 /** While ordering is closed (store settings), every page says so at the top. */
 const PREVIEW_NOTICE = "Preview. Ordering opens soon.";
 
-
 export default async function StoreLayout({ children }: LayoutProps<"/">) {
-  const { orderingOpen } = await getStorefront();
+  const [{ orderingOpen }, pricing] = await Promise.all([getStorefront(), getCheckoutSettings()]);
   return (
-    <>
+    <BagProvider enabled={orderingOpen} pricing={pricing}>
       <Intro />
       <a
         href="#main"
@@ -23,6 +27,11 @@ export default async function StoreLayout({ children }: LayoutProps<"/">) {
         {children}
       </main>
       <SiteFooter />
-    </>
+      <BagDrawer />
+      {/* The bag depends on the visitor's cookie, so it streams in after the page. */}
+      <Suspense fallback={null}>
+        <BagSeed enabled={orderingOpen} />
+      </Suspense>
+    </BagProvider>
   );
 }

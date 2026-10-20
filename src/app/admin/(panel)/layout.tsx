@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { SignOutButton } from "@/components/admin/auth-forms";
+import { db } from "@/db/client";
 import { requireAdmin } from "@/modules/auth/auth";
+import { countOrdersToCheck } from "@/modules/orders/service";
 
 /** Everything inside the admin proper. Pages and server actions still call requireAdmin() themselves. */
 export default async function PanelLayout({ children }: LayoutProps<"/admin">) {
   const { user } = await requireAdmin();
+  const toConfirm = await countOrdersToCheck(db);
   return (
     <>
       <header className="border-b border-sand">
@@ -14,6 +17,10 @@ export default async function PanelLayout({ children }: LayoutProps<"/admin">) {
               ASTITVA <span className="tracking-normal text-espresso-soft">admin</span>
             </Link>
             <nav className="flex gap-4 text-sm">
+              <Link href="/admin/orders" className="link">
+                Orders
+                {toConfirm ? <span className="ml-1.5 inline-grid min-w-5 place-items-center rounded-full bg-burgundy px-1.5 text-xs text-ivory no-underline">{toConfirm}</span> : null}
+              </Link>
               <Link href="/admin/pieces" className="link">
                 Pieces
               </Link>

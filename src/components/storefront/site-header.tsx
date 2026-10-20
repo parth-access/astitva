@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BagButton } from "./bag/bag-button";
 
 const left = [
   { href: "/#pieces", label: "Lookbook" },
@@ -11,7 +12,8 @@ const right = [
 
 /**
  * A masthead: the wordmark centred like a magazine title, navigation split
- * either side. On phones the links fold into a disclosure (no JavaScript).
+ * either side, the bag at the far right once ordering is open. On phones the
+ * links fold into a disclosure (no JavaScript).
  */
 export function SiteHeader({ notice }: { notice?: string | null }) {
   return (
@@ -53,17 +55,20 @@ export function SiteHeader({ notice }: { notice?: string | null }) {
           <span className="mt-1 block font-accent text-sm italic text-espresso-soft md:text-base">Your true form</span>
         </Link>
 
-        <nav aria-label="Secondary" className="hidden justify-self-end md:block">
-          <ul className="flex gap-8 text-sm">
-            {right.map((item) => (
-              <li key={item.href}>
-                <Link href={item.href} className="link no-underline hover:underline">
-                  {item.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <div className="flex items-center gap-8 justify-self-end">
+          <nav aria-label="Secondary" className="hidden md:block">
+            <ul className="flex gap-8 text-sm">
+              {right.map((item) => (
+                <li key={item.href}>
+                  <Link href={item.href} className="link no-underline hover:underline">
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+          <BagButton />
+        </div>
       </div>
     </header>
   );

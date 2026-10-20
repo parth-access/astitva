@@ -2,6 +2,24 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-20 — Bag, guest checkout and cash on delivery (M3)
+
+**Decision:** A guest bag kept on the server, a one-page checkout, and cash on delivery as the only way to pay until Razorpay (M4). Krishna confirms every COD order with the buyer on WhatsApp before packing.
+
+**How:**
+- **Bag** (`src/modules/bag`): one `carts` row per visitor, found by a random cookie token (`astitva_bag`, httpOnly, 30 days); only its SHA-256 is stored. Adding does **not** hold stock: it is checked on add and again under lock at checkout, so bags never lock pieces away from real buyers. A line that has sold out or been withdrawn since is marked in the drawer, and checkout won't proceed until it's changed.
+- **Checkout** (`src/modules/checkout`): `placeCodOrder` locks the bag row (so a double tap waits, then finds the first order through the idempotency key), re-reads prices and settings, checks the COD rules, creates the order `confirmed` / `unpaid`, takes the stock (`reserveForOrder` in commit mode), writes the lines, a pending `cod_collections` row, an `order.placed` event and (with an email) an `email_outbox` row, then empties the bag. All in one transaction.
+- **Lock order matters:** stock is taken *before* the order lines are written. An order line's foreign key to its variant takes a shared lock on that row; taking that first and the row lock second deadlocked two buyers of the last piece (caught by the concurrency test).
+- **COD rules** (store settings, editable under Lookbook & settings): on/off, a fee, an order limit (₹5,000 placeholder), the pincode list when `restrict_to_listed_pincodes` is on, and at most 2 unconfirmed COD orders per phone number.
+- **Shipping** is a flat charge with an optional free-shipping line. Placeholder: free.
+- **The buyer's order page** is `/orders/AST-001001?k=…`, where `k` is an HMAC of the order id with `BETTER_AUTH_SECRET`. Nothing extra is stored, and sequential order numbers can't be guessed into someone's address. A wrong key is a 404.
+- **Admin Orders**: list (to confirm / open / all), detail, a prepared WhatsApp message, "Confirmed with the buyer" (`cod_verified_at`), and cancel with a reason (stock back exactly once, collection marked failed). Packing and shipping are M5.
+- **Phone numbers** are stored as the 10 national digits.
+
+**Dropped:** the "show my city in the archive" opt-in (`orders.share_city_in_archive` stays, unused): the archive is gone.
+
+**Not yet:** sending the queued confirmation emails (needs Resend on the domain); OTP for COD (about ₹0.20 a message; add if fake orders become a problem).
+
 ## 2026-10-20 — A fashion label, not a one-of-one boutique
 
 **Decision:** Astitva sells styles in whatever colours and sizes it has: a style (product) has variants for each colour × size, each with its own stock. Nothing fixes how many colours or sizes a style has; the admin builds the grid from what the seller has, and the storefront shows only that. Later, Krishna's own designs use the same model. Chapters, the archive of sold pieces and all one-of-one language ("One of one", "Found its home") are gone.

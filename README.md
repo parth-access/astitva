@@ -9,9 +9,9 @@ The specification is the revised PRD (Astitva PRD Review and Revised Specificati
 | Milestone | State |
 | --- | --- |
 | M0 Foundation: repo, schema, tokens, CI-ready scripts | Done |
-| M1 Catalogue: the lookbook storefront, styles in colours × sizes, admin | Done: storefront lookbook, admin sign-in (password + required 2FA), style editor with colour × size stock grid, photos on Cloudinary, lookbook settings, colour and size choice across the storefront. Bag and checkout (M3) next |
+| M1 Catalogue: the lookbook storefront, styles in colours × sizes, admin | Done: storefront lookbook, admin sign-in (password + required 2FA), style editor with colour × size stock grid, photos on Cloudinary, lookbook settings, colour and size choice across the storefront |
 | M2 Inventory engine: reservations, movements, state machines | Done, with concurrency tests |
-| M3 Cart, guest checkout, COD | Not started |
+| M3 Cart, guest checkout, COD | Done: bag drawer, one-page guest checkout, cash on delivery with WhatsApp confirmation, buyer's private order page, admin Orders (confirm, cancel), delivery and COD settings. Order emails are queued until Resend is set up |
 | M4 Razorpay | Not started |
 | M5 Fulfilment and refunds | Not started |
 | M6 Hardening and launch | Not started |
