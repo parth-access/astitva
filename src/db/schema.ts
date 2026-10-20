@@ -99,7 +99,12 @@ export const outboxStatus = pgEnum("outbox_status", ["pending", "sent", "failed"
 /* People and access                                                   */
 /* ------------------------------------------------------------------ */
 
-/** Customers (post-launch accounts) and staff share this table. Auth tables are added with the auth milestone. */
+/**
+ * Customers (post-launch accounts) and staff share this table. It is also
+ * Better Auth's `user` model (src/modules/auth): `emailVerified`, `image` and
+ * `twoFactorEnabled` are the names Better Auth expects. Only people with a row
+ * in admin_role_assignments can reach /admin.
+ */
 export const users = pgTable(
   "users",
   {
@@ -107,7 +112,9 @@ export const users = pgTable(
     name: varchar("name", { length: 120 }).notNull(),
     email: varchar("email", { length: 254 }),
     phone: varchar("phone", { length: 16 }),
-    emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+    emailVerified: boolean("email_verified").notNull().default(false),
+    image: text("image"),
+    twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -115,6 +122,91 @@ export const users = pgTable(
     uniqueIndex("users_email_lower_uq").on(sql`lower(${t.email})`).where(sql`${t.email} is not null`),
   ],
 ).enableRLS();
+
+/*
+ * Better Auth tables (shapes from `npx auth generate`, v1.7). Columns keep
+ * Better Auth's property names; table names carry an auth_ prefix and are
+ * mapped in src/modules/auth/auth.ts.
+ */
+
+export const authSessions = pgTable(
+  "auth_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    token: text("token").notNull().unique(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("auth_sessions_user_idx").on(t.userId)],
+).enableRLS();
+
+/** Sign-in methods. A password sign-in is providerId "credential"; `password` holds its hash. */
+export const authAccounts = pgTable(
+  "auth_accounts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accountId: text("account_id").notNull(),
+    providerId: text("provider_id").notNull(),
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    idToken: text("id_token"),
+    accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }),
+    refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { withTimezone: true }),
+    scope: text("scope"),
+    password: text("password"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("auth_accounts_user_idx").on(t.userId)],
+).enableRLS();
+
+/** Short-lived tokens: password reset links, 2FA challenges, trusted devices. */
+export const authVerifications = pgTable(
+  "auth_verifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    identifier: text("identifier").notNull(),
+    value: text("value").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("auth_verifications_identifier_idx").on(t.identifier)],
+).enableRLS();
+
+/** Authenticator-app secret and backup codes, both encrypted by Better Auth. */
+export const authTwoFactors = pgTable(
+  "auth_two_factors",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    secret: text("secret").notNull(),
+    backupCodes: text("backup_codes").notNull(),
+    verified: boolean("verified").default(true),
+    failedVerificationCount: integer("failed_verification_count").default(0),
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+  },
+  (t) => [index("auth_two_factors_secret_idx").on(t.secret), index("auth_two_factors_user_idx").on(t.userId)],
+).enableRLS();
+
+/** Sign-in rate limits. Kept in the database because serverless instances don't share memory. */
+export const authRateLimits = pgTable("auth_rate_limits", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  key: text("key").notNull().unique(),
+  count: integer("count").notNull(),
+  lastRequest: bigint("last_request", { mode: "number" }).notNull(),
+}).enableRLS();
 
 export const adminRoleAssignments = pgTable("admin_role_assignments", {
   userId: uuid("user_id")

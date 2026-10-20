@@ -9,7 +9,7 @@ The specification is the revised PRD (Astitva PRD Review and Revised Specificati
 | Milestone | State |
 | --- | --- |
 | M0 Foundation: repo, schema, tokens, CI-ready scripts | Done |
-| M1 Catalogue: storefront as a lookbook (chapters, numbered pieces, archive, concierge) | Storefront done. Admin and auth not started |
+| M1 Catalogue: storefront as a lookbook (chapters, numbered pieces, archive, concierge) | Storefront and admin sign-in done (password + required 2FA). Piece and chapter editors next |
 | M2 Inventory engine: reservations, movements, state machines | Done, with concurrency tests |
 | M3 Cart, guest checkout, COD | Not started |
 | M4 Razorpay | Not started |
@@ -42,9 +42,19 @@ npm run db:seed        # SAMPLE products only (refuses to run in production)
 npm run dev
 ```
 
+### Admin accounts
+
+There is no public sign-up. Create an admin, and send them a link to set their password:
+
+```bash
+npm run admin:create -- --email krishna@example.com --name "Krishna"
+```
+
+Without `RESEND_API_KEY` the link is printed in the terminal instead of emailed. On first sign-in at `/admin`, each admin sets up a 6-digit code in an authenticator app; nothing else in the admin opens until they do. Running the command again for an existing admin sends a fresh link (a password reset).
+
 The app connects as the database owner. Every table has row-level security on with no policies, and the Supabase `anon` and `authenticated` roles have no privileges, so the Supabase Data API and anon key cannot read or change store data. Don't use `supabase-js` against these tables.
 
-Later, on Vercel, use the **Transaction pooler** string (port 6543) and paste the certificate's contents into `DATABASE_CA_CERT`.
+Later, on Netlify, use the **Transaction pooler** string (port 6543) and paste the certificate's contents into `DATABASE_CA_CERT`.
 
 ### Tests
 
@@ -59,12 +69,15 @@ Integration tests need a local throwaway Postgres in `DATABASE_URL_TEST` (they w
 | `npm run db:generate` | Create a migration after editing `src/db/schema.ts`. Review the SQL before committing. |
 | `npm run db:migrate` | Apply pending migrations. |
 | `npm run db:studio` | Browse the database. |
+| `npm run admin:create` | Create an admin, or send an existing one a new password link. |
 
 ## Layout
 
 ```
 src/
   app/(store)/        storefront pages
+  app/admin/          admin: (auth) sign-in pages, (panel) everything behind requireAdmin()
+  proxy.ts            sends signed-out visitors of /admin to the login page (a shortcut, not the check)
   app/api/health/     uptime check
   components/         UI (storefront/)
   components/brand/   the lookbook: plates, spreads, chapter cover, letter, archive, concierge, first-visit intro
@@ -74,6 +87,7 @@ scripts/mascot/       mascot pipeline: python3 scripts/mascot/build.py
   db/schema.ts        the whole data model, with CHECK and UNIQUE constraints
   lib/                money (integer paise), state machines, sizes, env
   modules/
+    auth/             admin sign-in (Better Auth): config, requireAdmin(), browser client
     catalog/          cached storefront reads
     inventory/        reservation engine: the only code that changes stock
     orders/           order, payment, COD, refund state machines

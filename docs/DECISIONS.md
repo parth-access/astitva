@@ -2,6 +2,25 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-20 — Hosting on Netlify (free), photos on Cloudinary
+
+**Decision:** Launch on Netlify's free plan. Store and serve product and chapter photos from Cloudinary's free plan.
+
+**Why:** Vercel's free Hobby plan forbids commercial use (taking payment or advertising products counts), and Pro costs $20/month. Netlify's free plan allows commercial use and its Next.js adapter lists Cache Components as fully supported. Cloudflare Workers' free plan allows 10 ms of CPU per request, too little for server-rendered pages with database reads. Cloudinary resizes and converts images itself, so photos don't use the host's image allowance and stay put if we change host. Supabase Storage's free plan has 5 GB of egress shared with the database and no resizing.
+
+**Watch:**
+- Netlify's free plan pauses every site on the account when its 300 monthly credits run out. Production deploys cost credits, so deploy deliberately. If traffic nears the limit, Netlify Personal ($9) or Vercel Pro ($20) are the ways out; the code stays host-neutral so moving is configuration, not code.
+- Confirm with a test deploy before launch that Cache Components, `updateTag` and `proxy.ts` behave on Netlify.
+- Supabase free projects pause after a week without activity and have no daily backups. Before launch (M6): a daily GitHub Action that hits `/api/health`, and a nightly `pg_dump` kept privately.
+
+## 2026-10-20 — Admin sign-in: Better Auth, password plus required 2FA
+
+**Decision:** Better Auth with email and password, then a 6-digit authenticator-app code (TOTP). 2FA is required: an admin without it is sent to set it up and can reach nothing else. Backup codes, and "trust this device for 30 days". Passkeys (Face ID, fingerprint) follow as a second way in. No public sign-up: accounts are created by a script. Krishna and Parth are both owners. Password reset by email through Resend on the brand's domain.
+
+**How:** Better Auth uses our `users` table (UUID ids) and adds its own session, account, verification and two-factor tables, all with RLS like every other table. Roles stay in `admin_role_assignments`. Every admin page and server action checks the session and role on the server; `proxy.ts` only redirects signed-out visitors early, as a convenience. Login rate limits are stored in the database, because serverless instances don't share memory.
+
+**Cache:** After a catalogue edit, server actions call `updateTag("catalog")` so the editor sees the change at once. One-argument `revalidateTag` is deprecated in Next 16; outside server actions use `revalidateTag("catalog", "max")`.
+
 ## 2026-10-20 — First-visit intro: the mascot sketched, then painted
 
 **Decision:** On a first visit the Astitva woman is drawn in fine lines and then her painting arrives part by part (sketch to colour, chosen by Parth and Krishna). Details: `docs/DESIGN.md`.

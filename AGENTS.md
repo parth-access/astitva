@@ -16,6 +16,7 @@ Read `README.md` and `docs/DECISIONS.md` first.
 - Only `src/modules/inventory/service.ts` may change `product_variants.on_hand`. Every change writes one `inventory_movements` row in the same transaction.
 - Every status change goes through a machine in `src/modules/orders/machines.ts`.
 - Never trust the browser for price, stock or payment status. Re-price on the server.
+- After a catalogue edit in a server action call `updateTag("catalog")`; elsewhere `revalidateTag("catalog", "max")`.
 - Never select supplier, acquisition cost or internal ref in storefront code (`src/modules/catalog`).
 - Schema changes: edit `src/db/schema.ts`, run `npm run db:generate`, read the SQL, commit it.
 - Run `npm run check` before committing. Integration tests need `DATABASE_URL_TEST` and wipe that database.

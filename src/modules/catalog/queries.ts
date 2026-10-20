@@ -19,7 +19,8 @@ import { compareSizes } from "@/lib/sizes";
 
 /**
  * Storefront reads. Content is cached and tagged "catalog"; admin edits and
- * committed sales call revalidateTag("catalog"). Live stock for the buy button
+ * committed sales call updateTag("catalog") in server actions, or
+ * revalidateTag("catalog", "max") elsewhere. Live stock for the buy button
  * is read separately (uncached) on the piece page.
  *
  * Internal fields (supplier, acquisition cost, internal ref) are never selected here.

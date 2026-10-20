@@ -9,6 +9,10 @@ const serverSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   DATABASE_URL: z.string().url(),
   APP_URL: z.string().url().default("http://localhost:3000"),
+  /** Signs sessions and encrypts 2FA secrets. Generate with `openssl rand -base64 32`. Changing it signs everyone out. */
+  BETTER_AUTH_SECRET: z.string().min(32),
+  /** Sender for account emails, e.g. "Astitva <hello@yourdomain>". Must be on a domain verified in Resend. */
+  EMAIL_FROM: z.string().optional(),
   // Optional until the milestones that need them (M3/M4).
   RAZORPAY_KEY_ID: z.string().optional(),
   RAZORPAY_KEY_SECRET: z.string().optional(),

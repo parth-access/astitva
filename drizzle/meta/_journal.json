@@ -36,6 +36,20 @@
       "when": 1792436105790,
       "tag": "0004_chapters_and_pieces",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792472736500,
+      "tag": "0005_drop_email_verified_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792472736902,
+      "tag": "0006_auth_tables",
+      "breakpoints": true
     }
   ]
 }

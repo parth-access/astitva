@@ -6,7 +6,7 @@ import { env } from "@/lib/env";
  * One pool per server process. In development Next reloads modules on every
  * change, so the instance is kept on globalThis to avoid leaking pools.
  *
- * On Vercel use the provider's *pooled* connection string (Neon, Supabase
+ * In production use the provider's *pooled* connection string (Neon, Supabase
  * pooler) so serverless functions do not exhaust Postgres connections.
  */
 const globalForDb = globalThis as unknown as { __astitvaDb?: Db };

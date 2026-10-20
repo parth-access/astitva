@@ -9,6 +9,10 @@ describe("database TLS", () => {
     expect(sslFromEnv("postgres://u:p@localhost:5432/db", {})).toBe(false);
   });
 
+  it("uses no TLS for a local database even when the Supabase CA is configured", () => {
+    expect(sslFromEnv("postgres://localhost:5432/astitva_test", { DATABASE_CA_CERT: PEM })).toBe(false);
+  });
+
   it("verifies the server against the configured CA", () => {
     expect(sslFromEnv(supabase, { DATABASE_CA_CERT: PEM })).toEqual({ ca: PEM, rejectUnauthorized: true });
   });

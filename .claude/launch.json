@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev-local-db",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000,
+      "env": { "DATABASE_URL": "postgres://localhost:5432/astitva_dev" }
+    },
+    {
+      "name": "prod-local-db",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["next", "start", "-p", "3002"],
+      "port": 3002,
+      "env": { "DATABASE_URL": "postgres://localhost:5432/astitva_dev", "APP_URL": "http://localhost:3002" }
+    }
+  ]
+}
