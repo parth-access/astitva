@@ -3,7 +3,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { HatMark } from "@/components/brand/hat-mark";
 import { AskAboutPiece } from "@/components/brand/concierge";
 import { pieceHref } from "@/components/brand/piece-caption";
 import { pieceTransitionName, Plate } from "@/components/brand/plate";
@@ -245,8 +244,7 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
 
       {product.stylingNote ? (
         <section aria-label="How to wear it" className="mx-auto mt-28 max-w-3xl px-4 text-center sm:px-8 md:mt-40">
-          <HatMark className="mx-auto h-11 w-auto text-gold" />
-          <p className="caption mt-6 text-xl">How {signature ?? "we"} would wear it</p>
+          <p className="caption text-xl">How {signature ?? "we"} would wear it</p>
           <blockquote className="mt-4 font-display text-3xl italic leading-snug md:text-4xl">{product.stylingNote}</blockquote>
           {signature ? <p className="mt-6 font-accent text-2xl italic">{signature}</p> : null}
         </section>

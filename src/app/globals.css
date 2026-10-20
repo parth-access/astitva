@@ -14,7 +14,7 @@
  *   olive      availability and "one of one"
  *   burgundy   the one action colour: buttons, active links, focus
  *   espresso   text
- *   gold       ornaments only (hat mark, monogram); never text
+ *   gold       ornaments only (the monogram); never text
  */
 @theme {
   --color-ivory: #f7f1e7;

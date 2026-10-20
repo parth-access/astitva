@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArchiveGrid } from "@/components/brand/archive-strip";
-import { HatMark } from "@/components/brand/hat-mark";
 import { listArchive } from "@/modules/catalog/queries";
 
 export const metadata: Metadata = {
@@ -14,8 +13,7 @@ export default async function ArchivePage() {
   return (
     <div className="mx-auto max-w-6xl px-4 pt-12 sm:px-8 md:pt-20">
       <div className="max-w-2xl">
-        <HatMark className="h-11 w-auto text-gold" />
-        <p className="caption mt-5 text-xl">They do not come back</p>
+        <p className="caption text-xl">They do not come back</p>
         <h1 className="mt-1 text-6xl italic md:text-7xl">Found their home</h1>
         <p className="mt-6 max-w-lg text-lg leading-relaxed">
           Every piece Astitva has sold stays here, with its number and name. Most of them existed only once, so this is the

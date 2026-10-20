@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { HatMark } from "@/components/brand/hat-mark";
 import { POLICY_PAGES } from "@/content/policies";
 
 export function SiteFooter() {
@@ -7,8 +6,7 @@ export function SiteFooter() {
     <footer className="mt-32 border-t border-taupe/30">
       <div className="mx-auto grid max-w-6xl gap-12 px-4 pb-10 pt-16 sm:px-8 md:grid-cols-12">
         <div className="md:col-span-5">
-          <HatMark className="h-12 w-auto text-gold" />
-          <p className="mt-5 font-display text-3xl italic">Your true form</p>
+          <p className="font-display text-3xl italic">Your true form</p>
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-espresso-soft">
             Clothes chosen by hand, one piece at a time. Most exist only once.
           </p>
