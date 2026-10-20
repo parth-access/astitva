@@ -11,7 +11,7 @@ export default async function NewPiecePage() {
   return (
     <div className="max-w-3xl">
       <h1 className="font-display text-3xl">Add a piece</h1>
-      <p className="mt-2 text-sm text-espresso-soft">It starts as a draft. Nothing shows on the site until you publish it.</p>
+      <p className="mt-2 text-sm text-espresso-soft">It starts as a draft. Nothing shows on the site until you publish it. Add photos after creating the draft.</p>
       <div className="mt-8">
         <PieceEditor
           productId={null}

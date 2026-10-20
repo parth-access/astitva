@@ -1,7 +1,7 @@
 import "server-only";
 import { asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { categories, chapters, inventoryMovements, productCategories, productVariants, products } from "@/db/schema";
+import { categories, chapters, inventoryMovements, productCategories, productImages, productVariants, products } from "@/db/schema";
 import { paiseToRupeesText } from "@/lib/money";
 import { nextPieceNumber, publishProblems } from "./service";
 
@@ -57,7 +57,12 @@ export async function getPieceForEdit(id: string) {
     .from(productVariants)
     .where(eq(productVariants.productId, id))
     .orderBy(desc(productVariants.isActive), asc(productVariants.createdAt));
-  return { product, categoryId: category?.categoryId ?? null, variants };
+  const photos = await db
+    .select({ id: productImages.id, url: productImages.url, altText: productImages.altText })
+    .from(productImages)
+    .where(eq(productImages.productId, id))
+    .orderBy(asc(productImages.sortOrder), asc(productImages.createdAt));
+  return { product, categoryId: category?.categoryId ?? null, variants, photos };
 }
 
 export type PieceForEdit = NonNullable<Awaited<ReturnType<typeof getPieceForEdit>>>;

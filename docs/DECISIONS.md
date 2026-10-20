@@ -8,7 +8,13 @@ Short records of choices that differ from, or add to, the revised PRD. Newest fi
 
 **How:** Admin reads and writes live in `src/modules/catalog-admin` (they include cost and internal reference), separate from the storefront's `src/modules/catalog`. Prices are typed in rupees and stored as paise. Opening stock and every later change go through the inventory service as movements with a reason ("More arrived", "Count was low/high", "Damaged or lost"). Every save writes an audit row and calls `updateTag("catalog")`, so the change shows on the site at once. Sizes are switched off, never deleted.
 
-**Not yet:** photos (Cloudinary), suppliers (no editor yet; the field stays empty), chapter editor.
+**Not yet:** suppliers (no editor yet; the field stays empty), chapter editor.
+
+## 2026-10-20 — Piece photos on Cloudinary, uploaded from the browser
+
+**Decision:** Photos go from the admin's browser straight to Cloudinary, so phone photos of any size never pass through our server. Our server signs each upload (signed-in admins only; images only; into `astitva/pieces`; shrunk on arrival to at most 2400×3000 to save free-plan storage). Cloudinary's reply is signed too, and the server checks that signature and the address before recording the photo, so nobody can attach an image from elsewhere. Signing is done in `src/modules/media/cloudinary.ts` (SHA-1, Cloudinary's documented scheme) rather than with the SDK, whose types lag its code.
+
+**Details:** The first photo is the cover in the piece's arch. A piece without a tone takes the main colour of its first photo. The storefront asks Cloudinary for each size and the best format (`f_auto,q_auto`), so photos don't use the host's image allowance. Removing a photo deletes the file on Cloudinary after the response (best effort). The stored URL is the untouched original.
 
 ## 2026-10-20 — Hosting on Netlify (free), photos on Cloudinary
 

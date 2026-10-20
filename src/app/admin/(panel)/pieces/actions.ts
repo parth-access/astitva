@@ -1,15 +1,25 @@
 "use server";
 
 import { updateTag } from "next/cache";
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db/client";
 import { InvalidTransitionError } from "@/lib/state-machine";
 import { formValues, parsePieceForm, type FieldErrors } from "@/modules/catalog-admin/input";
+import { addPhoto, movePhoto, removePhoto, setPhotoAlt } from "@/modules/catalog-admin/photos";
 import { changePieceStock, PieceRuleError, savePiece, setPieceStatus } from "@/modules/catalog-admin/service";
 import { CATALOG_TAG } from "@/modules/catalog/queries";
 import { requireAdmin } from "@/modules/auth/auth";
 import { InventoryError } from "@/modules/inventory/errors";
+import {
+  destroyPhoto,
+  publicIdFromUrl,
+  signPieceUpload,
+  verifyUpload,
+  type SignedUpload,
+  type UploadReceipt,
+} from "@/modules/media/cloudinary";
 
 export type FormState = {
   errors: FieldErrors;
@@ -90,4 +100,56 @@ export async function changeStockAction(productId: string, _prev: FormState, for
   }
   updateTag(CATALOG_TAG);
   return { errors: {}, savedAt: Date.now() };
+}
+
+/* Photos ------------------------------------------------------------- */
+
+/** A signature for one browser upload straight to Cloudinary. */
+export async function signPhotoUploadAction(productId: string): Promise<SignedUpload> {
+  await requireAdmin();
+  if (!z.uuid().safeParse(productId).success) throw new Error("Unknown piece.");
+  return signPieceUpload();
+}
+
+export type PhotoResult = { ok: true } | { ok: false; error: string };
+
+/** Records an upload after checking Cloudinary's signed reply. */
+export async function attachPhotoAction(productId: string, receipt: UploadReceipt): Promise<PhotoResult> {
+  const { user } = await requireAdmin();
+  const photo = verifyUpload(receipt);
+  if (!photo) return { ok: false, error: "That upload couldn't be confirmed. Try again." };
+  try {
+    await addPhoto(db, productId, photo, user.id);
+  } catch (err) {
+    if (err instanceof PieceRuleError) return { ok: false, error: Object.values(err.errors)[0]! };
+    throw err;
+  }
+  updateTag(CATALOG_TAG);
+  return { ok: true };
+}
+
+const photoChange = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("alt"), photoId: z.uuid(), altText: z.string() }),
+  z.object({ kind: z.literal("move"), photoId: z.uuid(), direction: z.enum(["earlier", "later", "first"]) }),
+  z.object({ kind: z.literal("remove"), photoId: z.uuid() }),
+]);
+
+export async function changePhotoAction(productId: string, change: z.infer<typeof photoChange>): Promise<PhotoResult> {
+  const { user } = await requireAdmin();
+  const c = photoChange.safeParse(change);
+  if (!c.success) return { ok: false, error: "Unknown change." };
+  try {
+    if (c.data.kind === "alt") await setPhotoAlt(db, productId, c.data.photoId, c.data.altText);
+    if (c.data.kind === "move") await movePhoto(db, productId, c.data.photoId, c.data.direction);
+    if (c.data.kind === "remove") {
+      const url = await removePhoto(db, productId, c.data.photoId, user.id);
+      const publicId = publicIdFromUrl(url);
+      if (publicId) after(() => destroyPhoto(publicId));
+    }
+  } catch (err) {
+    if (err instanceof PieceRuleError) return { ok: false, error: Object.values(err.errors)[0]! };
+    throw err;
+  }
+  updateTag(CATALOG_TAG);
+  return { ok: true };
 }

@@ -9,6 +9,7 @@ import { pieceTransitionName, Plate } from "@/components/brand/plate";
 import { BuyPanel } from "@/components/storefront/buy-panel";
 import { Price } from "@/components/storefront/price";
 import { PACKED_BY_HAND, showPromise } from "@/content/brand";
+import { cloudinaryUrl } from "@/lib/cloudinary-url";
 import { db } from "@/db/client";
 import type { Measurements } from "@/db/schema";
 import { formatPieceNumber, toRoman } from "@/lib/format";
@@ -34,7 +35,7 @@ export async function generateMetadata({ params }: PageProps<"/pieces/[slug]">):
     title: product.seoTitle ?? titleOf(product),
     description: product.seoDescription ?? product.story?.slice(0, 160) ?? product.description.slice(0, 160),
     alternates: { canonical: pieceHref(product.slug) },
-    openGraph: { images: product.images[0] ? [{ url: product.images[0].url }] : undefined },
+    openGraph: { images: product.images[0] ? [{ url: cloudinaryUrl(product.images[0].url, { width: 1200 }) }] : undefined },
   };
 }
 

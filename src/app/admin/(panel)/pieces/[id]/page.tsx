@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PieceEditor } from "@/components/admin/piece-editor";
 import { StatusPanel, StockPanel } from "@/components/admin/piece-panels";
+import { PhotosPanel } from "@/components/admin/photos-panel";
 import { Notice } from "@/components/admin/ui";
 import { formatPieceNumber } from "@/lib/format";
 import { requireAdmin } from "@/modules/auth/auth";
@@ -18,7 +19,7 @@ export default async function EditPiecePage({ params, searchParams }: PageProps<
   if (!UUID.test(id)) notFound();
   const [piece, options, problems] = await Promise.all([getPieceForEdit(id), getEditorOptions(), getPublishProblems(id)]);
   if (!piece) notFound();
-  const { product, variants } = piece;
+  const { product, variants, photos } = piece;
 
   return (
     <div>
@@ -43,7 +44,8 @@ export default async function EditPiecePage({ params, searchParams }: PageProps<
               .map((v) => ({ id: v.id, label: v.size ? `Size ${v.size}` : "One size", onHand: v.onHand }))}
           />
         </div>
-        <div className="lg:order-1">
+        <div className="space-y-10 lg:order-1">
+          <PhotosPanel productId={product.id} photos={photos} pieceLabel={product.pieceName ?? product.name} />
           <PieceEditor
             key={product.updatedAt.toISOString()}
             productId={product.id}

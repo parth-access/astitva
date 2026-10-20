@@ -9,7 +9,7 @@ The specification is the revised PRD (Astitva PRD Review and Revised Specificati
 | Milestone | State |
 | --- | --- |
 | M0 Foundation: repo, schema, tokens, CI-ready scripts | Done |
-| M1 Catalogue: storefront as a lookbook (chapters, numbered pieces, archive, concierge) | Storefront, admin sign-in (password + required 2FA) and piece editor done. Photos and chapter editor next |
+| M1 Catalogue: storefront as a lookbook (chapters, numbered pieces, archive, concierge) | Storefront, admin sign-in (password + required 2FA), piece editor and photos (Cloudinary) done. Chapter editor next |
 | M2 Inventory engine: reservations, movements, state machines | Done, with concurrency tests |
 | M3 Cart, guest checkout, COD | Not started |
 | M4 Razorpay | Not started |
@@ -91,6 +91,7 @@ scripts/mascot/       mascot pipeline: python3 scripts/mascot/build.py
     catalog/          cached storefront reads
     catalog-admin/    admin reads and writes for pieces (includes private fields; never import from storefront)
     inventory/        reservation engine: the only code that changes stock
+    media/            Cloudinary: signed uploads, reply checks, deletes
     orders/           order, payment, COD, refund state machines
 drizzle/              SQL migrations (generated, reviewed, committed)
 tests/unit/           pure logic
