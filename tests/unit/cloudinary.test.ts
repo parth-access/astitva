@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cloudinaryUrl, isCloudinaryUrl } from "@/lib/cloudinary-url";
-import { cloudinarySignature, publicIdFromUrl, signPieceUpload, verifyUpload } from "@/modules/media/cloudinary";
+import { CHAPTER_FOLDER, cloudinarySignature, PIECE_FOLDER, publicIdFromUrl, signUpload, verifyUpload } from "@/modules/media/cloudinary";
 
 const account = { cloudName: "demo", apiKey: "123", apiSecret: "shh" };
 const photo = "https://res.cloudinary.com/demo/image/upload/v1712/astitva/pieces/abc123.jpg";
@@ -29,15 +29,17 @@ describe("cloudinary", () => {
   });
 
   it("signs uploads into the pieces folder only", () => {
-    const { url, fields } = signPieceUpload(account, 1_700_000_000_000);
+    const { url, fields } = signUpload(PIECE_FOLDER, account, 1_700_000_000_000);
     expect(url).toBe("https://api.cloudinary.com/v1_1/demo/image/upload");
     expect(fields).toMatchObject({ folder: "astitva/pieces", api_key: "123", timestamp: "1700000000" });
-    const { signature, api_key: _k, ...signed } = fields;
-    expect(signature).toBe(cloudinarySignature(signed, account.apiSecret));
+    const signed: Record<string, string> = { ...fields };
+    delete signed.signature;
+    delete signed.api_key;
+    expect(fields.signature).toBe(cloudinarySignature(signed, account.apiSecret));
   });
 
   it("accepts a genuine reply and takes the tone from its main colour", () => {
-    expect(verifyUpload(receipt(), account)).toEqual({
+    expect(verifyUpload(receipt(), PIECE_FOLDER, account)).toEqual({
       publicId: "astitva/pieces/abc123",
       url: photo,
       width: 1600,
@@ -47,12 +49,13 @@ describe("cloudinary", () => {
   });
 
   it("rejects forged, foreign or out-of-folder replies", () => {
-    expect(verifyUpload(receipt({ signature: "0".repeat(40) }), account)).toBeNull();
-    expect(verifyUpload(receipt({ secure_url: "https://evil.example/x.jpg" }), account)).toBeNull();
-    expect(verifyUpload(receipt({ secure_url: photo.replace("/demo/", "/other/") }), account)).toBeNull();
+    expect(verifyUpload(receipt(), CHAPTER_FOLDER, account)).toBeNull();
+    expect(verifyUpload(receipt({ signature: "0".repeat(40) }), PIECE_FOLDER, account)).toBeNull();
+    expect(verifyUpload(receipt({ secure_url: "https://evil.example/x.jpg" }), PIECE_FOLDER, account)).toBeNull();
+    expect(verifyUpload(receipt({ secure_url: photo.replace("/demo/", "/other/") }), PIECE_FOLDER, account)).toBeNull();
     const elsewhere = { public_id: "other/abc", version: 1712 };
     expect(
-      verifyUpload(receipt({ ...elsewhere, signature: cloudinarySignature(elsewhere, account.apiSecret) }), account),
+      verifyUpload(receipt({ ...elsewhere, signature: cloudinarySignature(elsewhere, account.apiSecret) }), PIECE_FOLDER, account),
     ).toBeNull();
   });
 

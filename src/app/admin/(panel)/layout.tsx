@@ -17,6 +17,9 @@ export default async function PanelLayout({ children }: LayoutProps<"/admin">) {
               <Link href="/admin/pieces" className="link">
                 Pieces
               </Link>
+              <Link href="/admin/chapters" className="link">
+                Chapters
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-4 text-sm">

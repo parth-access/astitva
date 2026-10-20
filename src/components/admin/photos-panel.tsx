@@ -5,11 +5,9 @@ import { useRef, useState, useTransition } from "react";
 import { attachPhotoAction, changePhotoAction, signPhotoUploadAction } from "@/app/admin/(panel)/pieces/actions";
 import { cloudinaryUrl } from "@/lib/cloudinary-url";
 import { FormError } from "./ui";
+import { IMAGE_ACCEPT, uploadToCloudinary } from "./upload";
 
 export type PanelPhoto = { id: string; url: string; altText: string };
-
-/** Cloudinary's free plan accepts images up to 10 MB. */
-const MAX_BYTES = 10 * 1024 * 1024;
 
 /**
  * A piece's photographs: upload (straight to Cloudinary), describe, reorder,
@@ -28,22 +26,12 @@ export function PhotosPanel({ productId, photos, pieceLabel }: { productId: stri
     const problems: string[] = [];
     for (const [i, file] of files.entries()) {
       setProgress(files.length > 1 ? `Uploading ${i + 1} of ${files.length}…` : "Uploading…");
-      if (file.size > MAX_BYTES) {
-        problems.push(`${file.name} is over 10 MB. Export a smaller copy and try again.`);
-        continue;
-      }
       try {
-        const { url, fields } = await signPhotoUploadAction(productId);
-        const body = new FormData();
-        for (const [k, v] of Object.entries(fields)) body.append(k, v);
-        body.append("file", file);
-        const res = await fetch(url, { method: "POST", body });
-        const reply = await res.json();
-        if (!res.ok) throw new Error(reply?.error?.message ?? `Upload failed (${res.status}).`);
+        const reply = await uploadToCloudinary(file, () => signPhotoUploadAction(productId));
         const saved = await attachPhotoAction(productId, reply);
         if (!saved.ok) throw new Error(saved.error);
       } catch (err) {
-        problems.push(`${file.name}: ${err instanceof Error ? err.message : "upload failed"}`);
+        problems.push(err instanceof Error ? err.message : `${file.name}: upload failed`);
       }
     }
     setProgress(null);
@@ -73,7 +61,7 @@ export function PhotosPanel({ productId, photos, pieceLabel }: { productId: stri
           <input
             ref={input}
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif"
+            accept={IMAGE_ACCEPT}
             multiple
             className="sr-only"
             disabled={busy}

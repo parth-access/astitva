@@ -1,8 +1,9 @@
 import "server-only";
 import { asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { categories, chapters, inventoryMovements, productCategories, productImages, productVariants, products } from "@/db/schema";
+import { categories, chapters, productCategories, productImages, productVariants, products } from "@/db/schema";
 import { paiseToRupeesText } from "@/lib/money";
+import { dateToIst, nextChapterNumber } from "./chapters";
 import { nextPieceNumber, publishProblems } from "./service";
 
 /**
@@ -33,9 +34,10 @@ export async function listAdminPieces(): Promise<AdminPieceRow[]> {
       name: products.name,
       status: products.status,
       chapterNumber: chapters.number,
-      priceMinor: sql<number | null>`(select min(v.price_minor) from ${productVariants} v where v.product_id = ${products.id} and v.is_active)::bigint`,
-      onHand: sql<number>`(select coalesce(sum(v.on_hand), 0) from ${productVariants} v where v.product_id = ${products.id} and v.is_active)::int`,
-      sold: sql<number>`(select coalesce(-sum(m.quantity_delta), 0) from ${inventoryMovements} m join ${productVariants} v on v.id = m.variant_id where v.product_id = ${products.id} and m.movement_type = 'sale')::int`,
+      // Correlated subqueries name the outer table explicitly (see listAdminChapters).
+      priceMinor: sql<number | null>`(select min(v.price_minor) from product_variants v where v.product_id = products.id and v.is_active)::bigint`,
+      onHand: sql<number>`(select coalesce(sum(v.on_hand), 0) from product_variants v where v.product_id = products.id and v.is_active)::int`,
+      sold: sql<number>`(select coalesce(-sum(m.quantity_delta), 0) from inventory_movements m join product_variants v on v.id = m.variant_id where v.product_id = products.id and m.movement_type = 'sale')::int`,
       updatedAt: products.updatedAt,
     })
     .from(products)
@@ -124,4 +126,46 @@ export function pieceFormValues(piece: PieceForEdit): Record<string, string> {
 
 export function getPublishProblems(productId: string) {
   return publishProblems(db, productId);
+}
+
+/* Chapters ------------------------------------------------------------ */
+
+export async function listAdminChapters() {
+  return db
+    .select({
+      id: chapters.id,
+      number: chapters.number,
+      title: chapters.title,
+      status: chapters.status,
+      releaseAt: chapters.releaseAt,
+      // Spelled out: in a one-table query Drizzle writes ${chapters.id} as a bare "id", which the subquery would read as p.id.
+      pieceCount: sql<number>`(select count(*) from products p where p.chapter_id = chapters.id and p.status = 'active')::int`,
+    })
+    .from(chapters)
+    .orderBy(desc(chapters.number));
+}
+
+export async function getChapterForEdit(id: string) {
+  const [chapter] = await db.select().from(chapters).where(eq(chapters.id, id));
+  return chapter ?? null;
+}
+
+export type ChapterForEdit = NonNullable<Awaited<ReturnType<typeof getChapterForEdit>>>;
+
+export function chapterFormValues(c: ChapterForEdit): Record<string, string> {
+  return {
+    number: String(c.number),
+    title: c.title,
+    subtitle: c.subtitle ?? "",
+    slug: c.slug,
+    letter: c.letter,
+    letterSignature: c.letterSignature ?? "",
+    tone: c.tone ?? "",
+    releaseAt: c.releaseAt ? dateToIst(c.releaseAt) : "",
+    coverImageAlt: c.coverImageAlt ?? "",
+  };
+}
+
+export function getNextChapterNumber() {
+  return nextChapterNumber(db);
 }

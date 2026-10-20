@@ -14,8 +14,9 @@ import { requireAdmin } from "@/modules/auth/auth";
 import { InventoryError } from "@/modules/inventory/errors";
 import {
   destroyPhoto,
+  PIECE_FOLDER,
   publicIdFromUrl,
-  signPieceUpload,
+  signUpload,
   verifyUpload,
   type SignedUpload,
   type UploadReceipt,
@@ -108,7 +109,7 @@ export async function changeStockAction(productId: string, _prev: FormState, for
 export async function signPhotoUploadAction(productId: string): Promise<SignedUpload> {
   await requireAdmin();
   if (!z.uuid().safeParse(productId).success) throw new Error("Unknown piece.");
-  return signPieceUpload();
+  return signUpload(PIECE_FOLDER);
 }
 
 export type PhotoResult = { ok: true } | { ok: false; error: string };
@@ -116,7 +117,7 @@ export type PhotoResult = { ok: true } | { ok: false; error: string };
 /** Records an upload after checking Cloudinary's signed reply. */
 export async function attachPhotoAction(productId: string, receipt: UploadReceipt): Promise<PhotoResult> {
   const { user } = await requireAdmin();
-  const photo = verifyUpload(receipt);
+  const photo = verifyUpload(receipt, PIECE_FOLDER);
   if (!photo) return { ok: false, error: "That upload couldn't be confirmed. Try again." };
   try {
     await addPhoto(db, productId, photo, user.id);

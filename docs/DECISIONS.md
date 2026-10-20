@@ -8,7 +8,11 @@ Short records of choices that differ from, or add to, the revised PRD. Newest fi
 
 **How:** Admin reads and writes live in `src/modules/catalog-admin` (they include cost and internal reference), separate from the storefront's `src/modules/catalog`. Prices are typed in rupees and stored as paise. Opening stock and every later change go through the inventory service as movements with a reason ("More arrived", "Count was low/high", "Damaged or lost"). Every save writes an audit row and calls `updateTag("catalog")`, so the change shows on the site at once. Sizes are switched off, never deleted.
 
-**Not yet:** suppliers (no editor yet; the field stays empty), chapter editor.
+**Chapters** follow the same pattern: drafts, published with `chapterMachine`, a release date required to publish (a database rule too). While a chapter is published its number and web address are fixed; unpublishing hides the chapter page, and its pieces stay on the site. Release times are typed and shown in India time. A new cover replaces the old file on Cloudinary (`astitva/chapters`). The letter editor has a preview that uses the storefront's own `Letter` component.
+
+**Not yet:** suppliers (no editor yet; the field stays empty).
+
+**Gotcha:** in a one-table Drizzle query, `${table.id}` inside a raw `sql` subquery renders as a bare `"id"`, which the subquery binds to its own table. Write the outer table name out in correlated subqueries. This had hidden the shop's category filters.
 
 ## 2026-10-20 — Piece photos on Cloudinary, uploaded from the browser
 

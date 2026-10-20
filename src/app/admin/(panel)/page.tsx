@@ -14,7 +14,13 @@ export default async function AdminHome() {
           <Link href="/admin/pieces" className="link text-lg">
             Pieces
           </Link>
-          <span className="ml-2 text-sm text-espresso-soft">Add and edit pieces, prices and stock.</span>
+          <span className="ml-2 text-sm text-espresso-soft">Add and edit pieces, photos, prices and stock.</span>
+        </li>
+        <li>
+          <Link href="/admin/chapters" className="link text-lg">
+            Chapters
+          </Link>
+          <span className="ml-2 text-sm text-espresso-soft">Releases, their letters and covers.</span>
         </li>
         <li>
           <Link href="/" className="link text-lg">

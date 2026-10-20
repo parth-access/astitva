@@ -32,8 +32,10 @@ export function cloudinaryAccount(url = process.env.CLOUDINARY_URL): Account {
   return { cloudName: u.hostname, apiKey: decodeURIComponent(u.username), apiSecret: decodeURIComponent(u.password) };
 }
 
-/** Where piece photos go, and what an upload may be. */
+/** Where photos go, and what an upload may be. */
 export const PIECE_FOLDER = "astitva/pieces";
+export const CHAPTER_FOLDER = "astitva/chapters";
+export type PhotoFolder = typeof PIECE_FOLDER | typeof CHAPTER_FOLDER;
 const ALLOWED_FORMATS = "jpg,jpeg,png,webp,avif,heic,heif";
 /** Phone photos are often 4000+ px; nothing on the site needs more than this. Saves storage on the free plan. */
 const INCOMING = "c_limit,w_2400,h_3000";
@@ -41,10 +43,10 @@ const INCOMING = "c_limit,w_2400,h_3000";
 export type SignedUpload = { url: string; fields: Record<string, string> };
 
 /** Everything the browser needs to post one file to Cloudinary. Valid for an hour (Cloudinary's rule). */
-export function signPieceUpload(account = cloudinaryAccount(), now = Date.now()): SignedUpload {
+export function signUpload(folder: PhotoFolder, account = cloudinaryAccount(), now = Date.now()): SignedUpload {
   const params = {
     timestamp: String(Math.floor(now / 1000)),
-    folder: PIECE_FOLDER,
+    folder,
     allowed_formats: ALLOWED_FORMATS,
     transformation: INCOMING,
     colors: "true",
@@ -71,12 +73,12 @@ export type VerifiedPhoto = { publicId: string; url: string; width: number | nul
 
 /**
  * Checks Cloudinary's signature on the reply and that the file is ours, in
- * the pieces folder. Returns null for anything else.
+ * the expected folder. Returns null for anything else.
  */
-export function verifyUpload(receipt: UploadReceipt, account = cloudinaryAccount()): VerifiedPhoto | null {
+export function verifyUpload(receipt: UploadReceipt, folder: PhotoFolder, account = cloudinaryAccount()): VerifiedPhoto | null {
   const { public_id, version, signature, secure_url } = receipt;
   if (typeof public_id !== "string" || !Number.isInteger(version) || typeof signature !== "string") return null;
-  if (!public_id.startsWith(`${PIECE_FOLDER}/`)) return null;
+  if (!public_id.startsWith(`${folder}/`)) return null;
 
   const expected = cloudinarySignature({ public_id, version }, account.apiSecret);
   if (expected !== signature) return null;

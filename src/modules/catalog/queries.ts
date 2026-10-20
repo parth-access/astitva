@@ -152,8 +152,10 @@ export async function listCategories() {
     .where(
       and(
         eq(categories.isActive, true),
+        // The outer table is spelled out: in a one-table query Drizzle writes ${categories.id}
+        // as a bare "id", which inside this subquery would mean p.id.
         sql`exists (select 1 from ${productCategories} pc join ${products} p on p.id = pc.product_id
-                    where pc.category_id = ${categories.id} and p.status = 'active')`,
+                    where pc.category_id = categories.id and p.status = 'active')`,
       ),
     )
     .orderBy(asc(categories.sortOrder), asc(categories.name));
