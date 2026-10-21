@@ -8,7 +8,8 @@ import { z } from "zod";
 const serverSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   DATABASE_URL: z.string().url(),
-  APP_URL: z.string().url().default("http://localhost:3000"),
+  // Blank counts as unset (a host's empty field): localhost in development; production refuses it (env()).
+  APP_URL: z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? undefined : v), z.string().url().default("http://localhost:3000")),
   /** Signs sessions and encrypts 2FA secrets. Generate with `openssl rand -base64 32`. Changing it signs everyone out. */
   BETTER_AUTH_SECRET: z.string().min(32),
   /** Sender for account emails, e.g. "Astitva <hello@yourdomain>". Must be on a domain verified in Resend. */
@@ -29,6 +30,11 @@ let cached: ServerEnv | undefined;
 
 export function env(): ServerEnv {
   if (cached) return cached;
+  // In production the site's address must be set, not defaulted: emails, the
+  // sitemap, share cards and sign-in would otherwise all point at localhost.
+  if (process.env.NODE_ENV === "production" && !process.env.APP_URL?.trim()) {
+    throw new Error("Invalid environment configuration:\n  - APP_URL: set it to the live address, e.g. https://astitva.in (no trailing slash).");
+  }
   const parsed = serverSchema.safeParse(process.env);
   if (!parsed.success) {
     const issues = parsed.error.issues

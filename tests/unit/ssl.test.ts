@@ -29,4 +29,12 @@ describe("database TLS", () => {
   it("explains what to do when sslmode is in the URL", () => {
     expect(() => sslFromEnv(`${supabase}?sslmode=require`, {})).toThrow(/Remove sslmode/);
   });
+
+  it("says what to fix when a local certificate path reaches a host, or the inline value isn't a certificate", () => {
+    const supabase = "postgresql://u:p@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres";
+    expect(() => sslFromEnv(supabase, { DATABASE_CA_CERT_FILE: "certs/missing.crt" })).toThrow(/set DATABASE_CA_CERT to the certificate's text/);
+    expect(() => sslFromEnv(supabase, { DATABASE_CA_CERT: "certs/supabase-ca.crt" })).toThrow(/must be the certificate's text/);
+    // The inline certificate wins over a stale file path.
+    expect(sslFromEnv(supabase, { DATABASE_CA_CERT: PEM, DATABASE_CA_CERT_FILE: "certs/missing.crt" })).toEqual({ ca: PEM, rejectUnauthorized: true });
+  });
 });

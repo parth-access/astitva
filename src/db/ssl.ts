@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import type { ConnectionOptions } from "node:tls";
 
 /**
@@ -23,6 +23,15 @@ export function sslFromEnv(connectionString: string, env: Partial<Record<string,
 
   const inline = env.DATABASE_CA_CERT?.replace(/\\n/g, "\n").trim();
   const file = env.DATABASE_CA_CERT_FILE?.trim();
+  if (inline && !inline.includes("-----BEGIN CERTIFICATE-----")) {
+    throw new Error("DATABASE_CA_CERT must be the certificate's text, starting -----BEGIN CERTIFICATE-----, not a file path or a name (see src/db/ssl.ts).");
+  }
+  if (!inline && file && !existsSync(file)) {
+    // Typically a local path copied to a host (Netlify) where the file doesn't exist: certs/ is never committed.
+    throw new Error(
+      `DATABASE_CA_CERT_FILE points to "${file}", which doesn't exist here. On a host like Netlify, remove DATABASE_CA_CERT_FILE and set DATABASE_CA_CERT to the certificate's text instead (see src/db/ssl.ts).`,
+    );
+  }
   const ca = inline || (file ? readFileSync(file, "utf8") : undefined);
   if (ca) return { ca, rejectUnauthorized: true };
 
