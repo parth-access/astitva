@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { sslFromEnv, withoutSslParams } from "@/db/ssl";
+import { normalisePem, sslFromEnv, withoutSslParams } from "@/db/ssl";
 
 const supabase = "postgresql://postgres.abc:pw@aws-0-ap-south-1.pooler.supabase.com:5432/postgres";
-const PEM = "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----";
+/** A throwaway self-signed test certificate (no key kept): real enough to parse, trusted by nothing. */
+const PEM = "-----BEGIN CERTIFICATE-----\nMIIBgDCCASagAwIBAgIUbknXppaYNUJChOaGqqmvZT5Yi68wCgYIKoZIzj0EAwIw\nJTEjMCEGA1UEAwwaYXN0aXR2YSB0ZXN0IENBIChub3QgcmVhbCkwIBcNMjYxMDIx\nMDQ0NzEzWhgPMjEyNjA5MjcwNDQ3MTNaMCUxIzAhBgNVBAMMGmFzdGl0dmEgdGVz\ndCBDQSAobm90IHJlYWwpMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEvR1D2phP\nK8yXWlHR59lMU/TZb7m8hBm6nk+tZAfmHqY9nKnn+/am1z6b5Td5Y1XJOHXLskq6\n9GG/Ad4VUOY0IqMyMDAwHQYDVR0OBBYEFM8J2MGberZDjAITpfLBUuygCQSUMA8G\nA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwIDSAAwRQIhAM4+B7iuyhKW78KYMt/Y\nSJb3P7qRu6cvjwdK5YfGqxrrAiBL9pfjmddIYbMfSVOOst2113GuM/NBY1z8bhVH\n+Ph55Q==\n-----END CERTIFICATE-----\n";
 
 describe("database TLS", () => {
   it("uses no TLS for a local database", () => {
@@ -37,5 +38,23 @@ describe("database TLS", () => {
     expect(() => sslFromEnv(supabase, { DATABASE_CA_CERT: "certs/supabase-ca.crt" })).toThrow(/must be the certificate's text/);
     // The inline certificate wins over a stale file path.
     expect(sslFromEnv(supabase, { DATABASE_CA_CERT: PEM, DATABASE_CA_CERT_FILE: "certs/missing.crt" })).toEqual({ ca: PEM, rejectUnauthorized: true });
+  });
+
+  it("reads the certificate however it was pasted into a host's settings", () => {
+    const pasted = [
+      PEM,
+      PEM.replace(/\n/g, "\\n"), // typed as \n
+      PEM.replace(/\n/g, " "), // line breaks turned into spaces
+      PEM.replace(/\n/g, ""), // line breaks lost
+      `"${PEM.trim()}"`, // wrapped in quotes
+      PEM.replace(/\n/g, "\r\n"), // Windows line breaks
+    ];
+    for (const raw of pasted) expect(normalisePem(raw)).toBe(PEM);
+  });
+
+  it("says plainly when the certificate is damaged, instead of a misleading TLS error", () => {
+    const cut = PEM.replace(/(-----BEGIN CERTIFICATE-----\n.{20})[\s\S]*?(-----END)/, "$1\n$2");
+    expect(() => normalisePem(cut)).toThrow(/isn't a readable certificate/);
+    expect(() => normalisePem("certs/supabase-ca.crt")).toThrow(/must be the certificate's text/);
   });
 });
