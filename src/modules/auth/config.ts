@@ -12,6 +12,7 @@ import {
   users,
 } from "@/db/schema";
 import { sendEmail } from "@/lib/email";
+import { renderPasswordReset } from "@/modules/email/templates";
 import { PASSWORD_MIN_LENGTH } from "./constants";
 
 /**
@@ -52,11 +53,7 @@ export function createAuth(db: DbOrTx, opts: AuthOptions) {
       revokeSessionsOnPasswordReset: true,
       resetPasswordTokenExpiresIn: 60 * 60,
       async sendResetPassword({ user, url }) {
-        await sendEmail({
-          to: user.email,
-          subject: "Set your Astitva password",
-          text: `Hello ${user.name},\n\nUse this link within an hour to set your password for the Astitva admin:\n\n${url}\n\nIf you didn't ask for this, ignore this email; nothing changes.\n`,
-        });
+        await sendEmail({ to: user.email, ...renderPasswordReset({ name: user.name, url, appUrl: opts.baseURL.replace(/\/$/, "") }) });
       },
     },
     session: { expiresIn: 7 * DAY, updateAge: DAY },

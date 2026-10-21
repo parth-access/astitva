@@ -2,6 +2,14 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-21 — Emails as letters
+
+**Decision:** Every email reads like a letter from Krishna, not a receipt: the mascot in an arch, the pieces in small arches (their photo in the colour bought, or the colour with the name painted on), where the order is as a five-step bar, her note on how she'd wear the piece, the hand-wrapped card it will carry (while that promise is a draft, only outside production), and her signature. Krishna's own emails are practical: the amount and buyer first, and for cash on delivery a "Confirm on WhatsApp" button with the confirmation message already written.
+
+**How** (`src/modules/email/layout.ts`, `templates.ts`): tables and inline styles, no scripts, SVG or WebP (photos come from Cloudinary as JPEG at twice the size), a hidden preview line for the inbox, `color-scheme: light only`, under 15 KB each (Gmail clips at about 102 KB). Gmail, Outlook and most Android mail can't load web fonts and fall back to Georgia and Helvetica; Apple Mail gets Playfair and Montserrat from `public/email/fonts`. The mascot is padded with her own paper (`public/email/mascot.jpg`) so the arch never cuts the hat. Order and shipping emails carry schema.org `Order` / `ParcelDelivery` markup, which Gmail may show as a card (it needs SPF and DKIM, which Resend sets up; no registration for cards without buttons). Plain-text versions stay. The admin's password email uses the same frame.
+
+**Preview:** `npm run email:preview` renders every email from the database into `.email-preview/` (ignored by git), each at desktop and phone width on `index.html`.
+
 ## 2026-10-21 — Page transitions, loading skeletons, the admin redesigned
 
 **Transitions** (`src/components/brand/transitions.tsx`, `src/lib/transition-types.ts`, CSS in `globals.css`): React's `<ViewTransition>` in `template.tsx` for the store and the admin, so every navigation can animate. A link says which way it goes: deeper (`FORWARD`, slides in from the right), back up (`BACK`, from the left) or across to a sibling page (`ACROSS`, a small rise). Untyped changes (browser back, a refresh after saving) don't move. The header and the admin's navigation are named so they stay still. Reduced motion switches it all off. Not a `usePathname()`-keyed wrapper in the layout: that made every page dynamic and failed the build.

@@ -48,3 +48,6 @@ next-env.d.ts
 # python caches
 __pycache__/
 *.pyc
+
+# Rendered emails (npm run email:preview)
+/.email-preview/
