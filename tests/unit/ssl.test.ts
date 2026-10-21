@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sslFromEnv } from "@/db/ssl";
+import { sslFromEnv, withoutSslParams } from "@/db/ssl";
 
 const supabase = "postgresql://postgres.abc:pw@aws-0-ap-south-1.pooler.supabase.com:5432/postgres";
 const PEM = "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----";
@@ -26,8 +26,9 @@ describe("database TLS", () => {
     expect(() => sslFromEnv(supabase, {})).toThrow(/no CA certificate/);
   });
 
-  it("explains what to do when sslmode is in the URL", () => {
-    expect(() => sslFromEnv(`${supabase}?sslmode=require`, {})).toThrow(/Remove sslmode/);
+  it("drops TLS options from the URL so they can't replace full verification", () => {
+    expect(withoutSslParams(`${supabase}?sslmode=require&pgbouncer=true&sslrootcert=x.crt`)).toBe(`${supabase}?pgbouncer=true`);
+    expect(withoutSslParams(supabase)).toBe(supabase);
   });
 
   it("says what to fix when a local certificate path reaches a host, or the inline value isn't a certificate", () => {

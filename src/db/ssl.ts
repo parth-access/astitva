@@ -10,10 +10,22 @@ import type { ConnectionOptions } from "node:tls";
  *   DATABASE_CA_CERT_FILE=/path/to/prod-ca-2021.crt   (local)
  *   DATABASE_CA_CERT="-----BEGIN CERTIFICATE-----..." (Netlify / CI)
  *
- * Do not put `sslmode=` in DATABASE_URL: node-postgres lets the URL override
- * these settings, and it treats `sslmode=require` as full verification
- * without the CA, so the connection fails.
+ * TLS options in DATABASE_URL (`sslmode=require`, which Supabase's copy
+ * buttons and integrations often add) are removed by `withoutSslParams`:
+ * node-postgres would let them replace these settings with verification that
+ * doesn't know Supabase's CA, and every connection would fail with
+ * SELF_SIGNED_CERT_IN_CHAIN. The settings here always verify fully.
  */
+
+/** URL parameters that would override the TLS settings below. */
+const SSL_PARAMS = ["sslmode", "ssl", "sslrootcert", "sslcert", "sslkey", "sslpassword", "uselibpqcompat", "sslnegotiation"];
+
+/** The connection string without TLS options, so `sslFromEnv` decides TLS alone. */
+export function withoutSslParams(connectionString: string): string {
+  const url = new URL(connectionString);
+  for (const p of SSL_PARAMS) url.searchParams.delete(p);
+  return url.href;
+}
 export function sslFromEnv(connectionString: string, env: Partial<Record<string, string>> = process.env): false | ConnectionOptions {
   // A local database (dev, the integration test database) never uses TLS, even
   // when the Supabase CA is configured for DATABASE_URL in the same environment.
@@ -35,9 +47,6 @@ export function sslFromEnv(connectionString: string, env: Partial<Record<string,
   const ca = inline || (file ? readFileSync(file, "utf8") : undefined);
   if (ca) return { ca, rejectUnauthorized: true };
 
-  if (/sslmode=/i.test(connectionString)) {
-    throw new Error("Remove sslmode from DATABASE_URL and set DATABASE_CA_CERT_FILE or DATABASE_CA_CERT instead (see src/db/ssl.ts).");
-  }
   // A remote database without a CA: refuse rather than send customer data in plain text.
   throw new Error(
     `DATABASE_URL points at ${host} but no CA certificate is configured. Set DATABASE_CA_CERT_FILE or DATABASE_CA_CERT (see src/db/ssl.ts).`,
