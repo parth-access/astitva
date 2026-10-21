@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PieceEditor } from "@/components/admin/piece-editor";
+import { PageHeader } from "@/components/admin/ui";
 import { requireAdmin } from "@/modules/auth/auth";
 import { getEditorOptions } from "@/modules/catalog-admin/queries";
 
@@ -10,9 +11,12 @@ export default async function NewPiecePage() {
   const options = await getEditorOptions();
   return (
     <div className="max-w-3xl">
-      <h1 className="font-display text-3xl">Add a piece</h1>
-      <p className="mt-2 text-sm text-espresso-soft">It starts as a draft. Nothing shows on the site until you publish it. Add photos after creating the draft.</p>
-      <div className="mt-8">
+      <PageHeader
+        back={{ href: "/admin/pieces", label: "Pieces" }}
+        title="Add a piece"
+        subtitle="It starts as a draft. Nothing shows on the site until you publish it. Add photos after creating the draft."
+      />
+      <div>
         <PieceEditor
           productId={null}
           initial={{}}

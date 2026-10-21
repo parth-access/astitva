@@ -27,6 +27,8 @@
   --color-espresso: #34251e;
   --color-espresso-soft: #66554a;
   --color-gold: #a9864e;
+  /* The admin's cards: a shade lighter than the page, so panels read as panels. */
+  --color-paper: #fdfaf5;
 
   --font-display: var(--font-playfair), "Playfair Display", Georgia, serif;
   --font-sans: var(--font-montserrat), "Montserrat", system-ui, sans-serif;
@@ -242,6 +244,83 @@
 .cover-settle {
   animation: settle 900ms var(--ease-unhurried) both;
   animation-delay: var(--delay, 500ms);
+}
+
+/* Page transitions (src/components/brand/transitions.tsx). The old page
+   leaves quickly so it doesn't compete; the new one arrives more gently. */
+::view-transition {
+  /* Clicks during a transition reach the page underneath. */
+  pointer-events: none;
+}
+::view-transition-old(.nav-forward),
+::view-transition-old(.nav-back),
+::view-transition-old(.nav-across) {
+  animation: 160ms ease-in both page-fade reverse, 380ms var(--ease-unhurried) both page-slide reverse;
+}
+::view-transition-new(.nav-forward),
+::view-transition-new(.nav-back),
+::view-transition-new(.nav-across) {
+  animation: 240ms var(--ease-unhurried) 140ms both page-fade, 420ms var(--ease-unhurried) both page-slide;
+}
+/* Deeper slides in from the right, back from the left; across only rises a little. */
+::view-transition-old(.nav-forward) { --slide: -48px 0; }
+::view-transition-new(.nav-forward) { --slide: 48px 0; }
+::view-transition-old(.nav-back) { --slide: 48px 0; }
+::view-transition-new(.nav-back) { --slide: -48px 0; }
+::view-transition-old(.nav-across) { --slide: 0 -8px; }
+::view-transition-new(.nav-across) { --slide: 0 12px; }
+
+/* A skeleton sinks away; the content rises into its place. */
+::view-transition-old(.skeleton-out) {
+  animation: 150ms ease-out both page-fade reverse;
+}
+::view-transition-new(.content-in) {
+  animation: 260ms var(--ease-unhurried) 120ms both page-fade, 420ms var(--ease-unhurried) both content-rise;
+}
+
+/* The header (and the admin's navigation) stay put while the page under them moves. */
+::view-transition-group(site-header),
+::view-transition-group(admin-nav),
+::view-transition-group(admin-tabs) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(site-header),
+::view-transition-old(admin-nav),
+::view-transition-old(admin-tabs) {
+  display: none;
+}
+::view-transition-new(site-header),
+::view-transition-new(admin-nav),
+::view-transition-new(admin-tabs) {
+  animation: none;
+}
+
+@keyframes page-fade {
+  from {
+    opacity: 0;
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+@keyframes page-slide {
+  from {
+    translate: var(--slide);
+  }
+  to {
+    translate: 0 0;
+  }
+}
+@keyframes content-rise {
+  from {
+    translate: 0 10px;
+  }
+  to {
+    translate: 0 0;
+  }
 }
 
 ::view-transition-group(.morph) {

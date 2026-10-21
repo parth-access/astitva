@@ -2,6 +2,14 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-21 — Page transitions, loading skeletons, the admin redesigned
+
+**Transitions** (`src/components/brand/transitions.tsx`, `src/lib/transition-types.ts`, CSS in `globals.css`): React's `<ViewTransition>` in `template.tsx` for the store and the admin, so every navigation can animate. A link says which way it goes: deeper (`FORWARD`, slides in from the right), back up (`BACK`, from the left) or across to a sibling page (`ACROSS`, a small rise). Untyped changes (browser back, a refresh after saving) don't move. The header and the admin's navigation are named so they stay still. Reduced motion switches it all off. Not a `usePathname()`-keyed wrapper in the layout: that made every page dynamic and failed the build.
+
+**Skeletons:** storefront pages' loading boundaries are `<Reveal>` (`src/components/brand/reveal.tsx`): the skeleton fades, the content rises. The buyer's order page has its own skeleton. Every admin page has a `loading.tsx` shaped like it (`src/components/admin/skeletons.tsx`), and the admin's frame no longer waits for the sign-in check before drawing.
+
+**Admin:** a sidebar on computers and tabs along the bottom on phones (with the "needs you" count), cards instead of ruled lines (`Card`, `PageHeader`, `Chip`, `Stat`, `Tabs`, `EmptyState` in `src/components/admin/ui.tsx`, on a new `paper` colour), and a **Today** page: what's waiting (to confirm, needs you, to pack, to send, on the way), sales for 7 and 30 days (orders that went ahead, before refunds), cash couriers still owe, open orders and colours/sizes running low (`src/modules/orders/overview.ts`, tested). Orders show a progress strip, and on phones the order's next action comes first. Pieces show their photo, colours, stock and low-stock count.
+
 ## 2026-10-21 — Find my order, back-in-stock alerts, discount codes
 
 **Find my order** (`/orders`, `src/modules/orders/lookup.ts`): the order number (typed any way: "1004", "AST-001004") and the mobile number on it. If both match and the order has an email, its private link is emailed there, at most once an hour; it is never shown on the page, and the page answers the same whether or not anything matched, so it can't be used to learn who ordered what. 5 tries per 15 minutes per visitor. An order without an email is pointed to WhatsApp, and the admin's order page has "Send them their order page" (a WhatsApp message with the link).

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ACROSS } from "@/lib/transition-types";
 import { POLICY_PAGES } from "@/content/policies";
 
 export function SiteFooter() {
@@ -15,10 +16,10 @@ export function SiteFooter() {
           <h2 className="font-sans text-sm font-semibold">The house</h2>
           <ul className="mt-4 space-y-2.5 text-sm">
             <li>
-              <Link className="link" href="/about">About</Link>
+              <Link className="link" transitionTypes={ACROSS} href="/about">About</Link>
             </li>
             <li>
-              <Link className="link" href="/contact">Contact</Link>
+              <Link className="link" transitionTypes={ACROSS} href="/contact">Contact</Link>
             </li>
           </ul>
         </nav>
@@ -26,13 +27,13 @@ export function SiteFooter() {
           <h2 className="font-sans text-sm font-semibold">Help</h2>
           <ul className="mt-4 space-y-2.5 text-sm">
             <li>
-              <Link className="link" href="/size-guide">Size guide</Link>
+              <Link className="link" transitionTypes={ACROSS} href="/size-guide">Size guide</Link>
             </li>
             <li>
-              <Link className="link" href="/faq">Questions</Link>
+              <Link className="link" transitionTypes={ACROSS} href="/faq">Questions</Link>
             </li>
             <li>
-              <Link className="link" href="/orders">Find your order</Link>
+              <Link className="link" transitionTypes={ACROSS} href="/orders">Find your order</Link>
             </li>
           </ul>
         </nav>
@@ -41,7 +42,7 @@ export function SiteFooter() {
           <ul className="mt-4 space-y-2.5 text-sm">
             {POLICY_PAGES.map((p) => (
               <li key={p.slug}>
-                <Link className="link" href={`/policies/${p.slug}`}>{p.title}</Link>
+                <Link className="link" transitionTypes={ACROSS} href={`/policies/${p.slug}`}>{p.title}</Link>
               </li>
             ))}
           </ul>

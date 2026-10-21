@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
+import { Reveal } from "@/components/brand/reveal";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { Suspense, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { CheckoutForm } from "@/components/storefront/checkout-form";
 import { db } from "@/db/client";
 import { BAG_COOKIE, findBag, readBag } from "@/modules/bag/service";
@@ -87,8 +88,8 @@ function CheckoutSkeleton() {
 
 export default function CheckoutPage() {
   return (
-    <Suspense fallback={<CheckoutSkeleton />}>
+    <Reveal fallback={<CheckoutSkeleton />}>
       <Checkout />
-    </Suspense>
+    </Reveal>
   );
 }

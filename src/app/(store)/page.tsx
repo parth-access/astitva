@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
+import { Reveal } from "@/components/brand/reveal";
 import { cacheLife } from "next/cache";
-import { Suspense } from "react";
 import { ConciergeBand } from "@/components/brand/concierge";
 import { headOf, LookbookContents, LookbookCover, LookbookNote } from "@/components/lookbook/lookbook";
 import { LookbookPage } from "@/components/lookbook/lookbook-style";
@@ -52,8 +52,8 @@ async function Home() {
 
 export default function HomePage() {
   return (
-    <Suspense fallback={<LookbookSkeleton />}>
+    <Reveal fallback={<LookbookSkeleton />}>
       <Home />
-    </Suspense>
+    </Reveal>
   );
 }

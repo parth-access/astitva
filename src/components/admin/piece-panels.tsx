@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { setPieceStatusAction, type FormState } from "@/app/admin/(panel)/pieces/actions";
-import { FormError, StatusBadge, SubmitButton } from "./ui";
+import { cardClass, FormError, StatusBadge, SubmitButton } from "./ui";
 
 const empty: FormState = { errors: {} };
 
@@ -31,7 +31,7 @@ export function StatusPanel({
   }[status];
 
   return (
-    <div className="space-y-4 border border-sand p-4">
+    <div className={`${cardClass} space-y-4 p-5`}>
       <div className="flex items-center justify-between gap-3">
         <h2 className="font-display text-lg">Status</h2>
         <StatusBadge status={status} />

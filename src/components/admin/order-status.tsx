@@ -1,4 +1,5 @@
 import type { OrderStatus } from "@/modules/orders/machines";
+import { Chip, type ChipTone } from "./ui";
 
 const LABEL: Record<OrderStatus, string> = {
   pending_payment: "Awaiting payment",
@@ -27,13 +28,13 @@ export function OrderStatusBadge({
 }) {
   const toConfirm = method === "cod" && status === "confirmed" && !verified;
   const label = needsResolution ? "Needs you" : toConfirm ? "To confirm" : LABEL[status];
-  const tone =
+  const tone: ChipTone =
     needsResolution || toConfirm
-      ? "bg-burgundy text-ivory"
+      ? "attention"
       : status === "cancelled" || status === "pending_payment" || status === "returned"
-        ? "bg-sand text-espresso-soft"
+        ? "quiet"
         : status === "delivered"
-          ? "border border-taupe text-espresso-soft"
-          : "bg-olive text-ivory";
-  return <span className={`inline-block px-2 py-0.5 text-xs font-medium ${tone}`}>{label}</span>;
+          ? "done"
+          : "active";
+  return <Chip tone={tone}>{label}</Chip>;
 }

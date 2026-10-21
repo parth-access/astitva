@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { SettingsForm } from "@/components/admin/settings-form";
-import { Notice } from "@/components/admin/ui";
+import { Notice, PageHeader } from "@/components/admin/ui";
 import { db } from "@/db/client";
 import { paiseToRupeesText } from "@/lib/money";
 import { requireAdmin } from "@/modules/auth/auth";
@@ -29,13 +29,13 @@ export default async function SettingsPage({ searchParams }: PageProps<"/admin/s
   };
   return (
     <div className="max-w-3xl">
-      <h1 className="font-display text-3xl">Lookbook &amp; settings</h1>
+      <PageHeader title="Lookbook & settings" subtitle="The home page's words, ordering, delivery charges, cash on delivery and how buyers reach you." />
       {saved ? (
-        <div className="mt-4">
+        <div className="-mt-4 mb-6">
           <Notice>Saved. The site shows it now.</Notice>
         </div>
       ) : null}
-      <div className="mt-8">
+      <div>
         <SettingsForm initial={initial} />
       </div>
     </div>

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import {
@@ -15,6 +14,7 @@ import {
   VerifyButton,
 } from "@/components/admin/order-actions";
 import { OrderStatusBadge } from "@/components/admin/order-status";
+import { Card, cardClass, PageHeader } from "@/components/admin/ui";
 import { db } from "@/db/client";
 import { env } from "@/lib/env";
 import { whatsappLink } from "@/lib/format";
@@ -72,31 +72,64 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
   const shareMessage = `Hello ${firstName}, here's the page for your Astitva order ${order.orderNumber}. It shows where your order is: ${buyerPage}`;
   const confirmMessage = `Hello ${firstName}, this is Astitva. Thank you for order ${order.orderNumber}: ${itemsText}. It comes to ${formatINR(order.totalMinor)}, to pay on delivery, and goes to ${a.city} ${a.pincode}. Shall we pack it?`;
 
+  const steps: { label: string; done: boolean }[] = [
+    { label: "Placed", done: true },
+    order.paymentMethod === "cod" ? { label: "Confirmed", done: order.codVerifiedAt !== null } : { label: "Paid", done: order.paymentStatus !== "unpaid" },
+    { label: "Packed", done: ["packed", "shipped", "delivered", "returned"].includes(order.orderStatus) },
+    { label: "Sent", done: ["shipped", "delivered", "returned"].includes(order.orderStatus) },
+    { label: "Delivered", done: order.orderStatus === "delivered" },
+    ...(order.paymentMethod === "cod" ? [{ label: "Cash in", done: order.paymentStatus !== "unpaid" }] : []),
+  ];
+  const ended = order.orderStatus === "cancelled" || order.orderStatus === "returned" || order.orderStatus === "pending_payment";
+
   return (
     <div>
-      <Link href="/admin/orders" className="link text-sm">
-        All orders
-      </Link>
-      <div className="mt-4 flex flex-wrap items-center gap-4">
-        <h1 className="font-display text-3xl tabular-nums">{order.orderNumber}</h1>
-        <OrderStatusBadge status={order.orderStatus} method={order.paymentMethod} verified={order.codVerifiedAt !== null} needsResolution={order.needsResolution} />
-      </div>
-      <p className="mt-1 text-sm text-espresso-soft">
-        {when.format(order.createdAt)} ·{" "}
-        {order.paymentMethod === "cod" ? "Cash on delivery" : order.paymentStatus === "unpaid" ? "Online, not paid" : "Paid online"}
-      </p>
+      <PageHeader
+        back={{ href: "/admin/orders", label: "All orders" }}
+        title={
+          <span className="flex flex-wrap items-center gap-3">
+            <span className="tabular-nums">{order.orderNumber}</span>
+            <OrderStatusBadge status={order.orderStatus} method={order.paymentMethod} verified={order.codVerifiedAt !== null} needsResolution={order.needsResolution} />
+          </span>
+        }
+        subtitle={
+          <>
+            {when.format(order.createdAt)} · {order.paymentMethod === "cod" ? "Cash on delivery" : order.paymentStatus === "unpaid" ? "Online, not paid" : "Paid online"} ·{" "}
+            <span className="tabular-nums">{formatINR(order.totalMinor)}</span>
+          </>
+        }
+      />
 
-      <div className="mt-8 grid gap-10 md:grid-cols-[1fr_18rem]">
-        <div className="space-y-10">
-          <section>
-            <h2 className="font-display text-xl">Pieces</h2>
-            <ul className="mt-3 divide-y divide-sand border-y border-sand">
+      {ended ? null : (
+        <ol aria-label="Progress" className={`${cardClass} mb-6 flex flex-wrap items-center gap-x-4 gap-y-3 sm:gap-x-2 px-4 py-4 sm:px-6`}>
+          {steps.map((st, i) => (
+            <li key={st.label} className="flex shrink-0 items-center gap-2">
+              {i > 0 ? <span aria-hidden="true" className={`hidden h-px w-5 sm:block sm:w-10 ${st.done ? "bg-olive" : "bg-sand"}`} /> : null}
+              <span
+                aria-hidden="true"
+                className={`grid size-6 place-items-center rounded-full text-[0.7rem] ${st.done ? "bg-olive text-ivory" : "border border-taupe/60 text-espresso-soft"}`}
+              >
+                {st.done ? "✓" : i + 1}
+              </span>
+              <span className={`text-sm ${st.done ? "text-espresso" : "text-espresso-soft"}`}>
+                {st.label}
+                <span className="sr-only">{st.done ? ", done" : ", not yet"}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+
+      <div className="grid gap-6 xl:grid-cols-[1fr_20rem] xl:items-start">
+        <div className="space-y-6">
+          <Card title="Pieces">
+            <ul className="divide-y divide-sand/70">
               {order.items.map((i) => (
-                <li key={i.id} className="flex items-baseline justify-between gap-4 py-3 text-sm">
+                <li key={i.id} className="flex items-baseline justify-between gap-4 py-3 text-sm first:pt-0">
                   <span>
                     <span className="font-medium">{i.name}</span>
                     <span className="block text-espresso-soft">
-                      {[i.variant.color, i.variant.size].filter(Boolean).join(" · ")} · {i.sku}
+                      {[i.variant.color, i.variant.size].filter(Boolean).join(" · ")} · <span className="font-mono text-xs">{i.sku}</span>
                     </span>
                   </span>
                   <span className="shrink-0 tabular-nums">
@@ -105,7 +138,7 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
                 </li>
               ))}
             </ul>
-            <dl className="mt-3 space-y-1 text-sm tabular-nums">
+            <dl className="mt-3 space-y-1.5 rounded-lg bg-champagne/40 p-4 text-sm tabular-nums">
               <div className="flex justify-between">
                 <dt className="text-espresso-soft">Subtotal</dt>
                 <dd>{formatINR(order.subtotalMinor)}</dd>
@@ -126,7 +159,7 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
                   <dd>{formatINR(order.codFeeMinor)}</dd>
                 </div>
               ) : null}
-              <div className="flex justify-between font-medium">
+              <div className="flex justify-between border-t border-sand pt-2 font-medium">
                 <dt>
                   {order.paymentMethod === "cod" && order.orderStatus !== "cancelled" && order.orderStatus !== "returned"
                     ? order.paymentStatus === "unpaid"
@@ -137,33 +170,30 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
                 <dd>{formatINR(order.totalMinor)}</dd>
               </div>
             </dl>
-          </section>
+          </Card>
 
-          <section className="grid gap-8 sm:grid-cols-2">
-            <div>
-              <h2 className="font-display text-xl">Buyer</h2>
-              <p className="mt-3 text-sm leading-relaxed">
-                {order.contactName}
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card title="Buyer">
+              <p className="text-sm leading-relaxed">
+                <span className="font-medium">{order.contactName}</span>
                 <br />
                 <a href={`tel:+91${order.contactPhone}`} className="link">
                   {formatMobile(order.contactPhone)}
                 </a>
-                <br />
-                <a href={whatsappLink(`91${order.contactPhone}`, shareMessage)} target="_blank" rel="noopener noreferrer" className="link text-espresso-soft">
-                  Send them their order page
-                </a>
                 {order.contactEmail ? (
                   <>
                     <br />
-                    {order.contactEmail}
+                    <span className="break-all">{order.contactEmail}</span>
                   </>
                 ) : null}
               </p>
-            </div>
-            <div>
-              <h2 className="font-display text-xl">Ship to</h2>
-              <address className="mt-3 text-sm not-italic leading-relaxed">
-                {a.recipientName}
+              <a href={whatsappLink(`91${order.contactPhone}`, shareMessage)} target="_blank" rel="noopener noreferrer" className="btn-outline mt-4 w-full text-sm">
+                Send them their order page
+              </a>
+            </Card>
+            <Card title="Ship to">
+              <address className="text-sm not-italic leading-relaxed">
+                <span className="font-medium">{a.recipientName}</span>
                 <br />
                 {a.line1}
                 {a.line2 ? (
@@ -181,131 +211,139 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
                 <br />
                 {a.city}, {a.state} {a.pincode}
               </address>
-            </div>
-          </section>
+            </Card>
+          </div>
 
           {order.customerNote ? (
-            <section>
-              <h2 className="font-display text-xl">Their note</h2>
-              <p className="mt-3 whitespace-pre-line text-sm">{order.customerNote}</p>
-            </section>
+            <Card title="Their note">
+              <p className="whitespace-pre-line text-sm">{order.customerNote}</p>
+            </Card>
           ) : null}
 
-          <section>
-            <h2 className="font-display text-xl">History</h2>
-            <ol className="mt-3 space-y-2 text-sm">
+          <Card title="History">
+            <ol className="relative space-y-4 border-l border-sand pl-5 text-sm">
               {order.events.map((e) => (
-                <li key={e.id} className="flex gap-4">
-                  <span className="w-44 shrink-0 whitespace-nowrap text-espresso-soft tabular-nums">{when.format(e.createdAt)}</span>
-                  <span>
+                <li key={e.id} className="relative">
+                  <span aria-hidden="true" className="absolute -left-[1.6rem] top-1.5 size-2.5 rounded-full border-2 border-paper bg-taupe" />
+                  <span className="block">
                     {EVENT_LABEL[e.eventType] ?? e.eventType}
                     {(e.eventType === "order.cancelled" || e.eventType === "order.returned") && typeof e.metadata?.reason === "string" ? `: ${e.metadata.reason}` : ""}
                     {e.eventType.startsWith("refund.") && typeof e.metadata?.amountMinor === "number" ? ` ${formatINR(e.metadata.amountMinor)}` : ""}
                   </span>
+                  <span className="block text-xs text-espresso-soft tabular-nums">{when.format(e.createdAt)}</span>
                 </li>
               ))}
             </ol>
-          </section>
+          </Card>
         </div>
 
-        <aside className="space-y-8">
+        <aside className="order-first space-y-6 xl:sticky xl:top-8 xl:order-none">
           {order.needsResolution ? (
-            <div className="space-y-3 border-l-2 border-burgundy bg-champagne p-5 text-sm">
-              <p className="font-medium">Needs you</p>
-              <p className="whitespace-pre-line">{order.resolutionNote}</p>
-              <p className="text-espresso-soft">Message the buyer to offer another colour or size, or refund them below.</p>
-              <ResolveForm orderId={order.id} />
-            </div>
+            <Card title="Needs you" tone="attention">
+              <div className="space-y-3 text-sm">
+                <p className="whitespace-pre-line">{order.resolutionNote}</p>
+                <p className="text-espresso-soft">Message the buyer to offer another colour or size, or refund them below.</p>
+                <ResolveForm orderId={order.id} />
+              </div>
+            </Card>
           ) : null}
 
           {toConfirm ? (
-            <div className="space-y-4 bg-champagne p-5">
-              <p className="text-sm">
-                <span className="font-medium">Confirm before packing.</span> Message {firstName} on WhatsApp, then mark it confirmed.
-              </p>
-              <a href={whatsappLink(`91${order.contactPhone}`, confirmMessage)} target="_blank" rel="noopener noreferrer" className="btn-outline w-full">
-                Message on WhatsApp
-              </a>
-              <VerifyButton orderId={order.id} />
-            </div>
+            <Card title="Confirm before packing" tone="attention">
+              <div className="space-y-3">
+                <p className="text-sm text-espresso-soft">Message {firstName} on WhatsApp, then mark it confirmed.</p>
+                <a href={whatsappLink(`91${order.contactPhone}`, confirmMessage)} target="_blank" rel="noopener noreferrer" className="btn-outline w-full">
+                  Message on WhatsApp
+                </a>
+                <VerifyButton orderId={order.id} />
+              </div>
+            </Card>
           ) : null}
 
           {canSend ? (
-            <section className="space-y-4">
-              <h2 className="font-display text-xl">{order.orderStatus === "packed" ? "Packed. Send it" : "Pack and send"}</h2>
-              {order.codVerifiedAt ? <p className="text-xs text-espresso-soft">Confirmed with the buyer {when.format(order.codVerifiedAt)}.</p> : null}
-              {order.orderStatus === "confirmed" ? <PackButton orderId={order.id} /> : null}
-              <ShipForm orderId={order.id} />
-              {order.orderStatus === "packed" ? <UnpackButton orderId={order.id} /> : null}
-            </section>
+            <Card title={order.orderStatus === "packed" ? "Packed. Send it" : "Pack and send"} tone="calm">
+              <div className="space-y-4">
+                {order.codVerifiedAt ? <p className="text-xs text-espresso-soft">Confirmed with the buyer {when.format(order.codVerifiedAt)}.</p> : null}
+                {order.orderStatus === "confirmed" ? <PackButton orderId={order.id} /> : null}
+                <ShipForm orderId={order.id} />
+                {order.orderStatus === "packed" ? <UnpackButton orderId={order.id} /> : null}
+              </div>
+            </Card>
           ) : null}
 
           {order.shipment ? (
-            <section className="space-y-3 text-sm">
-              <h2 className="font-display text-xl">Parcel</h2>
-              <p>
-                {order.shipment.carrierName} · <span className="font-mono text-xs">{order.shipment.trackingNumber}</span>
-                {order.shipment.trackingUrl ? (
-                  <>
-                    {" "}
-                    <a href={order.shipment.trackingUrl} target="_blank" rel="noopener noreferrer" className="link">
-                      Track
-                    </a>
-                  </>
+            <Card title="Parcel">
+              <div className="space-y-3 text-sm">
+                <p>
+                  {order.shipment.carrierName} · <span className="font-mono text-xs">{order.shipment.trackingNumber}</span>
+                  {order.shipment.trackingUrl ? (
+                    <>
+                      {" "}
+                      <a href={order.shipment.trackingUrl} target="_blank" rel="noopener noreferrer" className="link">
+                        Track
+                      </a>
+                    </>
+                  ) : null}
+                </p>
+                <p className="text-espresso-soft">
+                  Sent {when.format(order.shipment.shippedAt)}
+                  {order.shipment.deliveredAt ? ` · delivered ${when.format(order.shipment.deliveredAt)}` : ""}
+                  {order.shipment.status === "returned_to_origin" ? " · came back" : ""}
+                </p>
+                {order.orderStatus === "shipped" ? (
+                  <div className="space-y-3 pt-1">
+                    <DeliveredButton orderId={order.id} />
+                    <ReturnedForm orderId={order.id} />
+                  </div>
                 ) : null}
-              </p>
-              <p className="text-espresso-soft">
-                Sent {when.format(order.shipment.shippedAt)}
-                {order.shipment.deliveredAt ? ` · delivered ${when.format(order.shipment.deliveredAt)}` : ""}
-                {order.shipment.status === "returned_to_origin" ? " · came back" : ""}
-              </p>
-              {order.orderStatus === "shipped" ? (
-                <div className="space-y-3 pt-1">
-                  <DeliveredButton orderId={order.id} />
-                  <ReturnedForm orderId={order.id} />
-                </div>
-              ) : null}
-            </section>
+              </div>
+            </Card>
           ) : null}
 
           {awaitingRemittance ? (
-            <section className="space-y-3">
-              <h2 className="font-display text-xl">Cash with the courier</h2>
-              <p className="text-sm text-espresso-soft">The courier collected {formatINR(order.totalMinor)} on delivery.</p>
-              <RemittedForm orderId={order.id} amountMinor={order.totalMinor} />
-            </section>
+            <Card title="Cash with the courier" tone="calm">
+              <div className="space-y-3">
+                <p className="text-sm text-espresso-soft">The courier collected {formatINR(order.totalMinor)} on delivery.</p>
+                <RemittedForm orderId={order.id} amountMinor={order.totalMinor} />
+              </div>
+            </Card>
           ) : null}
 
           {order.payment || order.refunds.length || refundable > 0 ? (
-            <section className="space-y-3 text-sm">
-              <h2 className="font-display text-xl">Money</h2>
-              <dl className="space-y-1">
-                {order.payment ? (
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-espresso-soft">Razorpay</dt>
-                    <dd>{order.payment.status === "captured" ? "Received" : order.payment.status === "created" ? "Not paid" : order.payment.status}</dd>
-                  </div>
-                ) : null}
-                {order.payment?.providerPaymentId ? <dd className="font-mono text-xs text-espresso-soft">{order.payment.providerPaymentId}</dd> : null}
-                {order.payment?.failureReason ? <p className="text-espresso-soft">Last attempt: {order.payment.failureReason}</p> : null}
-                {order.refunds.map((r) => (
-                  <div key={r.id} className="flex justify-between gap-4">
-                    <dt className="text-espresso-soft">
-                      Refund{r.method === "razorpay" ? "" : r.method === "manual_upi" ? " by UPI" : " by bank"}
-                      {r.status === "initiated" ? " (on its way)" : r.status === "failed" ? " (failed)" : ""}
-                    </dt>
-                    <dd className={r.status === "failed" ? "line-through" : ""}>−{formatINR(r.amountMinor)}</dd>
-                  </div>
-                ))}
-              </dl>
-              {refundable > 0 && isOwner ? <RefundForm orderId={order.id} refundableMinor={refundable} razorpay={canRazorpayRefund} /> : null}
-            </section>
+            <Card title="Money">
+              <div className="space-y-3 text-sm">
+                <dl className="space-y-1">
+                  {order.payment ? (
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-espresso-soft">Razorpay</dt>
+                      <dd>{order.payment.status === "captured" ? "Received" : order.payment.status === "created" ? "Not paid" : order.payment.status}</dd>
+                    </div>
+                  ) : null}
+                  {order.payment?.providerPaymentId ? <dd className="font-mono text-xs text-espresso-soft">{order.payment.providerPaymentId}</dd> : null}
+                  {order.payment?.failureReason ? <p className="text-espresso-soft">Last attempt: {order.payment.failureReason}</p> : null}
+                  {order.refunds.map((r) => (
+                    <div key={r.id} className="flex justify-between gap-4">
+                      <dt className="text-espresso-soft">
+                        Refund{r.method === "razorpay" ? "" : r.method === "manual_upi" ? " by UPI" : " by bank"}
+                        {r.status === "initiated" ? " (on its way)" : r.status === "failed" ? " (failed)" : ""}
+                      </dt>
+                      <dd className={r.status === "failed" ? "line-through" : ""}>−{formatINR(r.amountMinor)}</dd>
+                    </div>
+                  ))}
+                </dl>
+                {refundable > 0 && isOwner ? <RefundForm orderId={order.id} refundableMinor={refundable} razorpay={canRazorpayRefund} /> : null}
+              </div>
+            </Card>
           ) : null}
 
           {order.orderStatus === "cancelled" ? (
-            <p className="text-sm text-espresso-soft">Cancelled{order.cancelReason ? `: ${order.cancelReason}` : "."}</p>
+            <Card>
+              <p className="text-sm text-espresso-soft">Cancelled{order.cancelReason ? `: ${order.cancelReason}` : "."}</p>
+            </Card>
           ) : isCancellable(order.orderStatus) ? (
-            <CancelOrder orderId={order.id} />
+            <div className="px-1">
+              <CancelOrder orderId={order.id} />
+            </div>
           ) : null}
         </aside>
       </div>

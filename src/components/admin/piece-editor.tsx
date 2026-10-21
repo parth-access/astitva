@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 import { savePieceAction, type FormState } from "@/app/admin/(panel)/pieces/actions";
 import { CONDITION_LABELS, CONDITIONS, slugify } from "@/modules/catalog-admin/fields";
-import { Field, FormError, Section, Select, SubmitButton, TextArea } from "./ui";
+import { Field, FormError, saveBarClass, Section, Select, SubmitButton, TextArea } from "./ui";
 import { VariantBuilder } from "./variant-builder";
 
 export type EditorOptions = {
@@ -40,7 +40,7 @@ export function PieceEditor({ productId, initial, options, locked }: Props) {
   const count = Object.keys(state.errors).length;
 
   return (
-    <form action={action} className="space-y-10 pb-28" noValidate>
+    <form action={action} className="space-y-6 pb-28" noValidate>
       {count > 0 ? (
         <FormError message={firstError ?? `Please check ${count === 1 ? "the field" : `the ${count} fields`} marked below.`} />
       ) : null}
@@ -209,8 +209,8 @@ export function PieceEditor({ productId, initial, options, locked }: Props) {
         <TextArea label="Description" name="seoDescription" rows={2} defaultValue={v("seoDescription")} maxLength={320} error={e("seoDescription")} />
       </Section>
 
-      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-sand bg-ivory/95 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
+      <div className={saveBarClass}>
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
           <span className="text-sm text-espresso-soft" aria-live="polite">
             {count ? "Not saved yet." : ""}
           </span>

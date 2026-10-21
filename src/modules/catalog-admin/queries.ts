@@ -22,6 +22,11 @@ export type AdminPieceRow = {
   onHand: number;
   colours: { name: string | null; hex: string | null }[];
   sizes: number;
+  /** Colours × sizes at or under their low-stock mark. */
+  low: number;
+  /** The first photo's address, for the thumbnail. */
+  cover: string | null;
+  tone: string | null;
   updatedAt: Date;
 };
 
@@ -42,11 +47,33 @@ export async function listAdminPieces(): Promise<AdminPieceRow[]> {
         from (select v.color, max(v.color_hex) as hex, min(v.created_at) as first
               from product_variants v where v.product_id = products.id and v.is_active group by v.color) c)`,
       sizes: sql<number>`(select count(distinct coalesce(v.size, '')) from product_variants v where v.product_id = products.id and v.is_active)::int`,
+      // Variants at or under their low-stock mark (sold out included).
+      low: sql<number>`(select count(*) from product_variants v where v.product_id = products.id and v.is_active and v.on_hand <= v.low_stock_threshold)::int`,
+      cover: sql<string | null>`(select i.url from product_images i where i.product_id = products.id order by i.sort_order, i.created_at limit 1)`,
+      tone: products.tone,
       updatedAt: products.updatedAt,
     })
     .from(products)
     .orderBy(sql`${products.pieceNumber} asc nulls last`, desc(products.createdAt));
   return rows.map((r) => ({ ...r, priceMinor: r.priceMinor === null ? null : Number(r.priceMinor) }));
+}
+
+/** Colours and sizes running low (at or under their mark, sold out included) on pieces that aren't hidden. */
+export async function listLowStock(limit = 8) {
+  return db
+    .select({
+      productId: products.id,
+      pieceName: products.pieceName,
+      name: products.name,
+      color: productVariants.color,
+      size: productVariants.size,
+      onHand: productVariants.onHand,
+    })
+    .from(productVariants)
+    .innerJoin(products, eq(products.id, productVariants.productId))
+    .where(sql`${productVariants.isActive} and ${products.status} <> 'archived' and ${productVariants.onHand} <= ${productVariants.lowStockThreshold}`)
+    .orderBy(asc(productVariants.onHand), asc(products.pieceNumber))
+    .limit(limit);
 }
 
 export async function getPieceForEdit(id: string) {

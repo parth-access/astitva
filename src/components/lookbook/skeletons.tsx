@@ -92,3 +92,29 @@ export function OptionsSkeleton() {
     </div>
   );
 }
+
+/** A buyer's order page: the status, then the pieces. */
+export function OrderSkeleton() {
+  return (
+    <div className="mx-auto max-w-3xl px-4 pb-28 pt-10 sm:px-8 md:pt-16" role="status" aria-label="Loading your order">
+      <div className="flex flex-col items-center gap-4">
+        <span aria-hidden="true" className="skeleton size-16 rounded-full" />
+        <Bar className="mt-2 h-5 w-40" />
+        <Bar className="h-14 w-2/3" />
+        <Bar className="h-5 w-3/4" />
+      </div>
+      <div className="mt-16 space-y-4 border-t border-taupe/40 pt-8">
+        {[0, 1].map((i) => (
+          <div key={i} className="flex items-center gap-4">
+            <span aria-hidden="true" className="skeleton arch block w-16 shrink-0" style={{ aspectRatio: "4/5" }} />
+            <div className="flex-1 space-y-2">
+              <Bar className="h-5 w-1/2" />
+              <Bar className="h-4 w-1/3" />
+            </div>
+            <Bar className="h-5 w-16" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

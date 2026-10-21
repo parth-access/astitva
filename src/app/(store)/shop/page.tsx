@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
+import { Reveal } from "@/components/brand/reveal";
 import Link from "next/link";
-import { Suspense } from "react";
 import { GridSkeleton } from "@/components/lookbook/skeletons";
 import { ProductGrid } from "@/components/storefront/product-grid";
 import { listCategories, listPieces, PRODUCT_SORTS, type ProductSort } from "@/modules/catalog/queries";
@@ -90,9 +90,9 @@ export default function ShopPage(props: PageProps<"/shop">) {
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-8">
       <p className="caption text-xl">Every style, every colour</p>
       <h1 className="mb-10 mt-1 text-6xl italic md:text-7xl">The shop</h1>
-      <Suspense fallback={<GridSkeleton />}>
+      <Reveal fallback={<GridSkeleton />}>
         <Catalogue searchParams={props.searchParams} />
-      </Suspense>
+      </Reveal>
     </div>
   );
 }

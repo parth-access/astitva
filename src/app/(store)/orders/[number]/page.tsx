@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
+import { Reveal } from "@/components/brand/reveal";
+import { OrderSkeleton } from "@/components/lookbook/skeletons";
 import { db } from "@/db/client";
 import { env } from "@/lib/env";
 import { formatLongDate, whatsappLink } from "@/lib/format";
@@ -197,8 +198,8 @@ async function OrderView({ params, searchParams }: PageProps<"/orders/[number]">
 
 export default function OrderPage(props: PageProps<"/orders/[number]">) {
   return (
-    <Suspense fallback={<div className="mx-auto max-w-3xl px-4 py-24"><div className="skeleton mx-auto h-16 w-16 rounded-full" /><div className="skeleton mx-auto mt-8 h-14 w-2/3" /></div>}>
+    <Reveal fallback={<OrderSkeleton />}>
       <OrderView {...props} />
-    </Suspense>
+    </Reveal>
   );
 }

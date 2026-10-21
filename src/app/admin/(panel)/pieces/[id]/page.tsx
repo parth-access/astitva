@@ -4,7 +4,7 @@ import { PieceEditor } from "@/components/admin/piece-editor";
 import { StatusPanel } from "@/components/admin/piece-panels";
 import { PhotosPanel } from "@/components/admin/photos-panel";
 import { SpinPanel } from "@/components/admin/spin-panel";
-import { Notice } from "@/components/admin/ui";
+import { Notice, PageHeader } from "@/components/admin/ui";
 import { formatPieceNumber } from "@/lib/format";
 import { db } from "@/db/client";
 import { waitingByVariant } from "@/modules/alerts/service";
@@ -31,13 +31,14 @@ export default async function EditPiecePage({ params, searchParams }: PageProps<
 
   return (
     <div>
-      <p className="text-sm text-espresso-soft">{product.pieceNumber ? formatPieceNumber(product.pieceNumber) : "No number yet"}</p>
-      <h1 className="font-display text-3xl">
-        <span className="italic">{product.pieceName ?? "Unnamed"}</span>
-        <span className="block text-lg text-espresso-soft">{product.name}</span>
-      </h1>
+      <PageHeader
+        back={{ href: "/admin/pieces", label: "Pieces" }}
+        kicker={product.pieceNumber ? formatPieceNumber(product.pieceNumber) : "No number yet"}
+        title={<span className="italic">{product.pieceName ?? "Unnamed"}</span>}
+        subtitle={product.name}
+      />
       {created || saved ? (
-        <div className="mt-4 max-w-3xl">
+        <div className="-mt-4 mb-4 max-w-3xl">
           <Notice>{created ? "Draft created. Publish it when it’s ready." : "Saved."}</Notice>
         </div>
       ) : null}
@@ -50,11 +51,11 @@ export default async function EditPiecePage({ params, searchParams }: PageProps<
         </div>
       ) : null}
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_18rem] lg:items-start">
+      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_18rem] lg:items-start">
         <div className="space-y-6 lg:sticky lg:top-6 lg:order-2">
           <StatusPanel productId={product.id} status={product.status} slug={product.slug} problems={problems} />
         </div>
-        <div className="space-y-10 lg:order-1">
+        <div className="space-y-6 lg:order-1">
           <PhotosPanel
             productId={product.id}
             photos={photos}

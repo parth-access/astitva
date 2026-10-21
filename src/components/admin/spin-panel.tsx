@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { attachSpinAction, removeSpinAction, signSpinUploadAction } from "@/app/admin/(panel)/pieces/actions";
 import { SpinViewer } from "@/components/storefront/spin-viewer";
-import { FormError } from "./ui";
+import { cardClass, FormError } from "./ui";
 import { MAX_VIDEO_BYTES, uploadToCloudinary, VIDEO_ACCEPT } from "./upload";
 
 /**
@@ -36,7 +36,7 @@ export function SpinPanel({ productId, video, pieceLabel, tone }: { productId: s
   }
 
   return (
-    <section className="space-y-4 border border-sand p-4">
+    <section className={`${cardClass} space-y-4 p-5 sm:p-6`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-display text-xl">Turning video (360°)</h2>

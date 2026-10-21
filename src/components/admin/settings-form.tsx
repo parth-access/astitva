@@ -5,7 +5,7 @@ import { useActionState, useState } from "react";
 import type { FormState } from "@/app/admin/(panel)/pieces/actions";
 import { saveSettingsAction } from "@/app/admin/(panel)/settings/actions";
 import { Letter } from "@/components/brand/letter";
-import { Field, FormError, Section, SubmitButton, TextArea } from "./ui";
+import { Field, FormError, saveBarClass, Section, SubmitButton, TextArea } from "./ui";
 
 const empty: FormState = { errors: {} };
 
@@ -22,7 +22,7 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
   const count = Object.keys(state.errors).length;
 
   return (
-    <form action={action} className="space-y-10 pb-28" noValidate>
+    <form action={action} className="space-y-6 pb-28" noValidate>
       {count ? <FormError message={`Please check ${count === 1 ? "the field" : `the ${count} fields`} marked below.`} /> : null}
 
       <Section title="Ordering">
@@ -146,8 +146,8 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
         <Field label="Support email" name="supportEmail" type="email" defaultValue={v("supportEmail")} error={e("supportEmail")} />
       </Section>
 
-      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-sand bg-ivory/95 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-end gap-4 px-4 py-3">
+      <div className={saveBarClass}>
+        <div className="mx-auto flex max-w-6xl items-center justify-end gap-4 px-4 py-3">
           <Link href="/" target="_blank" className="link text-sm">
             View the site
           </Link>

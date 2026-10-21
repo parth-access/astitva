@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Reveal } from "@/components/brand/reveal";
+import { PageTransition } from "@/components/brand/transitions";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
@@ -211,116 +213,119 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
   ];
 
   return (
-    <PieceSelection colours={colours} initialColour={firstInStock}>
-      <JsonLd data={ld} />
-      <article className="mx-auto grid max-w-6xl gap-10 px-4 pb-28 pt-6 sm:px-8 md:grid-cols-12 md:gap-8 md:pb-0 md:pt-10">
-        {/* On phones the arch is narrowed so the piece's name shows without scrolling. */}
-        <div className="mx-auto w-[84%] md:col-span-7 md:w-full">
-          <PieceGallery
-            slug={product.slug}
-            title={title}
-            name={product.name}
-            tone={product.tone}
-            pieceNumber={product.pieceNumber}
-            pieceName={product.pieceName}
-            category={product.categorySlug}
-            images={product.images.map((i) => ({ url: i.url, alt: i.alt, color: i.color }))}
-            spinVideo={product.spinVideoUrl}
-          />
-        </div>
-
-        <div className="md:sticky md:top-8 md:col-span-4 md:col-start-9 md:self-start">
-          <Link href={`/#${product.slug}`} transitionTypes={["nav-back"]} className="caption link text-lg no-underline hover:underline">
-            {store.title ? `${store.title}, the lookbook` : "The lookbook"}
-          </Link>
-
-          {product.pieceNumber ? (
-            <p className="mt-5 font-display text-2xl tabular-nums text-espresso-soft md:mt-8">{formatPieceNumber(product.pieceNumber)}</p>
-          ) : null}
-          <h1 className="mt-1 text-6xl italic leading-none md:text-7xl">{title}</h1>
-          {product.pieceName ? <p className="mt-4 text-sm text-espresso-soft">{product.name}</p> : null}
-
-          <div className="mt-6 flex flex-wrap items-baseline gap-x-4">
-            <Price className="text-xl" priceMinor={lowest.priceMinor} compareAtMinor={lowest.compareAtMinor} from={new Set(prices).size > 1} />
+    // Its own transition too: going from one piece to the next stays inside this route's template.
+    <PageTransition>
+      <PieceSelection colours={colours} initialColour={firstInStock}>
+        <JsonLd data={ld} />
+        <article className="mx-auto grid max-w-6xl gap-10 px-4 pb-28 pt-6 sm:px-8 md:grid-cols-12 md:gap-8 md:pb-0 md:pt-10">
+          {/* On phones the arch is narrowed so the piece's name shows without scrolling. */}
+          <div className="mx-auto w-[84%] md:col-span-7 md:w-full">
+            <PieceGallery
+              slug={product.slug}
+              title={title}
+              name={product.name}
+              tone={product.tone}
+              pieceNumber={product.pieceNumber}
+              pieceName={product.pieceName}
+              category={product.categorySlug}
+              images={product.images.map((i) => ({ url: i.url, alt: i.alt, color: i.color }))}
+              spinVideo={product.spinVideoUrl}
+            />
           </div>
-          <p className="mt-1 text-xs text-espresso-soft">Inclusive of all taxes</p>
 
-          {product.story ? <p className="caption mt-8 text-xl">{product.story}</p> : null}
+          <div className="md:sticky md:top-8 md:col-span-4 md:col-start-9 md:self-start">
+            <Link href={`/#${product.slug}`} transitionTypes={["nav-back"]} className="caption link text-lg no-underline hover:underline">
+              {store.title ? `${store.title}, the lookbook` : "The lookbook"}
+            </Link>
 
-          <Suspense fallback={<OptionsSkeleton />}>
-            <LiveBuyPanel product={product} orderingOpen={store.orderingOpen} />
-          </Suspense>
+            {product.pieceNumber ? (
+              <p className="mt-5 font-display text-2xl tabular-nums text-espresso-soft md:mt-8">{formatPieceNumber(product.pieceNumber)}</p>
+            ) : null}
+            <h1 className="mt-1 text-6xl italic leading-none md:text-7xl">{title}</h1>
+            {product.pieceName ? <p className="mt-4 text-sm text-espresso-soft">{product.name}</p> : null}
 
-          <AskAboutPiece piece={product} withSelection className="mt-6 inline-block text-sm" />
-
-          <dl className="mt-10 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2.5 border-t border-taupe/30 pt-6 text-sm">
-            {condition && (
-              <>
-                <dt className="text-espresso-soft">Condition</dt>
-                <dd>{CONDITION_LABEL[condition]}</dd>
-              </>
-            )}
-            {product.material && (
-              <>
-                <dt className="text-espresso-soft">Fabric</dt>
-                <dd>{product.material}</dd>
-              </>
-            )}
-            {product.fit && (
-              <>
-                <dt className="text-espresso-soft">Fit</dt>
-                <dd>{product.fit}</dd>
-              </>
-            )}
-            {product.careInstructions && (
-              <>
-                <dt className="text-espresso-soft">Care</dt>
-                <dd>{product.careInstructions}</dd>
-              </>
-            )}
-          </dl>
-          {product.description ? <p className="mt-6 whitespace-pre-line text-sm leading-relaxed">{product.description}</p> : null}
-        </div>
-      </article>
-
-      {product.stylingNote ? (
-        <section aria-label="How to wear it" className="mx-auto mt-28 max-w-3xl px-4 text-center sm:px-8 md:mt-40">
-          <p className="caption text-xl">How {signature ?? "we"} would wear it</p>
-          <blockquote className="mt-4 font-display text-3xl italic leading-snug md:text-4xl">{product.stylingNote}</blockquote>
-          {signature ? <p className="mt-6 font-accent text-2xl italic">{signature}</p> : null}
-        </section>
-      ) : null}
-
-      <div className="mx-auto mt-28 grid max-w-6xl gap-16 px-4 sm:px-8 md:mt-40 md:grid-cols-12">
-        <div className="md:col-span-6">
-          <MeasurementsTable variants={product.variants} />
-        </div>
-        <div className="md:col-span-4 md:col-start-9">
-          {showPromise(PACKED_BY_HAND) ? (
-            <div>
-              <h2 className="text-3xl">{PACKED_BY_HAND.title}</h2>
-              <p className="mt-4 leading-relaxed">
-                {PACKED_BY_HAND.body}
-                {product.pieceNumber ? ` Its card will read ${formatPieceNumber(product.pieceNumber)}, ${title}.` : ""}
-              </p>
+            <div className="mt-6 flex flex-wrap items-baseline gap-x-4">
+              <Price className="text-xl" priceMinor={lowest.priceMinor} compareAtMinor={lowest.compareAtMinor} from={new Set(prices).size > 1} />
             </div>
-          ) : null}
-          <p className="mt-8 text-sm text-espresso-soft">
-            Delivery and returns are explained on our <Link href="/policies/shipping" className="link">shipping</Link> and{" "}
-            <Link href="/policies/returns" className="link">returns</Link> pages.
-          </p>
-        </div>
-      </div>
+            <p className="mt-1 text-xs text-espresso-soft">Inclusive of all taxes</p>
 
-      {product.pieceNumber ? <Neighbours pieceNumber={product.pieceNumber} /> : null}
-    </PieceSelection>
+            {product.story ? <p className="caption mt-8 text-xl">{product.story}</p> : null}
+
+            <Suspense fallback={<OptionsSkeleton />}>
+              <LiveBuyPanel product={product} orderingOpen={store.orderingOpen} />
+            </Suspense>
+
+            <AskAboutPiece piece={product} withSelection className="mt-6 inline-block text-sm" />
+
+            <dl className="mt-10 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2.5 border-t border-taupe/30 pt-6 text-sm">
+              {condition && (
+                <>
+                  <dt className="text-espresso-soft">Condition</dt>
+                  <dd>{CONDITION_LABEL[condition]}</dd>
+                </>
+              )}
+              {product.material && (
+                <>
+                  <dt className="text-espresso-soft">Fabric</dt>
+                  <dd>{product.material}</dd>
+                </>
+              )}
+              {product.fit && (
+                <>
+                  <dt className="text-espresso-soft">Fit</dt>
+                  <dd>{product.fit}</dd>
+                </>
+              )}
+              {product.careInstructions && (
+                <>
+                  <dt className="text-espresso-soft">Care</dt>
+                  <dd>{product.careInstructions}</dd>
+                </>
+              )}
+            </dl>
+            {product.description ? <p className="mt-6 whitespace-pre-line text-sm leading-relaxed">{product.description}</p> : null}
+          </div>
+        </article>
+
+        {product.stylingNote ? (
+          <section aria-label="How to wear it" className="mx-auto mt-28 max-w-3xl px-4 text-center sm:px-8 md:mt-40">
+            <p className="caption text-xl">How {signature ?? "we"} would wear it</p>
+            <blockquote className="mt-4 font-display text-3xl italic leading-snug md:text-4xl">{product.stylingNote}</blockquote>
+            {signature ? <p className="mt-6 font-accent text-2xl italic">{signature}</p> : null}
+          </section>
+        ) : null}
+
+        <div className="mx-auto mt-28 grid max-w-6xl gap-16 px-4 sm:px-8 md:mt-40 md:grid-cols-12">
+          <div className="md:col-span-6">
+            <MeasurementsTable variants={product.variants} />
+          </div>
+          <div className="md:col-span-4 md:col-start-9">
+            {showPromise(PACKED_BY_HAND) ? (
+              <div>
+                <h2 className="text-3xl">{PACKED_BY_HAND.title}</h2>
+                <p className="mt-4 leading-relaxed">
+                  {PACKED_BY_HAND.body}
+                  {product.pieceNumber ? ` Its card will read ${formatPieceNumber(product.pieceNumber)}, ${title}.` : ""}
+                </p>
+              </div>
+            ) : null}
+            <p className="mt-8 text-sm text-espresso-soft">
+              Delivery and returns are explained on our <Link href="/policies/shipping" className="link">shipping</Link> and{" "}
+              <Link href="/policies/returns" className="link">returns</Link> pages.
+            </p>
+          </div>
+        </div>
+
+        {product.pieceNumber ? <Neighbours pieceNumber={product.pieceNumber} /> : null}
+      </PieceSelection>
+    </PageTransition>
   );
 }
 
 export default function PiecePage(props: PageProps<"/pieces/[slug]">) {
   return (
-    <Suspense fallback={<PieceSkeleton />}>
+    <Reveal fallback={<PieceSkeleton />}>
       <PieceView params={props.params} />
-    </Suspense>
+    </Reveal>
   );
 }

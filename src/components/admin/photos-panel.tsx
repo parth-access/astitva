@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { attachPhotoAction, changePhotoAction, signPhotoUploadAction } from "@/app/admin/(panel)/pieces/actions";
 import { cloudinaryUrl } from "@/lib/cloudinary-url";
-import { FormError } from "./ui";
+import { cardClass, FormError } from "./ui";
 import { IMAGE_ACCEPT, uploadToCloudinary } from "./upload";
 
 export type PanelPhoto = { id: string; url: string; altText: string; color: string | null };
@@ -61,7 +61,7 @@ export function PhotosPanel({
   }
 
   return (
-    <section className="space-y-4 border border-sand p-4">
+    <section className={`${cardClass} space-y-4 p-5 sm:p-6`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-display text-xl">Photos</h2>
