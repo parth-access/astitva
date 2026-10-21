@@ -1,0 +1,15 @@
+# Netlify build settings, kept in the repo so a new site needs only its
+# environment variables (listed in .env.example and the README).
+#
+# Netlify detects Next.js and adds its Next.js runtime (OpenNext) by itself;
+# it serves the app's own headers (next.config.ts), redirects and functions.
+# Migrations are not run here: apply them deliberately with `npm run db:migrate`.
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  # The version CI tests on (.github/workflows/ci.yml).
+  NODE_VERSION = "22"
+  # The install's peer-deps setting comes from .npmrc, which npm reads here as anywhere.

@@ -107,6 +107,24 @@ tests/integration/    against a real Postgres, incl. the 50-buyer race test
 4. The browser never decides price, stock or payment status.
 5. Products and variants are archived, never deleted.
 
+## Deploying on Netlify
+
+Build settings are in `netlify.toml` (Node 22, `npm run build`) and `.npmrc`. In **Site configuration → Environment variables** add (✱ = mark as secret):
+
+| Variable | Value |
+| --- | --- |
+| `DATABASE_URL` ✱ | Supabase **transaction pooler** string (port 6543) |
+| `DATABASE_CA_CERT` ✱ | Full text of Supabase's `prod-ca-2021.crt` |
+| `APP_URL` | The live address, e.g. `https://astitva.in` (no trailing slash) |
+| `BETTER_AUTH_SECRET` ✱ | New `openssl rand -base64 32`; changing it signs everyone out and breaks old order links |
+| `CLOUDINARY_URL` ✱ | `cloudinary://…` |
+| `RESEND_API_KEY` ✱, `EMAIL_FROM` | Resend key; sender on the verified domain, e.g. `Astitva <hello@astitva.in>` |
+| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` ✱ | Test keys until the account is live; without them checkout offers COD only |
+| `RAZORPAY_WEBHOOK_SECRET` ✱ | Same value as the webhook in Razorpay's dashboard |
+| `CRON_SECRET` ✱ | Same value as the GitHub secret `CRON_SECRET` |
+
+Don't set `NODE_ENV` (Netlify does), `DATABASE_CA_CERT_FILE` or `DATABASE_URL_TEST` (local only), or `SHOW_DRAFT_COPY` (review deploys only). The build reads the catalogue to prerender pages, so the database and Cloudinary variables must reach builds as well as functions (Netlify's default "all scopes"). Run migrations yourself before deploying a change that needs them.
+
 ## Scheduled jobs and backups
 
 Two GitHub workflows, both skip quietly until their settings exist:

@@ -30,7 +30,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci --legacy-peer-deps
+      - run: npm ci # peer-deps setting comes from .npmrc
       - run: npm run typecheck
       - run: npm run lint
       # Integration tests rebuild the test database from ./drizzle, including the 50-buyer race.
