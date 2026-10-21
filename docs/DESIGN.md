@@ -80,7 +80,7 @@ All are disabled under `prefers-reduced-motion`. A transition name must appear o
 
 Scale is 1.25 from a 16px body, extended to 7.45rem for covers (see `globals.css`).
 
-## Tokens (placeholders until the final logo files arrive)
+## Tokens (the brand colours, confirmed 2026-10-21)
 
 | Token | Hex | Use | Contrast on ivory |
 | --- | --- | --- | --- |

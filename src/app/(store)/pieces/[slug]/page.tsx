@@ -187,7 +187,6 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
   const colours: { name: string | null; hex: string | null }[] = [];
   for (const v of product.variants) if (!colours.some((c) => c.name === v.color)) colours.push({ name: v.color, hex: v.colorHex });
   const firstInStock = product.variants.find((v) => v.onHand > 0)?.color ?? colours[0]?.name ?? null;
-  const signature = store.noteSignature;
   const ld = [
     breadcrumbLd([
       { name: "Astitva", path: "/" },
@@ -289,9 +288,9 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
 
         {product.stylingNote ? (
           <section aria-label="How to wear it" className="mx-auto mt-28 max-w-3xl px-4 text-center sm:px-8 md:mt-40">
-            <p className="caption text-xl">How {signature ?? "we"} would wear it</p>
+            <p className="caption text-xl">How we&apos;d wear it</p>
             <blockquote className="mt-4 font-display text-3xl italic leading-snug md:text-4xl">{product.stylingNote}</blockquote>
-            {signature ? <p className="mt-6 font-accent text-2xl italic">{signature}</p> : null}
+            <p className="mt-6 font-accent text-2xl italic">Team Astitva</p>
           </section>
         ) : null}
 

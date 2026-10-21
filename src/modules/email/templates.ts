@@ -54,10 +54,10 @@ function textOf(head: string, blocks: (string | { label: string; url: string } |
 
 async function loadSettings(db: DbOrTx) {
   const [s] = await db
-    .select({ who: storeSettings.conciergeName, whatsapp: storeSettings.supportWhatsapp, signature: storeSettings.noteSignature })
+    .select({ who: storeSettings.conciergeName, whatsapp: storeSettings.supportWhatsapp })
     .from(storeSettings)
     .where(eq(storeSettings.id, 1));
-  return { who: s?.who ?? null, whatsapp: s?.whatsapp ?? null, signature: s?.signature ?? s?.who ?? null };
+  return { who: s?.who ?? null, whatsapp: s?.whatsapp ?? null };
 }
 
 async function loadOrder(db: DbOrTx, orderId: string) {
@@ -272,7 +272,7 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
           kicker(["Back in stock", v.pieceNumber ? formatPieceNumber(v.pieceNumber) : null].filter(Boolean).join(" · ")),
           heading(`${title} is back`),
           paragraph(`${v.name}${what ? `, in ${what}` : ""}. ${price}.`, { align: "center", color: C.soft }),
-          v.story ? quote("Where it came from", v.story, settings.signature) : "",
+          v.story ? quote("Where it came from", v.story, null) : "",
           paragraph("You asked us to tell you. There are only a few, so it may not stay long.", { align: "center" }),
           button(`See ${title}`, url),
           paragraph(once, { size: 12, color: C.soft, align: "center" }),
@@ -293,7 +293,8 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
   const cod = order.paymentMethod === "cod";
   const list = emailPieces(items, appUrl);
   const { steps, current } = journey(order);
-  const signer = settings.signature ?? "Astitva";
+  // Emails come from the team, not one person.
+  const signer = "Team Astitva";
   const orderFooterNote = `You're getting this because you ordered from Astitva. Order ${order.orderNumber}.`;
 
   switch (template) {
@@ -321,7 +322,7 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
             progress(steps, current),
             pieces(list),
             totals(totalRows(order)),
-            note ? quote(`How ${settings.who ?? "we"}'d wear ${note.title}`, note.note, settings.signature) : "",
+            note ? quote(`How we'd wear ${note.title}`, note.note, "Team Astitva") : "",
             promise ? paragraph(promise, { align: "center", color: C.soft, size: 14 }) : "",
             columns([
               { title: "Going to", text: addressLines(order.addressSnapshot) },

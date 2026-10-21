@@ -22,12 +22,10 @@ export function defaultColour(colours: LookbookPiece["colours"]) {
  */
 export function LookbookPage({
   head,
-  signature,
   piece,
   index,
 }: {
   head: string;
-  signature: string | null;
   piece: LookbookPiece;
   index: number;
 }) {
@@ -81,7 +79,6 @@ export function LookbookPage({
           {piece.stylingNote ? (
             <figure className="mt-8 max-w-md border-l border-taupe pl-4">
               <blockquote className="text-sm leading-relaxed">{piece.stylingNote}</blockquote>
-              {signature ? <figcaption className="signature mt-1 text-2xl">{signature}</figcaption> : null}
             </figure>
           ) : null}
 

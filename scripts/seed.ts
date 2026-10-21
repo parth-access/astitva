@@ -149,7 +149,8 @@ async function main() {
       lookbookSubtitle: "The first pieces, in the colours we couldn't choose between.",
       note: NOTE,
       noteSignature: "Krishna",
-      conciergeName: "Krishna",
+      // Blank: buyers read "we" and "us" (e.g. "We'll message you on WhatsApp").
+      conciergeName: null,
       codEnabled: true,
       codFeeMinor: 0,
       codMaxOrderMinor: 500_000,

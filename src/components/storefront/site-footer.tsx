@@ -49,8 +49,8 @@ export function SiteFooter() {
         </nav>
       </div>
       <p className="mx-auto max-w-6xl px-4 pb-10 text-xs text-espresso-soft sm:px-8">
-        {/* TODO(launch): registered business name, address and GSTIN if registered. */}
-        Astitva. Business details will appear here before launch.
+        {/* The registered name is Astitva. No address is published; add the GSTIN here once there is one. */}
+        &copy; Astitva. All rights reserved.
       </p>
     </footer>
   );

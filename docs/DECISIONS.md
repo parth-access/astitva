@@ -2,6 +2,16 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-21 — The site speaks as Astitva; content confirmed
+
+- **Voice:** buyers hear from "we" and "Team Astitva", not one person. "Who answers" in the settings is now optional and blank by default ("We'll message you on WhatsApp", "Ask us about the fit"); styling notes read "How we'd wear it", signed Team Astitva, and emails are signed Team Astitva. Krishna's letter on the home page keeps its own signature (Lookbook & settings → "Signed").
+- **Contact page:** WhatsApp and email as two cards, read from the settings, plus where to go for orders, fit and quick answers. A missing one just doesn't show.
+- **Business details:** the registered name is Astitva. No address is published, and there's no GSTIN yet; the footer reads "© Astitva. All rights reserved."
+- **Policies** stay drafts (kept out of search), each saying it's being updated and will be here soon.
+- **Confirmed:** the hand-packed promise (shown everywhere now) and the brand colours. The final logo is on its way.
+- **FAQ:** 18 questions in four groups, each describing what the site actually does; undecided policies point to their pages.
+- **Categories:** every active category stays in the shop's list; one with no published styles is marked "soon" and shows its garment sketched with "Coming soon".
+
 ## 2026-10-21 — Find your order, friendlier
 
 **Recent orders in this browser** (`src/components/storefront/orders-on-device.tsx`): opening an order's private page keeps its address, number, date, total and the first piece's name in `localStorage`, so `/orders` lists them at the top, one tap from the page. Nothing is sent to us, and the browser already had that address; each can be forgotten, or all at once. Most buyers come back on the phone they ordered with, so most never need the form.

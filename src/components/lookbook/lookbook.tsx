@@ -117,7 +117,7 @@ export function LookbookContents({ store, pieces, folio = "iii" }: { store: Stor
             Contents
           </h2>
           <p className="mt-6 max-w-xs text-sm leading-relaxed text-espresso-soft">
-            Every style has its number. Turn to it for its colours, sizes and how Krishna would wear it.
+            Every style has its number. Turn to it for its colours, sizes and how we&apos;d wear it.
           </p>
         </div>
         <ol className="md:col-span-7 md:col-start-6">

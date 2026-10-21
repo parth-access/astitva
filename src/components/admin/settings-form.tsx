@@ -130,7 +130,7 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
         ) : null}
       </Section>
 
-      <Section title="Ask Krishna" intro="Powers “Ask about the fit” on every piece.">
+      <Section title="How buyers reach you" intro="Shown on the contact page, in every email, and behind “Ask us about the fit” on every piece.">
         <div className="grid gap-5 sm:grid-cols-2">
           <Field
             label="WhatsApp number"
@@ -141,7 +141,15 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
             error={e("supportWhatsapp")}
             hint="With the country code, no +."
           />
-          <Field label="Who answers" name="conciergeName" defaultValue={v("conciergeName")} placeholder="Krishna" maxLength={40} error={e("conciergeName")} />
+          <Field
+            label="Who answers (optional)"
+            name="conciergeName"
+            defaultValue={v("conciergeName")}
+            placeholder="Leave blank for “we”"
+            maxLength={40}
+            error={e("conciergeName")}
+            hint="Blank reads “We'll message you”, “Ask us”. A name reads “Ask Krishna”."
+          />
         </div>
         <Field label="Support email" name="supportEmail" type="email" defaultValue={v("supportEmail")} error={e("supportEmail")} />
       </Section>

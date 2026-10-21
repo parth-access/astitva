@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Reveal } from "@/components/brand/reveal";
 import Link from "next/link";
 import { GridSkeleton } from "@/components/lookbook/skeletons";
+import { garmentKind, SketchPlate } from "@/components/lookbook/sketch-plate";
 import { ProductGrid } from "@/components/storefront/product-grid";
+import { ACROSS } from "@/lib/transition-types";
 import { listCategories, listPieces, PRODUCT_SORTS, type ProductSort } from "@/modules/catalog/queries";
 
 export const metadata: Metadata = {
@@ -51,6 +53,7 @@ async function Catalogue({ searchParams }: Pick<PageProps<"/shop">, "searchParam
                   className={active?.id === c.id ? "text-burgundy underline underline-offset-4" : "link no-underline hover:underline"}
                 >
                   {c.name}
+                  {c.styles === 0 ? <span className="ml-1.5 inline-block align-super text-[0.65rem] uppercase tracking-[0.14em] text-espresso-soft">soon</span> : null}
                 </Link>
               </li>
             ))}
@@ -73,15 +76,36 @@ async function Catalogue({ searchParams }: Pick<PageProps<"/shop">, "searchParam
           </ul>
         </nav>
       </div>
-      <p className="mb-10 mt-6 text-sm text-espresso-soft" aria-live="polite">
+      <p className={`mb-10 mt-6 text-sm text-espresso-soft ${active && active.styles === 0 ? "sr-only" : ""}`} aria-live="polite">
         {items.length === 1 ? "One style" : `${items.length} styles`}
         {(() => {
           const n = new Set(items.flatMap((p) => p.colours.flatMap((c) => (c.name ? [c.name.toLowerCase()] : [])))).size;
           return n > 1 ? `, in ${n} colours` : "";
         })()}
       </p>
-      <ProductGrid pieces={items} priorityCount={2} />
+      {active && active.styles === 0 ? <ComingSoon name={active.name} slug={active.slug} /> : <ProductGrid pieces={items} priorityCount={2} />}
     </>
+  );
+}
+
+/** A category with nothing in it yet: its garment, sketched, and a way back to everything. */
+function ComingSoon({ name, slug }: { name: string; slug: string }) {
+  return (
+    <div className="mx-auto grid max-w-3xl items-center gap-10 py-6 sm:grid-cols-[14rem_1fr]">
+      <div className="arch paper-plate relative mx-auto w-48 sm:w-full" style={{ aspectRatio: "4/5" }}>
+        <div className="absolute inset-x-[8%] bottom-[4%] top-[10%]">
+          <SketchPlate kind={garmentKind(slug)} tone={null} label={`Sketch of ${name.toLowerCase()} to come`} seed={3} />
+        </div>
+      </div>
+      <div className="text-center sm:text-left">
+        <p className="caption text-xl">Coming soon</p>
+        <h2 className="mt-1 text-4xl italic md:text-5xl">{name}, on their way</h2>
+        <p className="mt-4 leading-relaxed text-espresso-soft">We&apos;re choosing these now, a few at a time. Until they arrive, the rest of the collection is here.</p>
+        <Link href="/shop" transitionTypes={ACROSS} className="btn-outline mt-7">
+          See everything
+        </Link>
+      </div>
+    </div>
   );
 }
 

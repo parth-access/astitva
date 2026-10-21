@@ -197,24 +197,29 @@ async function firstImages(productIds: string[]) {
   return new Map(rows.map((r) => [r.productId, { url: r.url, alt: r.alt }]));
 }
 
+/**
+ * Every active category, with how many published styles are in it. Empty
+ * ones stay in the shop's list, marked "soon", so the range reads as planned.
+ */
 export async function listCategories() {
   "use cache";
   cacheLife("hours");
   cacheTag(CATALOG_TAG);
 
-  return db
-    .select({ id: categories.id, name: categories.name, slug: categories.slug })
+  const rows = await db
+    .select({
+      id: categories.id,
+      name: categories.name,
+      slug: categories.slug,
+      // The outer table is spelled out: in a one-table query Drizzle writes ${categories.id}
+      // as a bare "id", which inside this subquery would mean p.id.
+      styles: sql<number>`(select count(*) from ${productCategories} pc join ${products} p on p.id = pc.product_id
+                           where pc.category_id = categories.id and p.status = 'active')::int`,
+    })
     .from(categories)
-    .where(
-      and(
-        eq(categories.isActive, true),
-        // The outer table is spelled out: in a one-table query Drizzle writes ${categories.id}
-        // as a bare "id", which inside this subquery would mean p.id.
-        sql`exists (select 1 from ${productCategories} pc join ${products} p on p.id = pc.product_id
-                    where pc.category_id = categories.id and p.status = 'active')`,
-      ),
-    )
+    .where(eq(categories.isActive, true))
     .orderBy(asc(categories.sortOrder), asc(categories.name));
+  return rows.map((r) => ({ ...r, styles: Number(r.styles) }));
 }
 
 /* ------------------------------------------------------------------ */

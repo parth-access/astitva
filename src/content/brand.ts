@@ -9,7 +9,7 @@ export type BrandPromise = { title: string; body: string; confirmed: boolean };
 export const PACKED_BY_HAND: BrandPromise = {
   title: "Packed by hand",
   body: "Every piece leaves wrapped by hand, with a card bearing its number and name.",
-  confirmed: false,
+  confirmed: true,
 };
 
 export function showPromise(p: BrandPromise) {

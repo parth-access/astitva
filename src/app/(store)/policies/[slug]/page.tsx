@@ -27,7 +27,7 @@ export default async function PolicyPage({ params }: PageProps<"/policies/[slug]
         <h1 className="text-4xl">{policy.title}</h1>
         {policy.status === "draft" && (
           <p className="mt-6 border-l-2 border-gold bg-champagne/60 px-4 py-3 text-sm">
-            This policy is being finalised and may change before the store opens.
+            We&apos;re updating this policy, and the full version will be here soon. Questions in the meantime? Message us.
           </p>
         )}
         <div className="mt-8">

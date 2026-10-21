@@ -177,7 +177,7 @@ export function BuyPanel({
           // Keyed by the variant so a new colour or size starts a fresh form.
           <RestockAlert key={selected.id} variantId={selected.id} label={[colour, hasSizes ? selected.size : null].filter(Boolean).join(" ") || "it"} />
         ) : null}
-        {!orderingOpen && !allOut ? <p className="mt-3 text-sm text-espresso-soft">We&apos;re opening soon. Ask Krishna if you&apos;d like this one kept for you.</p> : null}
+        {!orderingOpen && !allOut ? <p className="mt-3 text-sm text-espresso-soft">We&apos;re opening soon. Message us if you&apos;d like this one kept for you.</p> : null}
       </div>
 
       {/* Phones: once the button scrolls away, a bar keeps the choice and the button in reach. */}
