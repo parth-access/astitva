@@ -9,6 +9,7 @@ import { InvalidTransitionError } from "@/lib/state-machine";
 import { formValues, parsePieceForm, type FieldErrors } from "@/modules/catalog-admin/input";
 import { addPhoto, movePhoto, removePhoto, setPhotoAlt, setPhotoColour } from "@/modules/catalog-admin/photos";
 import { PieceRuleError, savePiece, setPieceStatus } from "@/modules/catalog-admin/service";
+import { setSpinVideo } from "@/modules/catalog-admin/spin";
 import { notifyRestockedSoon } from "@/modules/alerts/soon";
 import { CATALOG_TAG } from "@/modules/catalog/queries";
 import { requireAdmin } from "@/modules/auth/auth";
@@ -17,6 +18,7 @@ import {
   PIECE_FOLDER,
   publicIdFromUrl,
   signUpload,
+  SPIN_FOLDER,
   verifyUpload,
   type SignedUpload,
   type UploadReceipt,
@@ -116,6 +118,43 @@ export async function changePhotoAction(productId: string, change: z.infer<typeo
     if (err instanceof PieceRuleError) return { ok: false, error: Object.values(err.errors)[0]! };
     throw err;
   }
+  updateTag(CATALOG_TAG);
+  return { ok: true };
+}
+
+/* Turning video (the 360° view) ------------------------------------- */
+
+/** A signature for one browser video upload straight to Cloudinary. */
+export async function signSpinUploadAction(productId: string): Promise<SignedUpload> {
+  await requireAdmin();
+  if (!z.uuid().safeParse(productId).success) throw new Error("Unknown piece.");
+  return signUpload(SPIN_FOLDER);
+}
+
+/** Records an uploaded video after checking Cloudinary's signed reply, replacing (and deleting) any earlier one. */
+export async function attachSpinAction(productId: string, receipt: UploadReceipt): Promise<PhotoResult> {
+  const { user } = await requireAdmin();
+  const video = verifyUpload(receipt, SPIN_FOLDER);
+  if (!video) return { ok: false, error: "That upload couldn't be confirmed. Try again." };
+  return changeSpin(productId, video.url, user.id);
+}
+
+export async function removeSpinAction(productId: string): Promise<PhotoResult> {
+  const { user } = await requireAdmin();
+  return changeSpin(productId, null, user.id);
+}
+
+async function changeSpin(productId: string, url: string | null, actorId: string): Promise<PhotoResult> {
+  if (!z.uuid().safeParse(productId).success) return { ok: false, error: "Unknown piece." };
+  let replaced: string | null;
+  try {
+    replaced = await setSpinVideo(db, productId, url, actorId);
+  } catch (err) {
+    if (err instanceof PieceRuleError) return { ok: false, error: Object.values(err.errors)[0]! };
+    throw err;
+  }
+  const publicId = replaced ? publicIdFromUrl(replaced, undefined, "video") : null;
+  if (publicId) after(() => destroyPhoto(publicId, undefined, "video"));
   updateTag(CATALOG_TAG);
   return { ok: true };
 }

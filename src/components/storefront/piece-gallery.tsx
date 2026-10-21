@@ -1,14 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { pieceTransitionName, Plate } from "@/components/brand/plate";
 import { useSelection } from "./piece-selection";
+import { SpinViewer } from "./spin-viewer";
 
 export type GalleryImage = { url: string; alt: string; color: string | null };
 
 /**
  * The piece's pictures for the chosen colour: its own photos plus any photo
  * of every colour. With none, the painted sketch, washed in the colour. A
- * newly chosen colour's photos fade in; the sketch repaints in place.
+ * newly chosen colour's photos fade in; the sketch repaints in place. With
+ * a turning video, a button swaps the first picture for a drag-to-turn view.
  */
 export function PieceGallery({
   slug,
@@ -19,6 +22,7 @@ export function PieceGallery({
   pieceName,
   category,
   images,
+  spinVideo,
 }: {
   slug: string;
   title: string;
@@ -28,7 +32,10 @@ export function PieceGallery({
   pieceName: string | null;
   category: string | null;
   images: GalleryImage[];
+  /** A video of the piece turning round once, or null. */
+  spinVideo: string | null;
 }) {
+  const [turning, setTurning] = useState(false);
   const { colours, colour } = useSelection();
   const chosen = colours.find((c) => c.name === colour);
   const own = images.filter((i) => i.color === colour);
@@ -40,20 +47,33 @@ export function PieceGallery({
 
   return (
     <>
-      <div key={hero ? hero.url : "sketch"} className={hero ? "fade-in" : undefined}>
-        <Plate
-          transitionName={pieceTransitionName(slug)}
-          src={hero?.url ?? null}
-          alt={hero ? hero.alt || label : label}
-          tone={chosen?.hex ?? tone}
-          pieceNumber={pieceNumber}
-          pieceName={pieceName}
-          category={category}
-          sketchNote
-          sizes="(min-width: 768px) 56vw, 92vw"
-          priority
-        />
-      </div>
+      {spinVideo && turning ? (
+        <div className="fade-in">
+          <SpinViewer key={spinVideo} video={spinVideo} label={label} tone={chosen?.hex ?? tone} />
+        </div>
+      ) : (
+        <div key={hero ? hero.url : "sketch"} className={hero ? "fade-in" : undefined}>
+          <Plate
+            transitionName={pieceTransitionName(slug)}
+            src={hero?.url ?? null}
+            alt={hero ? hero.alt || label : label}
+            tone={chosen?.hex ?? tone}
+            pieceNumber={pieceNumber}
+            pieceName={pieceName}
+            category={category}
+            sketchNote
+            sizes="(min-width: 768px) 56vw, 92vw"
+            priority
+          />
+        </div>
+      )}
+      {spinVideo ? (
+        <p className="mt-3 text-center">
+          <button type="button" className="link text-sm" aria-pressed={turning} onClick={() => setTurning((t) => !t)}>
+            {turning ? "Back to the photo" : "See it turn, 360°"}
+          </button>
+        </p>
+      ) : null}
       {rest.length > 0 && (
         <ul key={colour ?? ""} className="fade-in mt-6 grid grid-cols-2 gap-6">
           {rest.map((img, i) => (

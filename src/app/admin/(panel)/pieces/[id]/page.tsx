@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PieceEditor } from "@/components/admin/piece-editor";
 import { StatusPanel } from "@/components/admin/piece-panels";
 import { PhotosPanel } from "@/components/admin/photos-panel";
+import { SpinPanel } from "@/components/admin/spin-panel";
 import { Notice } from "@/components/admin/ui";
 import { formatPieceNumber } from "@/lib/format";
 import { db } from "@/db/client";
@@ -60,6 +61,7 @@ export default async function EditPiecePage({ params, searchParams }: PageProps<
             pieceLabel={product.pieceName ?? product.name}
             colours={colours.flatMap((c) => (c.name ? [c.name] : []))}
           />
+          <SpinPanel productId={product.id} video={product.spinVideoUrl} pieceLabel={product.pieceName ?? product.name} tone={product.tone} />
           <PieceEditor
             key={product.updatedAt.toISOString()}
             productId={product.id}

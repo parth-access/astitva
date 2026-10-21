@@ -272,6 +272,8 @@ export const products = pgTable(
     stylingNote: text("styling_note"),
     /** Dominant colour (hex), used behind images while they load and on photo-less placeholders. */
     tone: varchar("tone", { length: 7 }),
+    /** A video of the piece turning round once (Cloudinary). The piece page cuts it into frames for a drag-to-turn view. */
+    spinVideoUrl: text("spin_video_url"),
     seoTitle: varchar("seo_title", { length: 160 }),
     seoDescription: varchar("seo_description", { length: 320 }),
     publishedAt: timestamp("published_at", { withTimezone: true }),

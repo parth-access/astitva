@@ -243,6 +243,7 @@ export async function getProductBySlug(slug: string) {
       story: products.story,
       stylingNote: products.stylingNote,
       tone: products.tone,
+      spinVideoUrl: products.spinVideoUrl,
       categorySlug: firstCategorySlug,
       seoTitle: products.seoTitle,
       seoDescription: products.seoDescription,

@@ -35,25 +35,31 @@ export function cloudinaryAccount(url = process.env.CLOUDINARY_URL): Account {
 /** Where photos go, and what an upload may be. */
 export const PIECE_FOLDER = "astitva/pieces";
 export const CHAPTER_FOLDER = "astitva/chapters";
+/** Videos of pieces turning round (the piece page's 360° view). */
+export const SPIN_FOLDER = "astitva/spins";
 export type PhotoFolder = typeof PIECE_FOLDER | typeof CHAPTER_FOLDER;
+export type UploadFolder = PhotoFolder | typeof SPIN_FOLDER;
+type Resource = "image" | "video";
+const resourceOf = (folder: UploadFolder): Resource => (folder === SPIN_FOLDER ? "video" : "image");
 const ALLOWED_FORMATS = "jpg,jpeg,png,webp,avif,heic,heif";
+const VIDEO_FORMATS = "mp4,mov,m4v,webm";
 /** Phone photos are often 4000+ px; nothing on the site needs more than this. Saves storage on the free plan. */
 const INCOMING = "c_limit,w_2400,h_3000";
 
 export type SignedUpload = { url: string; fields: Record<string, string> };
 
 /** Everything the browser needs to post one file to Cloudinary. Valid for an hour (Cloudinary's rule). */
-export function signUpload(folder: PhotoFolder, account = cloudinaryAccount(), now = Date.now()): SignedUpload {
-  const params = {
-    timestamp: String(Math.floor(now / 1000)),
-    folder,
-    allowed_formats: ALLOWED_FORMATS,
-    transformation: INCOMING,
-    colors: "true",
-  };
+export function signUpload(folder: UploadFolder, account = cloudinaryAccount(), now = Date.now()): SignedUpload {
+  const timestamp = String(Math.floor(now / 1000));
+  const resource = resourceOf(folder);
+  // Videos are kept as filmed: the frames are cut from them on delivery.
+  const params: Record<string, string> =
+    resource === "video"
+      ? { timestamp, folder, allowed_formats: VIDEO_FORMATS }
+      : { timestamp, folder, allowed_formats: ALLOWED_FORMATS, transformation: INCOMING, colors: "true" };
   const signature = cloudinarySignature(params, account.apiSecret);
   return {
-    url: `https://api.cloudinary.com/v1_1/${account.cloudName}/image/upload`,
+    url: `https://api.cloudinary.com/v1_1/${account.cloudName}/${resource}/upload`,
     fields: { ...params, api_key: account.apiKey, signature },
   };
 }
@@ -75,7 +81,7 @@ export type VerifiedPhoto = { publicId: string; url: string; width: number | nul
  * Checks Cloudinary's signature on the reply and that the file is ours, in
  * the expected folder. Returns null for anything else.
  */
-export function verifyUpload(receipt: UploadReceipt, folder: PhotoFolder, account = cloudinaryAccount()): VerifiedPhoto | null {
+export function verifyUpload(receipt: UploadReceipt, folder: UploadFolder, account = cloudinaryAccount()): VerifiedPhoto | null {
   const { public_id, version, signature, secure_url } = receipt;
   if (typeof public_id !== "string" || !Number.isInteger(version) || typeof signature !== "string") return null;
   if (!public_id.startsWith(`${folder}/`)) return null;
@@ -83,7 +89,7 @@ export function verifyUpload(receipt: UploadReceipt, folder: PhotoFolder, accoun
   const expected = cloudinarySignature({ public_id, version }, account.apiSecret);
   if (expected !== signature) return null;
 
-  const prefix = `https://res.cloudinary.com/${account.cloudName}/image/upload/v${version}/${public_id}.`;
+  const prefix = `https://res.cloudinary.com/${account.cloudName}/${resourceOf(folder)}/upload/v${version}/${public_id}.`;
   if (typeof secure_url !== "string" || !secure_url.startsWith(prefix) || !/^[a-z0-9]+$/i.test(secure_url.slice(prefix.length))) {
     return null;
   }
@@ -99,17 +105,17 @@ export function verifyUpload(receipt: UploadReceipt, folder: PhotoFolder, accoun
   };
 }
 
-/** The Cloudinary id inside one of our photo addresses, or null for anything else. */
-export function publicIdFromUrl(url: string, account = cloudinaryAccount()): string | null {
-  const m = new RegExp(`^https://res\\.cloudinary\\.com/${account.cloudName}/image/upload/v\\d+/(.+)\\.[a-z0-9]+$`, "i").exec(url);
+/** The Cloudinary id inside one of our photo (or video) addresses, or null for anything else. */
+export function publicIdFromUrl(url: string, account = cloudinaryAccount(), resource: Resource = "image"): string | null {
+  const m = new RegExp(`^https://res\\.cloudinary\\.com/${account.cloudName}/${resource}/upload/v\\d+/(.+)\\.[a-z0-9]+$`, "i").exec(url);
   return m?.[1] ?? null;
 }
 
-/** Deletes a photo from Cloudinary. Best effort: a leftover file costs a little storage, nothing more. */
-export async function destroyPhoto(publicId: string, account = cloudinaryAccount()): Promise<void> {
+/** Deletes a photo (or video) from Cloudinary. Best effort: a leftover file costs a little storage, nothing more. */
+export async function destroyPhoto(publicId: string, account = cloudinaryAccount(), resource: Resource = "image"): Promise<void> {
   const params = { public_id: publicId, invalidate: "true", timestamp: String(Math.floor(Date.now() / 1000)) };
   try {
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${account.cloudName}/image/destroy`, {
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${account.cloudName}/${resource}/destroy`, {
       method: "POST",
       body: new URLSearchParams({ ...params, api_key: account.apiKey, signature: cloudinarySignature(params, account.apiSecret) }),
     });

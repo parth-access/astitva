@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { cloudinaryUrl, isCloudinaryUrl } from "@/lib/cloudinary-url";
-import { CHAPTER_FOLDER, cloudinarySignature, PIECE_FOLDER, publicIdFromUrl, signUpload, verifyUpload } from "@/modules/media/cloudinary";
+import { cloudinaryUrl, isCloudinaryUrl, spinFrameUrls } from "@/lib/cloudinary-url";
+import { CHAPTER_FOLDER, cloudinarySignature, PIECE_FOLDER, publicIdFromUrl, signUpload, SPIN_FOLDER, verifyUpload } from "@/modules/media/cloudinary";
 
 const account = { cloudName: "demo", apiKey: "123", apiSecret: "shh" };
 const photo = "https://res.cloudinary.com/demo/image/upload/v1712/astitva/pieces/abc123.jpg";
@@ -66,5 +66,38 @@ describe("cloudinary", () => {
     );
     expect(cloudinaryUrl("/brand/mascot.webp", { width: 640 })).toBe("/brand/mascot.webp");
     expect(publicIdFromUrl(photo, account)).toBe("astitva/pieces/abc123");
+  });
+
+  describe("turning videos", () => {
+    const video = "https://res.cloudinary.com/demo/video/upload/v1712/astitva/spins/turn1.mp4";
+    const videoReceipt = () => {
+      const public_id = "astitva/spins/turn1";
+      const version = 1712;
+      return { public_id, version, signature: cloudinarySignature({ public_id, version }, account.apiSecret), secure_url: video };
+    };
+
+    it("signs video uploads, kept as filmed", () => {
+      const { url, fields } = signUpload(SPIN_FOLDER, account, 1_700_000_000_000);
+      expect(url).toBe("https://api.cloudinary.com/v1_1/demo/video/upload");
+      expect(fields).toMatchObject({ folder: "astitva/spins", allowed_formats: "mp4,mov,m4v,webm" });
+      expect(fields.transformation).toBeUndefined();
+    });
+
+    it("accepts a genuine video reply only as a video", () => {
+      expect(verifyUpload(videoReceipt(), SPIN_FOLDER, account)).toMatchObject({ publicId: "astitva/spins/turn1", url: video });
+      expect(verifyUpload({ ...videoReceipt(), secure_url: video.replace("/video/", "/image/") }, SPIN_FOLDER, account)).toBeNull();
+      expect(verifyUpload(receipt(), SPIN_FOLDER, account)).toBeNull();
+      expect(publicIdFromUrl(video, account, "video")).toBe("astitva/spins/turn1");
+      expect(publicIdFromUrl(video, account)).toBeNull();
+    });
+
+    it("cuts 36 evenly spaced 4:5 stills, the last short of the end", () => {
+      const frames = spinFrameUrls(video, { width: 800 });
+      expect(frames).toHaveLength(36);
+      expect(frames[0]).toBe("https://res.cloudinary.com/demo/video/upload/so_0p,c_fill,g_center,w_800,h_1000,f_auto,q_auto/v1712/astitva/spins/turn1.jpg");
+      expect(frames[1]).toContain("/so_2.8p,");
+      expect(frames[35]).toContain("/so_97.2p,");
+      expect(spinFrameUrls(photo, { width: 800 })).toEqual([]);
+    });
   });
 });

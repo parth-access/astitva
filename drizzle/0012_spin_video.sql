@@ -1,0 +1,1 @@
+ALTER TABLE "products" ADD COLUMN "spin_video_url" text;

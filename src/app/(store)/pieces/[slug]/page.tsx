@@ -225,6 +225,7 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
             pieceName={product.pieceName}
             category={product.categorySlug}
             images={product.images.map((i) => ({ url: i.url, alt: i.alt, color: i.color }))}
+            spinVideo={product.spinVideoUrl}
           />
         </div>
 
