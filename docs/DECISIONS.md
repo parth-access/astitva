@@ -2,6 +2,14 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-21 — Find your order, friendlier
+
+**Recent orders in this browser** (`src/components/storefront/orders-on-device.tsx`): opening an order's private page keeps its address, number, date, total and the first piece's name in `localStorage`, so `/orders` lists them at the top, one tap from the page. Nothing is sent to us, and the browser already had that address; each can be forgotten, or all at once. Most buyers come back on the phone they ordered with, so most never need the form.
+
+**The form:** fixed `AST-` and `+91` prefixes with number keypads (pasting "AST-001005" leaves just the digits), an error under the field whose *shape* is wrong (never whether an order matched), and a "check your inbox" screen that names the order and the email's subject, says where else to look, and offers WhatsApp with the order number already typed, or trying different details. Help below: where the order number is, and what to do without an email on the order.
+
+**Not a bug:** streamed pages (like an order page) show their content on the browser's next painted frame. A tab that's in the background, or a hidden preview pane, paints nothing, so the content appears when the tab is in front.
+
 ## 2026-10-21 — Emails as letters
 
 **Decision:** Every email reads like a letter from Krishna, not a receipt: the mascot in an arch, the pieces in small arches (their photo in the colour bought, or the colour with the name painted on), where the order is as a five-step bar, her note on how she'd wear the piece, the hand-wrapped card it will carry (while that promise is a draft, only outside production), and her signature. Krishna's own emails are practical: the amount and buyer first, and for cash on delivery a "Confirm on WhatsApp" button with the confirmation message already written.

@@ -12,6 +12,7 @@ import { getConcierge } from "@/modules/catalog/queries";
 import { isOrderLinkKey } from "@/modules/orders/links";
 import { getOrderForBuyer } from "@/modules/orders/service";
 import { PayNow } from "@/components/storefront/pay-now";
+import { RememberOrder } from "@/components/storefront/orders-on-device";
 
 export const metadata: Metadata = { title: "Your order", robots: { index: false, follow: false } };
 
@@ -22,6 +23,15 @@ function Tick() {
       <path d="M20 33.5l8 8 16-18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" pathLength={1} />
     </svg>
   );
+}
+
+/** "Neem" or "Neem and 2 more", for the list of orders kept in this browser. */
+function orderSummary(items: { name: string }[]) {
+  const [first, ...rest] = items;
+  if (!first) return "Your order";
+  // "Nº 01 Neem, linen wrap dress" → "Neem": the piece's own name is what people remember.
+  const short = first.name.replace(/^Nº\s*\d+\s+/, "").split(",")[0]!.trim();
+  return rest.length ? `${short} and ${rest.length} more` : short;
 }
 
 async function OrderView({ params, searchParams }: PageProps<"/orders/[number]">) {
@@ -190,8 +200,21 @@ async function OrderView({ params, searchParams }: PageProps<"/orders/[number]">
       </section>
 
       <p className="mt-16 text-center text-sm text-espresso-soft">
-        Keep this page: its address is private to you. <Link href="/" className="link">Back to the lookbook</Link>
+        This page&apos;s address is private to you. It&apos;s also kept in this browser, under{" "}
+        <Link href="/orders" className="link">
+          Find your order
+        </Link>
+        .
       </p>
+      <RememberOrder
+        order={{
+          number: order.orderNumber,
+          href: `/orders/${order.orderNumber}?k=${encodeURIComponent(String(k))}`,
+          placedAt: order.createdAt.toISOString(),
+          summary: orderSummary(order.items),
+          total: formatINR(order.totalMinor),
+        }}
+      />
     </div>
   );
 }
