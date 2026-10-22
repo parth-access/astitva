@@ -46,6 +46,23 @@
         "RAZORPAY_KEY_SECRET": "not-a-real-secret",
         "RAZORPAY_WEBHOOK_SECRET": "local-webhook-secret"
       }
+    },
+    {
+      "name": "dev-local-db-no-email",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "3004"
+      ],
+      "port": 3004,
+      "env": {
+        "DATABASE_URL": "postgres://localhost:5432/astitva_dev",
+        "RESEND_API_KEY": "",
+        "APP_URL": "http://localhost:3004"
+      }
     }
   ]
 }

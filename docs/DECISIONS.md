@@ -18,7 +18,9 @@ Short records of choices that differ from, or add to, the revised PRD. Newest fi
 - Codes last 10 minutes, allow 5 tries, are stored encrypted, and asking again resends the same code. At most 4 codes per email per 15 minutes; per-network limits are generous because many mobile users share an address.
 - New tables: `customer_addresses` (one default each) and `saved_pieces` (hearts, by style). `users.phone_verified`: guest orders are linked to an account only by an email or phone proved with a code.
 
-**Next:** the account pages, checkout using the account, the bag following the account, hearts.
+**Account pages** (`/account`, behind `requireCustomer()`; `proxy.ts` sends visitors without the cookie to sign in): orders (the account's, and guest orders with its email, leaving out online checkouts never paid), addresses (up to 10, one used first), and details (name, mobile, sign out everywhere, delete the account). Deleting removes sign-ins, sessions, addresses, saved pieces and back-in-stock alerts; orders stay, unlinked, for tax records. The header shows an account icon on wider screens; on phones it's in the menu.
+
+**Next:** checkout using the account, the bag following the account, hearts.
 
 ## 2026-10-21 — The site speaks as Astitva; content confirmed
 

@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { db } from "@/db/client";
 import { env } from "@/lib/env";
 import { createCustomerAuth, readCustomer, type Customer } from "./customer-config";
@@ -19,3 +20,11 @@ export const getCustomer = cache(async (): Promise<Customer | null> => readCusto
 
 /** Whether "Sign in with Google" is offered. */
 export const googleSignIn = () => Boolean(env().GOOGLE_CLIENT_ID && env().GOOGLE_CLIENT_SECRET);
+
+/** For account pages and actions: the signed-in customer, or off to sign in (coming back to `next`). */
+export async function requireCustomer(next = "/account"): Promise<Customer> {
+  const customer = await getCustomer();
+  if (!customer) redirect(`/account/sign-in?next=${encodeURIComponent(next)}`);
+  return customer;
+}
+

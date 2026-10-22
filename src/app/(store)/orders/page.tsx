@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { FindOrderForm } from "@/components/storefront/find-order-form";
 import { OrdersOnDevice } from "@/components/storefront/orders-on-device";
 import { whatsappLink } from "@/lib/format";
+import { ACROSS } from "@/lib/transition-types";
 import { getConcierge } from "@/modules/catalog/queries";
 
 export const metadata: Metadata = {
@@ -35,6 +37,14 @@ export default async function FindOrderPage() {
           <p className="mb-7 mt-2 text-sm leading-relaxed text-espresso-soft">Your order number and the mobile number you ordered with. We&apos;ll email you its page.</p>
           <FindOrderForm whatsapp={concierge.whatsapp} />
         </section>
+
+        <p className="mt-6 text-center text-sm text-espresso-soft">
+          Ordered with your email?{" "}
+          <Link href="/account" transitionTypes={ACROSS} className="link text-espresso">
+            Sign in
+          </Link>{" "}
+          to see all your orders.
+        </p>
 
         <section aria-label="Help" className="mt-14 grid gap-8 text-sm sm:grid-cols-2">
           <div>

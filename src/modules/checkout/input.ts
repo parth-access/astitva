@@ -12,7 +12,8 @@ const required = (message: string, max: number) =>
   z.string({ message }).trim().min(1, message).max(max, `Keep this under ${max} characters.`);
 const optional = (max: number) => z.preprocess(blank, z.string().trim().max(max, `Keep this under ${max} characters.`).nullable());
 
-const checkoutSchema = z.object({
+/** Name, mobile and address, as checkout and saved addresses both ask for them. */
+export const contactFields = {
   name: required("Your name, as the courier should ask for it.", 120),
   phone: z
     .string({ message: "A mobile number." })
@@ -24,7 +25,9 @@ const checkoutSchema = z.object({
       }
       return n;
     }),
-  email: z.preprocess(blank, z.email("An email address, or leave it blank.").max(254).nullable()),
+};
+
+export const addressFields = {
   line1: required("House or flat, and street.", 200),
   line2: optional(200),
   landmark: optional(120),
@@ -34,6 +37,12 @@ const checkoutSchema = z.object({
     .string({ message: "A 6-digit pincode." })
     .trim()
     .regex(PINCODE_PATTERN, "A 6-digit pincode."),
+};
+
+const checkoutSchema = z.object({
+  ...contactFields,
+  email: z.preprocess(blank, z.email("An email address, or leave it blank.").max(254).nullable()),
+  ...addressFields,
   note: optional(500),
   discountCode: optional(40),
   payment: z.enum(["cod", "online"], { message: "Choose how to pay." }),

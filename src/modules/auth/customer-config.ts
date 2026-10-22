@@ -130,6 +130,11 @@ export function createCustomerAuth(db: DbOrTx, opts: CustomerAuthOptions) {
 
 export type CustomerAuth = ReturnType<typeof createCustomerAuth>;
 
+/** A path to return to after signing in: one of ours, never another site. */
+export function safeNext(next: unknown, fallback = "/account"): string {
+  return typeof next === "string" && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\") ? next : fallback;
+}
+
 export type Customer = { id: string; name: string; email: string };
 
 /** The signed-in customer, from the request's headers. Null when signed out, and for anything but a customer session. */

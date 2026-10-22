@@ -13,7 +13,7 @@ const right = [
 
 /**
  * A masthead: the wordmark centred like a magazine title, navigation split
- * either side, the bag at the far right once ordering is open. On phones the
+ * either side, the account and the bag at the far right. On phones the
  * links fold into a disclosure (no JavaScript).
  */
 export function SiteHeader({ notice }: { notice?: string | null }) {
@@ -41,7 +41,7 @@ export function SiteHeader({ notice }: { notice?: string | null }) {
           </summary>
           <nav aria-label="Main" className="absolute left-0 top-full z-50 mt-2 w-56 bg-ivory py-3 shadow-[0_10px_30px_-12px_rgb(52_37_30/0.35)]">
             <ul>
-              {[...left, ...right, { href: "/contact", label: "Contact" }].map((item) => (
+              {[...left, ...right, { href: "/contact", label: "Contact" }, { href: "/account", label: "Your account" }].map((item) => (
                 <li key={item.href}>
                   <Link href={item.href} transitionTypes={ACROSS} className="block px-4 py-2.5 font-display text-xl hover:text-burgundy">
                     {item.label}
@@ -69,6 +69,14 @@ export function SiteHeader({ notice }: { notice?: string | null }) {
               ))}
             </ul>
           </nav>
+          {/* On phones it's in the menu: the masthead has no room beside the bag. */}
+          <Link href="/account" transitionTypes={ACROSS} aria-label="Your account" title="Your account" className="-mx-2 hidden size-11 place-items-center text-espresso hover:text-burgundy md:grid">
+            {/* A head and shoulders. */}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+              <circle cx="12" cy="8.5" r="3.75" />
+              <path d="M4.75 20c.9-3.7 3.8-5.75 7.25-5.75s6.35 2.05 7.25 5.75" strokeLinecap="round" />
+            </svg>
+          </Link>
           <BagButton />
         </div>
       </div>

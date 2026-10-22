@@ -27,7 +27,12 @@ const SECTIONS: { id: string; title: string; faqs: { q: string; a: ReactNode }[]
     faqs: [
       {
         q: "Do I need an account to order?",
-        a: <>No. Add pieces to your bag and check out with your name, mobile number and address. An email is optional, but it&apos;s how your receipt and updates reach you.</>,
+        a: (
+          <>
+            No. Add pieces to your bag and check out with your name, mobile number and address. An email is optional, but it&apos;s how your receipt and updates reach you. If
+            you like, <L href="/account">sign in</L> with your email (we send a code, no password) to see all your orders in one place and keep your addresses.
+          </>
+        ),
       },
       {
         q: "How can I pay?",
