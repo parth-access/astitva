@@ -1060,3 +1060,52 @@ dialog.sheet::backdrop {
     stroke-dashoffset: 1;
   }
 }
+
+/* Page loading (components/brand/nav-progress.tsx): a thin bar across the top
+   from the click until the next page arrives. It creeps towards the end while
+   waiting, then fills and fades. Named, so a page transition leaves it alone. */
+.nav-progress {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 60;
+  height: 3px;
+  pointer-events: none;
+  view-transition-name: nav-progress;
+}
+.nav-progress > span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--color-burgundy);
+  box-shadow: 0 0 8px rgb(106 29 43 / 0.45);
+  transform-origin: left;
+  transform: scaleX(0.08);
+}
+.nav-progress[data-phase="loading"] > span {
+  animation: nav-creep 8s cubic-bezier(0.1, 0.7, 0.2, 1) forwards;
+}
+.nav-progress[data-phase="done"] > span {
+  transform: scaleX(1);
+  opacity: 0;
+  transition:
+    transform 200ms ease-out,
+    opacity 250ms ease-out 150ms;
+}
+@keyframes nav-creep {
+  from {
+    transform: scaleX(0.08);
+  }
+  to {
+    transform: scaleX(0.9);
+  }
+}
+html[data-navigating],
+html[data-navigating] a {
+  cursor: progress;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-progress[data-phase="loading"] > span {
+    animation: none;
+    transform: scaleX(0.6);
+  }
+}

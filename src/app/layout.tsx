@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { IntroBoot } from "@/components/brand/intro";
+import { NavProgress } from "@/components/brand/nav-progress";
 import { cormorant, montserrat, playfair } from "./fonts";
 import "./globals.css";
 
@@ -30,7 +31,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <IntroBoot />
       </head>
-      <body className="flex min-h-dvh flex-col">{children}</body>
+      <body className="flex min-h-dvh flex-col">
+        <NavProgress />
+        {children}
+      </body>
     </html>
   );
 }
