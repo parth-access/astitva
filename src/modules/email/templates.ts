@@ -19,6 +19,7 @@ import {
   button,
   C,
   clear,
+  code,
   columns,
   esc,
   heading,
@@ -543,6 +544,29 @@ export function renderPasswordReset({ name, url, appUrl }: { name: string; url: 
         clear(),
         paragraph(ignore, { size: 12, color: C.soft }),
       ].join(""),
+    }),
+  };
+}
+
+/** The 6-digit code for signing in to an account. The code is in the subject, so a notification shows it. */
+export function renderSignInCode({ otp, minutes, appUrl }: { otp: string; minutes: number; appUrl: string }): Rendered {
+  const lead = `Here's your code for signing in to Astitva. It works for ${minutes} minutes.`;
+  const ignore = "If you didn't ask for it, you can ignore this email: no one can sign in without the code.";
+  return {
+    subject: `${otp} is your Astitva sign-in code`,
+    text: `${lead}\n\n${otp}\n\n${ignore}\n\nTeam Astitva\n`,
+    html: shell({
+      appUrl,
+      preheader: `It works for ${minutes} minutes.`,
+      title: "Your sign-in code",
+      body: [
+        kicker("Signing in"),
+        heading("Your code"),
+        paragraph(lead, { align: "center" }),
+        code(otp),
+        paragraph(ignore, { size: 12, color: C.soft, align: "center" }),
+      ].join(""),
+      footerNote: "You asked to sign in to your account at Astitva.",
     }),
   };
 }

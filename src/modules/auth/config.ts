@@ -14,6 +14,7 @@ import {
 import { sendEmail } from "@/lib/email";
 import { renderPasswordReset } from "@/modules/email/templates";
 import { PASSWORD_MIN_LENGTH } from "./constants";
+import { isAdminUser, refuseNonAdmin, sessionKindField } from "./kinds";
 
 /**
  * Better Auth for the admin. Framework-free so scripts and tests can build
@@ -23,6 +24,8 @@ import { PASSWORD_MIN_LENGTH } from "./constants";
  * - 2FA (authenticator app) is required. Better Auth only challenges accounts
  *   that have it on, so requireAdmin() sends anyone without it to set it up.
  * - Rate limits live in the database: serverless instances don't share memory.
+ * - Only admins get sessions here, and they're `admin` sessions (see ./kinds).
+ *   Customers sign in through ./customer-config instead.
  */
 export type AuthOptions = { baseURL: string; secret: string };
 
@@ -53,10 +56,21 @@ export function createAuth(db: DbOrTx, opts: AuthOptions) {
       revokeSessionsOnPasswordReset: true,
       resetPasswordTokenExpiresIn: 60 * 60,
       async sendResetPassword({ user, url }) {
+        // A customer's email gets nothing: this is the admin's password.
+        if (!(await isAdminUser(db, user.id))) return;
         await sendEmail({ to: user.email, ...renderPasswordReset({ name: user.name, url, appUrl: opts.baseURL.replace(/\/$/, "") }) });
       },
     },
-    session: { expiresIn: 7 * DAY, updateAge: DAY },
+    session: { expiresIn: 7 * DAY, updateAge: DAY, additionalFields: sessionKindField("admin") },
+    databaseHooks: {
+      session: {
+        create: {
+          async before(session) {
+            if (!(await isAdminUser(db, session.userId))) refuseNonAdmin();
+          },
+        },
+      },
+    },
     rateLimit: {
       enabled: true,
       storage: "database",

@@ -1,10 +1,33 @@
 import { randomBytes } from "node:crypto";
-import type { Db } from "@/db/create";
+import { eq } from "drizzle-orm";
+import type { Db, DbOrTx } from "@/db/create";
 import { adminRoleAssignments, auditLogs } from "@/db/schema";
 import type { Auth } from "./config";
 
 export const ADMIN_ROLES = ["owner", "staff"] as const;
 export type AdminRoleName = (typeof ADMIN_ROLES)[number];
+
+export type Admin = {
+  user: { id: string; name: string; email: string; twoFactorEnabled: boolean };
+  role: AdminRoleName | null;
+};
+
+/**
+ * The signed-in person and their admin role, from the request's headers. Null
+ * when signed out, and for a customer session: both sign-ins share the
+ * sessions table and secret, so a customer's session token placed in the
+ * admin's cookie would otherwise pass.
+ */
+export async function readAdmin(auth: Auth, db: DbOrTx, headers: Headers): Promise<Admin | null> {
+  const session = await auth.api.getSession({ headers });
+  if (!session || session.session.kind !== "admin") return null;
+  const [row] = await db
+    .select({ role: adminRoleAssignments.role })
+    .from(adminRoleAssignments)
+    .where(eq(adminRoleAssignments.userId, session.user.id));
+  const { id, name, email, twoFactorEnabled } = session.user;
+  return { user: { id, name, email, twoFactorEnabled: twoFactorEnabled === true }, role: row?.role ?? null };
+}
 
 /**
  * Creates an admin, or gives an existing person admin access. The account gets

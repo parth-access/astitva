@@ -20,6 +20,9 @@ const serverSchema = z.object({
   RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   CLOUDINARY_URL: z.string().optional(),
+  /** "Sign in with Google" for customers. Both or neither; without them only the email code is offered. */
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
   /** Guards /api/cron/*. The scheduled GitHub workflow sends it as a Bearer token. `openssl rand -base64 32`. */
   CRON_SECRET: z.string().min(24).optional(),
 });

@@ -68,6 +68,11 @@ export function button(label: string, url: string, opts: { tone?: "primary" | "o
 </td></tr></table>`;
 }
 
+/** A one-time code, big and spaced so it's easy to read and type. */
+export function code(digits: string) {
+  return `<p style="margin:8px 0 24px;font-family:${SANS};font-size:36px;font-weight:500;letter-spacing:.32em;color:${C.espresso};text-align:center">${esc(digits)}</p>`;
+}
+
 /** Ends a row of left-aligned buttons (which sit side by side). */
 export function clear() {
   return `<div style="clear:both;height:1px;line-height:1px;font-size:1px">&#8202;</div>`;

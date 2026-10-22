@@ -25,6 +25,8 @@ export const LIMITS = {
   stockAlert: { name: "stock-alert", max: 10, windowSeconds: 10 * 60 },
   /** Orders placed per phone number. */
   checkoutPhone: { name: "checkout-phone", max: 5, windowSeconds: 60 * 60 },
+  /** Sign-in codes sent per email address: a few resends, not an inbox flood. */
+  signInCodeEmail: { name: "sign-in-code-email", max: 4, windowSeconds: 15 * 60 },
 } satisfies Record<string, Limit>;
 
 export function limitKey(limit: Limit, subject: string, secret: string): string {

@@ -2,6 +2,18 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-22 — Customer accounts: sign-in by email code or Google, apart from the admin
+
+**Decision:** Customers can have accounts, but guest checkout stays and an account is never required. Sign-in is a 6-digit code by email (free, through Resend) or Google; no passwords. WhatsApp codes come later, with the WhatsApp Business setup (about ₹0.12 + GST a message; it also unlocks order updates and COD confirmation on WhatsApp). SMS was ruled out: about the same cost, plus DLT paperwork.
+
+**How:**
+- A second Better Auth instance (`src/modules/auth/customer-config.ts`) at `/api/account`, with its own cookie (`astitva.session_token`), 60-day sessions and the email-OTP plugin. The route answers only the sign-in paths (`CUSTOMER_AUTH_PATHS`); password resets, email changes and the rest are a 404.
+- **The wall between admin and customers.** Both instances share the users and sessions tables and the secret, so a customer's session token pasted into the admin's cookie would otherwise pass, and an admin could otherwise sign in with an emailed code, skipping the password and 2FA. So each session records the sign-in that made it (`auth_sessions.kind`, no default). The admin accepts only `admin` sessions and makes them only for people with a role; the customer side makes `customer` sessions only for people without one. Admins shop with another email. Tested both ways.
+- Codes last 10 minutes, allow 5 tries, are stored encrypted, and asking again resends the same code. At most 4 codes per email per 15 minutes; per-network limits are generous because many mobile users share an address.
+- New tables: `customer_addresses` (one default each) and `saved_pieces` (hearts, by style). `users.phone_verified`: guest orders are linked to an account only by an email or phone proved with a code.
+
+**Next:** the account pages, checkout using the account, the bag following the account, hearts.
+
 ## 2026-10-21 — The site speaks as Astitva; content confirmed
 
 - **Voice:** buyers hear from "we" and "Team Astitva", not one person. "Who answers" in the settings is now optional and blank by default ("We'll message you on WhatsApp", "Ask us about the fit"); styling notes read "How we'd wear it", signed Team Astitva, and emails are signed Team Astitva. Krishna's letter on the home page keeps its own signature (Lookbook & settings → "Signed").

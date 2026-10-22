@@ -88,7 +88,7 @@ scripts/mascot/       mascot pipeline: python3 scripts/mascot/build.py
   db/schema.ts        the whole data model, with CHECK and UNIQUE constraints
   lib/                money (integer paise), state machines, sizes, env
   modules/
-    auth/             admin sign-in (Better Auth): config, requireAdmin(), browser client
+    auth/             sign-in (Better Auth): the admin's (password + 2FA, requireAdmin()) and customers' (email code, Google, getCustomer()), kept apart by session kind
     catalog/          cached storefront reads
     catalog-admin/    admin reads and writes for pieces (includes private fields; never import from storefront)
     inventory/        reservation engine: the only code that changes stock
@@ -122,6 +122,7 @@ Build settings are in `netlify.toml` (Node 22, `npm run build`) and `.npmrc`. In
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` ✱ | Test keys until the account is live; without them checkout offers COD only |
 | `RAZORPAY_WEBHOOK_SECRET` ✱ | Same value as the webhook in Razorpay's dashboard |
 | `CRON_SECRET` ✱ | Same value as the GitHub secret `CRON_SECRET` |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` ✱ | Optional: "Sign in with Google" for customers. A Web client in Google Cloud with redirect URI `https://<live address>/api/account/callback/google`; without them customers sign in by email code only |
 
 Don't set `NODE_ENV` (Netlify does), `DATABASE_CA_CERT_FILE` or `DATABASE_URL_TEST` (local only), or `SHOW_DRAFT_COPY` (review deploys only). The build reads the catalogue to prerender pages, so the database and Cloudinary variables must reach builds as well as functions (Netlify's default "all scopes"). Run migrations yourself before deploying a change that needs them.
 

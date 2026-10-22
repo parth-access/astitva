@@ -92,6 +92,13 @@
       "when": 1792578173789,
       "tag": "0012_spin_video",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792648322606,
+      "tag": "0013_customer_accounts",
+      "breakpoints": true
     }
   ]
 }

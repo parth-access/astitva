@@ -49,6 +49,8 @@ export const productStatus = pgEnum("product_status", ["draft", "active", "archi
 export const itemCondition = pgEnum("item_condition", ["new_with_tags", "new", "like_new", "gently_used"]);
 
 export const adminRole = pgEnum("admin_role", ["owner", "staff"]);
+/** Which sign-in made a session: the admin's (password + 2FA) or a customer's (email code, Google). */
+export const sessionKind = pgEnum("session_kind", ["admin", "customer"]);
 
 /** Fulfilment only. Payment, COD, returns and refunds have their own records. */
 export const orderStatus = pgEnum("order_status", [
@@ -102,10 +104,10 @@ export const discountKind = pgEnum("discount_kind", ["percent", "amount"]);
 /* ------------------------------------------------------------------ */
 
 /**
- * Customers (post-launch accounts) and staff share this table. It is also
- * Better Auth's `user` model (src/modules/auth): `emailVerified`, `image` and
- * `twoFactorEnabled` are the names Better Auth expects. Only people with a row
- * in admin_role_assignments can reach /admin.
+ * Customers and staff share this table. It is also Better Auth's `user` model
+ * (src/modules/auth): `emailVerified`, `image` and `twoFactorEnabled` are the
+ * names Better Auth expects. Only people with a row in admin_role_assignments
+ * can reach /admin, and they can't sign in as customers (see auth_sessions.kind).
  */
 export const users = pgTable(
   "users",
@@ -115,6 +117,8 @@ export const users = pgTable(
     email: varchar("email", { length: 254 }),
     phone: varchar("phone", { length: 16 }),
     emailVerified: boolean("email_verified").notNull().default(false),
+    /** The phone was proved with a code. Only then are guest orders with that number linked to the account. */
+    phoneVerified: boolean("phone_verified").notNull().default(false),
     image: text("image"),
     twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
     createdAt: createdAt(),
@@ -142,6 +146,12 @@ export const authSessions = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
+    /**
+     * Set by the sign-in that made the session and never changed. Both share
+     * this table and the secret, so the admin accepts only `admin` sessions
+     * and the store only `customer` ones. No default, so a session must say.
+     */
+    kind: sessionKind("kind").notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -217,6 +227,34 @@ export const adminRoleAssignments = pgTable("admin_role_assignments", {
   role: adminRole("role").notNull(),
   createdAt: createdAt(),
 }).enableRLS();
+
+/** A customer's saved delivery addresses, offered at checkout. Orders keep their own snapshot. */
+export const customerAddresses = pgTable(
+  "customer_addresses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    recipientName: varchar("recipient_name", { length: 120 }).notNull(),
+    /** 10 national digits, as on orders. */
+    phone: varchar("phone", { length: 16 }).notNull(),
+    line1: varchar("line1", { length: 200 }).notNull(),
+    line2: varchar("line2", { length: 200 }),
+    landmark: varchar("landmark", { length: 120 }),
+    city: varchar("city", { length: 80 }).notNull(),
+    state: varchar("state", { length: 80 }).notNull(),
+    pincode: varchar("pincode", { length: 6 }).notNull(),
+    isDefault: boolean("is_default").notNull().default(false),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index("customer_addresses_user_idx").on(t.userId),
+    // At most one default per customer.
+    uniqueIndex("customer_addresses_default_uq").on(t.userId).where(sql`${t.isDefault}`),
+  ],
+).enableRLS();
 
 /* ------------------------------------------------------------------ */
 /* Catalogue                                                           */
@@ -333,6 +371,21 @@ export type Measurements = {
   shoulderCm?: number;
   sleeveCm?: number;
 };
+
+/** Pieces a customer has hearted. By style, not colour or size. */
+export const savedPieces = pgTable(
+  "saved_pieces",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.productId] }), index("saved_pieces_user_created_idx").on(t.userId, t.createdAt.desc())],
+).enableRLS();
 
 export const productVariants = pgTable(
   "product_variants",
