@@ -3,6 +3,7 @@ import { Reveal } from "@/components/brand/reveal";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import type { ReactNode } from "react";
 import { CheckoutForm } from "@/components/storefront/checkout-form";
 import { db } from "@/db/client";
@@ -53,6 +54,8 @@ async function Checkout() {
   const lines = bag.lines.map((l) => ({ unitPriceMinor: l.priceMinor, quantity: l.quantity }));
   const totals = { cod: priceOrder(lines, settings, "cod"), online: priceOrder(lines, settings, "online") };
   const rzp = razorpay();
+  // The order key below is new on every request, never prerendered.
+  await connection();
   return (
     <CheckoutForm
       bag={bag}

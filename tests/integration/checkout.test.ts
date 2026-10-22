@@ -99,6 +99,15 @@ describe.skipIf(!hasDb)("bag and cash-on-delivery checkout", () => {
     expect(cod).toMatchObject({ amountDueMinor: 714_700, status: "pending" });
     expect(await db.select().from(emailOutbox)).toHaveLength(1);
     expect((await readBag(db, bagId)).count).toBe(0);
+    expect(order!.userId).toBeNull();
+  });
+
+  it("records the signed-in customer, so the order shows in their account", async () => {
+    const v = await createVariant(db, { onHand: 1 });
+    const [meera] = await db.insert(users).values({ name: "Meera", email: "meera@example.com" }).returning();
+    const placed = await placeOrder(db, await bagWith(v.id), buyer({ email: null }), meera!.id);
+    const [order] = await db.select().from(orders).where(eq(orders.id, placed.orderId));
+    expect(order!.userId).toBe(meera!.id);
   });
 
   it("a double tap places one order", async () => {

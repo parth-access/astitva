@@ -51,7 +51,7 @@ export function CheckoutForm({
 }) {
   const [state, action, pending] = useActionState(placeOrderAction, empty);
   const router = useRouter();
-  const { open: openBag } = useBag();
+  const { open: openBag, bag: liveBag } = useBag();
   const form = useRef<HTMLFormElement>(null);
   const [method, setMethod] = useState<Method>((state.values?.payment as Method | undefined) ?? (online ? "online" : "cod"));
   const [paying, setPaying] = useState<Paying>({ phase: "idle" });
@@ -79,6 +79,18 @@ export function CheckoutForm({
   useEffect(() => {
     if (state.bagChanged) router.refresh();
   }, [state, router]);
+
+  // The bag was changed in the drawer, on this page: price it again. A code
+  // applied to the old bag comes off, since its totals no longer hold.
+  const liveKey = `${liveBag.count}:${liveBag.subtotalMinor}`;
+  const lastLive = useRef<string | null>(null);
+  useEffect(() => {
+    const before = lastLive.current;
+    lastLive.current = liveKey;
+    if (before === null || before === liveKey || liveKey === `${bag.count}:${bag.subtotalMinor}`) return;
+    setDiscount(null);
+    router.refresh();
+  }, [liveKey, bag.count, bag.subtotalMinor, router]);
 
   // The order is placed and waiting: open Razorpay's window.
   useEffect(() => {

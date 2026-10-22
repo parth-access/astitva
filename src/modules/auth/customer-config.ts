@@ -9,6 +9,7 @@ import { authAccounts, authRateLimits, authSessions, authVerifications, users } 
 import { sendEmail } from "@/lib/email";
 import { renderAccountCode, type CodePurpose } from "@/modules/email/templates";
 import { allow, LIMITS } from "@/modules/limits/service";
+import { IP_HEADERS } from "./constants";
 import { isAdminUser, refuseAdmin, sessionKindField } from "./kinds";
 
 /**
@@ -83,6 +84,7 @@ export function createCustomerAuth(db: DbOrTx, opts: CustomerAuthOptions) {
     }),
     advanced: {
       database: { generateId: "uuid" },
+      ipAddress: { ipAddressHeaders: IP_HEADERS },
       // Its own cookie, apart from the admin's "better-auth" one.
       cookiePrefix: "astitva",
     },

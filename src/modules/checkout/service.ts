@@ -3,8 +3,7 @@
  * under lock, never from the browser.
  *
  * Cash on delivery: the order is placed "confirmed" and its stock is taken
- * off the shelf at once (there is no payment to wait for). Krishna confirms
- * each one with the buyer on WhatsApp before packing.
+ * off the shelf at once (there is no payment to wait for).
  *
  * Online: the order waits "pending_payment" with its stock held for the
  * store's reservation time (15 minutes by default); the bag is kept until the
@@ -100,7 +99,8 @@ async function supersedeUnpaid(tx: Tx, bagId: string) {
   }
 }
 
-export async function placeOrder(db: Db, bagId: string, input: CheckoutInput): Promise<PlacedOrder> {
+/** `userId`: the signed-in customer placing it, if any, so the order shows in their account. */
+export async function placeOrder(db: Db, bagId: string, input: CheckoutInput, userId: string | null = null): Promise<PlacedOrder> {
   const method = input.paymentMethod;
   return db.transaction(async (tx) => {
     // One checkout per bag at a time: a double tap waits here, then finds the order below.
@@ -198,6 +198,7 @@ export async function placeOrder(db: Db, bagId: string, input: CheckoutInput): P
     const [order] = await tx
       .insert(orders)
       .values({
+        userId,
         contactName: input.contact.name,
         contactEmail: input.contact.email,
         contactPhone: input.contact.phone,

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { env } from "@/lib/env";
 import { normaliseMobile } from "@/lib/india";
+import { getCustomer } from "@/modules/auth/customer";
 import { BAG_COOKIE, findBag, readBag } from "@/modules/bag/service";
 import { priceOrder, type OrderTotals } from "@/modules/checkout/pricing";
 import { getCheckoutSettings } from "@/modules/checkout/queries";
@@ -82,7 +83,7 @@ export async function placeOrderAction(_prev: CheckoutState, form: FormData): Pr
 
   let placed;
   try {
-    placed = await placeOrder(db, bag.id, parsed.data);
+    placed = await placeOrder(db, bag.id, parsed.data, (await getCustomer())?.id ?? null);
   } catch (err) {
     if (err instanceof CheckoutError) {
       if (err.code === "discount") return { errors: { discountCode: err.detail ?? MESSAGES.discount }, values, discountRejected: true };

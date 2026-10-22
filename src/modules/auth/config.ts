@@ -13,7 +13,7 @@ import {
 } from "@/db/schema";
 import { sendEmail } from "@/lib/email";
 import { renderPasswordReset } from "@/modules/email/templates";
-import { PASSWORD_MIN_LENGTH } from "./constants";
+import { IP_HEADERS, PASSWORD_MIN_LENGTH } from "./constants";
 import { isAdminUser, refuseNonAdmin, sessionKindField } from "./kinds";
 
 /**
@@ -48,7 +48,7 @@ export function createAuth(db: DbOrTx, opts: AuthOptions) {
         rateLimit: authRateLimits,
       },
     }),
-    advanced: { database: { generateId: "uuid" } },
+    advanced: { database: { generateId: "uuid" }, ipAddress: { ipAddressHeaders: IP_HEADERS } },
     emailAndPassword: {
       enabled: true,
       disableSignUp: true,

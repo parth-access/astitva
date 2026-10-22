@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { db } from "@/db/client";
 import { env } from "@/lib/env";
 import { createCustomerAuth, readCustomer, type Customer } from "./customer-config";
@@ -16,7 +17,11 @@ export const customerAuth = createCustomerAuth(db, {
 export type { Customer };
 
 /** The signed-in customer, read once per request. Null when signed out. */
-export const getCustomer = cache(async (): Promise<Customer | null> => readCustomer(customerAuth, await headers()));
+export const getCustomer = cache(async (): Promise<Customer | null> => {
+  // Reading the session checks its expiry against the clock: always at request time, never prerendered.
+  await connection();
+  return readCustomer(customerAuth, await headers());
+});
 
 /** Whether "Sign in with Google" is offered. */
 export const googleSignIn = () => Boolean(env().GOOGLE_CLIENT_ID && env().GOOGLE_CLIENT_SECRET);
