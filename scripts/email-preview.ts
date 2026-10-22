@@ -13,7 +13,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { desc, eq, isNotNull } from "drizzle-orm";
 import { createDb } from "../src/db/create";
 import { orders, productVariants, refunds, shipments } from "../src/db/schema";
-import { renderEmail, renderPasswordReset, renderSignInCode, type TemplateName } from "../src/modules/email/templates";
+import { renderEmail, renderPasswordReset, renderAccountCode, type TemplateName } from "../src/modules/email/templates";
 
 const OUT = ".email-preview";
 
@@ -56,9 +56,11 @@ async function main() {
     const reset = renderPasswordReset({ name: "Krishna", url: `${appUrl}/admin/reset-password?token=preview`, appUrl });
     writeFileSync(`${OUT}/password_reset.html`, reset.html!);
     made.push({ file: "password_reset.html", label: "Set your password", subject: reset.subject });
-    const signIn = renderSignInCode({ otp: "482913", minutes: 10, appUrl });
-    writeFileSync(`${OUT}/sign_in_code.html`, signIn.html!);
-    made.push({ file: "sign_in_code.html", label: "Sign-in code", subject: signIn.subject });
+    for (const purpose of ["sign-in", "email-verification", "forget-password"] as const) {
+      const code = renderAccountCode({ otp: "482913", purpose, minutes: 10, appUrl });
+      writeFileSync(`${OUT}/code_${purpose}.html`, code.html!);
+      made.push({ file: `code_${purpose}.html`, label: `Code: ${purpose}`, subject: code.subject });
+    }
 
     const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
     writeFileSync(

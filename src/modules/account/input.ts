@@ -24,6 +24,17 @@ const detailsSchema = z.object({
 });
 export type DetailsInput = z.infer<typeof detailsSchema>;
 
+/** Kept in step with CUSTOMER_PASSWORD_MIN in the auth config. */
+export const PASSWORD_MIN = 8;
+
+const signUpSchema = z.object({
+  name: contactFields.name,
+  phone: contactFields.phone,
+  email: z.email("An email address, like you@example.com.").max(254).transform((e) => e.toLowerCase()),
+  password: z.string().min(PASSWORD_MIN, `Use at least ${PASSWORD_MIN} characters.`).max(128, "That's too long for a password."),
+});
+export type SignUpInput = z.infer<typeof signUpSchema>;
+
 function parse<T>(schema: z.ZodType<T>, form: FormData): Parsed<T> {
   const raw = Object.fromEntries([...form].filter(([, v]) => typeof v === "string"));
   const parsed = schema.safeParse(raw);
@@ -35,3 +46,4 @@ function parse<T>(schema: z.ZodType<T>, form: FormData): Parsed<T> {
 
 export const parseAddressForm = (form: FormData) => parse(addressSchema, form);
 export const parseDetailsForm = (form: FormData) => parse(detailsSchema, form);
+export const parseSignUpForm = (form: FormData) => parse(signUpSchema, form);

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ACROSS, BACK } from "@/lib/transition-types";
 import { BagButton } from "./bag/bag-button";
+import { MenuDisclosure } from "./menu-disclosure";
 
 const left = [
   { href: "/#pieces", label: "Lookbook" },
@@ -14,12 +15,13 @@ const right = [
 /**
  * A masthead: the wordmark centred like a magazine title, navigation split
  * either side, the account and the bag at the far right. On phones the
- * links fold into a disclosure (no JavaScript).
+ * links fold into a disclosure (no JavaScript needed).
  */
 export function SiteHeader({ notice }: { notice?: string | null }) {
   return (
-    // Named so it stays still while the page under it changes.
-    <header style={{ viewTransitionName: "site-header" }}>
+    // Named so it stays still while the page under it changes. The name makes
+    // it a layer of its own, so it's lifted above the page for the menu.
+    <header className="relative z-30" style={{ viewTransitionName: "site-header" }}>
       {notice ? <p className="bg-espresso px-4 py-2 text-center text-xs text-ivory">{notice}</p> : null}
       <div className="mx-auto grid max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 py-6 sm:px-8 md:py-8">
         <nav aria-label="Main" className="hidden md:block">
@@ -34,7 +36,7 @@ export function SiteHeader({ notice }: { notice?: string | null }) {
           </ul>
         </nav>
 
-        <details className="group relative md:hidden">
+        <MenuDisclosure className="group relative md:hidden">
           <summary className="flex min-h-11 cursor-pointer list-none items-center text-sm [&::-webkit-details-marker]:hidden">
             <span className="group-open:hidden">Menu</span>
             <span className="hidden group-open:inline">Close</span>
@@ -50,7 +52,7 @@ export function SiteHeader({ notice }: { notice?: string | null }) {
               ))}
             </ul>
           </nav>
-        </details>
+        </MenuDisclosure>
 
         <Link href="/" transitionTypes={BACK} className="justify-self-center text-center" aria-label="Astitva, home">
           <span className="block font-display text-2xl tracking-[0.42em] [margin-right:-0.42em] md:text-3xl">ASTITVA</span>

@@ -544,25 +544,46 @@ export function renderPasswordReset({ name, url, appUrl }: { name: string; url: 
   };
 }
 
-/** The 6-digit code for signing in to an account. The code is in the subject, so a notification shows it. */
-export function renderSignInCode({ otp, minutes, appUrl }: { otp: string; minutes: number; appUrl: string }): Rendered {
-  const lead = `Here's your code for signing in to Astitva. It works for ${minutes} minutes.`;
-  const ignore = "If you didn't ask for it, you can ignore this email: no one can sign in without the code.";
+export type CodePurpose = "sign-in" | "email-verification" | "forget-password";
+
+const CODE_WORDS: Record<CodePurpose, { subject: string; kicker: string; heading: string; lead: string; note: string }> = {
+  "sign-in": {
+    subject: "is your Astitva sign-in code",
+    kicker: "Signing in",
+    heading: "Your code",
+    lead: "Here's your code for signing in to Astitva.",
+    note: "You asked to sign in to your account at Astitva.",
+  },
+  "email-verification": {
+    subject: "is your code to verify your email",
+    kicker: "Your account",
+    heading: "Verify your email",
+    lead: "Type this code in your account at Astitva to verify your email.",
+    note: "You asked to verify the email on your Astitva account.",
+  },
+  "forget-password": {
+    subject: "is your code to set a new password",
+    kicker: "Your password",
+    heading: "Set a new password",
+    lead: "Type this code at Astitva to set a new password.",
+    note: "You asked to set a new password for your Astitva account.",
+  },
+};
+
+/** A 6-digit code for an account. The code is in the subject, so a notification shows it. */
+export function renderAccountCode({ otp, purpose, minutes, appUrl }: { otp: string; purpose: CodePurpose; minutes: number; appUrl: string }): Rendered {
+  const w = CODE_WORDS[purpose];
+  const lead = `${w.lead} It works for ${minutes} minutes.`;
+  const ignore = "If you didn't ask for it, you can ignore this email: nothing changes without the code.";
   return {
-    subject: `${otp} is your Astitva sign-in code`,
+    subject: `${otp} ${w.subject}`,
     text: `${lead}\n\n${otp}\n\n${ignore}\n\nTeam Astitva\n`,
     html: shell({
       appUrl,
       preheader: `It works for ${minutes} minutes.`,
-      title: "Your sign-in code",
-      body: [
-        kicker("Signing in"),
-        heading("Your code"),
-        paragraph(lead, { align: "center" }),
-        code(otp),
-        paragraph(ignore, { size: 12, color: C.soft, align: "center" }),
-      ].join(""),
-      footerNote: "You asked to sign in to your account at Astitva.",
+      title: w.heading,
+      body: [kicker(w.kicker), heading(w.heading), paragraph(lead, { align: "center" }), code(otp), paragraph(ignore, { size: 12, color: C.soft, align: "center" })].join(""),
+      footerNote: w.note,
     }),
   };
 }

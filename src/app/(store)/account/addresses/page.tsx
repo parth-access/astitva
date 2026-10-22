@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Reveal } from "@/components/brand/reveal";
 import { AccountShell, AccountSkeleton } from "@/components/storefront/account/account-shell";
 import { AddressEditor } from "@/components/storefront/account/address-form";
+import { SubmitButton } from "@/components/storefront/account/pending";
+import { VerifyNotice } from "@/components/storefront/account/verify-email";
 import { db } from "@/db/client";
 import { formatMobile } from "@/lib/india";
 import { listAddresses, MAX_ADDRESSES } from "@/modules/account/service";
@@ -11,11 +13,12 @@ import { deleteAddressAction, setDefaultAddressAction } from "../actions";
 export const metadata: Metadata = { title: "Your addresses", robots: { index: false } };
 
 async function Addresses() {
-  const { id } = await requireCustomer("/account/addresses");
+  const { id, emailVerified } = await requireCustomer("/account/addresses");
   const addresses = await listAddresses(db, id);
 
   return (
     <div className="space-y-8">
+      {emailVerified ? null : <VerifyNotice />}
       <p className="leading-relaxed text-espresso-soft">Saved here, they&apos;re ready at checkout. The one marked first is filled in for you.</p>
 
       {addresses.length ? (
@@ -58,15 +61,15 @@ async function Addresses() {
                 />
                 {a.isDefault ? null : (
                   <form action={setDefaultAddressAction.bind(null, a.id)}>
-                    <button type="submit" className="link">
+                    <SubmitButton className="link" pending="Saving…">
                       Use first
-                    </button>
+                    </SubmitButton>
                   </form>
                 )}
                 <form action={deleteAddressAction.bind(null, a.id)}>
-                  <button type="submit" className="link text-espresso-soft">
+                  <SubmitButton className="link text-espresso-soft" pending="Removing…">
                     Remove
-                  </button>
+                  </SubmitButton>
                 </form>
               </div>
             </li>

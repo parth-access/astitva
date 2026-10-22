@@ -1,43 +1,31 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { ACROSS } from "@/lib/transition-types";
 import { customerAuthClient } from "@/modules/auth/customer-client";
-
-type Problem = { code?: string; message?: string; status?: number } | null | undefined;
-
-/** Better Auth's answers, in the shop's words. */
-function say(error: Problem): string {
-  if (!error) return "Something went wrong. Please try again.";
-  if (error.code === "ADMIN_ACCOUNT") return "This email is for the Astitva admin. To shop, use another email.";
-  if (error.status === 429) return error.message && !/too many requests/i.test(error.message) ? error.message : "That's a few tries in a short time. Please wait a few minutes.";
-  switch (error.code) {
-    case "INVALID_OTP":
-      return "That code isn't right. Check the latest email from us and try again.";
-    case "OTP_EXPIRED":
-      return "That code has expired. Ask for a new one below.";
-    case "TOO_MANY_ATTEMPTS":
-      return "Too many wrong codes. Ask for a new one below.";
-    case "INVALID_EMAIL":
-      return "That doesn't look like an email address.";
-    default:
-      return "Something went wrong. Please try again.";
-  }
-}
+import { PasswordInput } from "./password-input";
+import { Busy } from "./pending";
+import { codeProblem } from "./problems";
 
 const RESEND_AFTER = 30;
+const looksLikeEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+
+type Mode = "password" | "code";
 
 /**
- * Email in, a 6-digit code out, then the code in. No password. Or Google,
- * when it's set up. Signing in for the first time makes the account.
+ * Three ways in: email and password, a 6-digit code by email (no password
+ * needed, and it makes the account if there isn't one), or Google when it's
+ * set up.
  */
 export function SignInForm({ next, google, notice }: { next: string; google: boolean; notice: string | null }) {
-  const router = useRouter();
+  const [mode, setMode] = useState<Mode>("password");
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"password" | "send" | "check" | "google" | null>(null);
   const [wait, setWait] = useState(0);
   const codeRef = useRef<HTMLInputElement>(null);
 
@@ -51,20 +39,41 @@ export function SignInForm({ next, google, notice }: { next: string; google: boo
     if (step === "code") codeRef.current?.focus();
   }, [step]);
 
+
+  // A full page load: anything the browser kept from before signing in (like
+  // "/account sends you to sign in") would otherwise send you round in a loop.
+  function done() {
+    window.location.replace(next);
+  }
+
+  function switchTo(m: Mode) {
+    setMode(m);
+    setStep("email");
+    setError(null);
+  }
+
+  async function withPassword() {
+    setError(null);
+    const address = email.trim().toLowerCase();
+    if (!looksLikeEmail(address)) return setError("Your email address, please.");
+    if (!password) return setError("Your password, please.");
+    setBusy("password");
+    const { error } = await customerAuthClient.signIn.email({ email: address, password });
+    if (error) {
+      setBusy(null);
+      return setError(codeProblem(error));
+    }
+    done();
+  }
+
   async function sendCode() {
     setError(null);
     const address = email.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
-      setError("Your email address, please.");
-      return;
-    }
-    setBusy(true);
+    if (!looksLikeEmail(address)) return setError("Your email address, please.");
+    setBusy("send");
     const { error } = await customerAuthClient.emailOtp.sendVerificationOtp({ email: address, type: "sign-in" });
-    setBusy(false);
-    if (error) {
-      setError(say(error));
-      return;
-    }
+    setBusy(null);
+    if (error) return setError(codeProblem(error));
     setEmail(address);
     setCode("");
     setStep("code");
@@ -74,28 +83,28 @@ export function SignInForm({ next, google, notice }: { next: string; google: boo
   async function checkCode(otp: string) {
     if (busy) return;
     setError(null);
-    setBusy(true);
+    setBusy("check");
     const { error } = await customerAuthClient.signIn.emailOtp({ email, otp });
     if (error) {
-      setBusy(false);
-      setError(say(error));
+      setBusy(null);
       setCode("");
       codeRef.current?.focus();
-      return;
+      return setError(codeProblem(error));
     }
-    router.replace(next);
-    router.refresh();
+    done();
   }
 
   async function withGoogle() {
     setError(null);
-    setBusy(true);
+    setBusy("google");
     const { error } = await customerAuthClient.signIn.social({ provider: "google", callbackURL: next, errorCallbackURL: "/account/sign-in" });
     if (error) {
-      setBusy(false);
-      setError(say(error));
+      setBusy(null);
+      setError(codeProblem(error));
     }
   }
+
+  const query = next === "/account" ? "" : `?next=${encodeURIComponent(next)}`;
 
   return (
     <div className="space-y-6">
@@ -110,7 +119,52 @@ export function SignInForm({ next, google, notice }: { next: string; google: boo
         </p>
       ) : null}
 
-      {step === "email" ? (
+      <div role="tablist" aria-label="How to sign in" className="grid grid-cols-2 rounded-full border border-taupe/50 p-1 text-sm">
+        {(
+          [
+            ["password", "Password"],
+            ["code", "Email me a code"],
+          ] as const
+        ).map(([m, label]) => (
+          <button
+            key={m}
+            type="button"
+            role="tab"
+            aria-selected={mode === m}
+            onClick={() => switchTo(m)}
+            className={`rounded-full px-3 py-2 transition-colors ${mode === m ? "bg-espresso text-ivory" : "text-espresso-soft hover:text-espresso"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {mode === "password" ? (
+        <form
+          className="space-y-5"
+          noValidate
+          onSubmit={(e) => {
+            e.preventDefault();
+            void withPassword();
+          }}
+        >
+          <EmailField value={email} onChange={setEmail} />
+          <label className="block">
+            <span className="flex items-baseline justify-between text-sm font-medium">
+              Password
+              <Link href={`/account/forgot-password${query}`} transitionTypes={ACROSS} className="link text-xs font-normal text-espresso-soft">
+                Forgot it?
+              </Link>
+            </span>
+            <PasswordInput value={password} onChange={setPassword} autoComplete="current-password" />
+          </label>
+          <button type="submit" className="btn-primary w-full" disabled={busy !== null}>
+            <Busy busy={busy === "password"} busyLabel="Signing in…">
+              Sign in
+            </Busy>
+          </button>
+        </form>
+      ) : step === "email" ? (
         <form
           className="space-y-5"
           noValidate
@@ -119,24 +173,11 @@ export function SignInForm({ next, google, notice }: { next: string; google: boo
             void sendCode();
           }}
         >
-          <label className="block">
-            <span className="text-sm font-medium">Email</span>
-            <input
-              name="email"
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              enterKeyHint="send"
-              autoFocus
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="field mt-1.5"
-              placeholder="you@example.com"
-            />
-            <span className="mt-1.5 block text-xs text-espresso-soft">We&apos;ll email you a 6-digit code. No password to remember.</span>
-          </label>
-          <button type="submit" className="btn-primary w-full" disabled={busy}>
-            {busy ? "Sending…" : "Email me a code"}
+          <EmailField value={email} onChange={setEmail} hint="We'll email you a 6-digit code. No password needed; new here, and it makes your account." />
+          <button type="submit" className="btn-primary w-full" disabled={busy !== null}>
+            <Busy busy={busy === "send"} busyLabel="Sending…">
+              Email me a code
+            </Busy>
           </button>
         </form>
       ) : (
@@ -171,21 +212,18 @@ export function SignInForm({ next, google, notice }: { next: string; google: boo
               placeholder="······"
             />
           </label>
-          <button type="submit" className="btn-primary w-full" disabled={busy || code.length !== 6}>
-            {busy ? "Signing in…" : "Sign in"}
+          <button type="submit" className="btn-primary w-full" disabled={busy !== null || code.length !== 6}>
+            <Busy busy={busy === "check"} busyLabel="Signing in…">
+              Sign in
+            </Busy>
           </button>
           <div className="flex flex-wrap justify-between gap-3 text-sm text-espresso-soft">
-            <button type="button" className="link disabled:no-underline disabled:opacity-60" disabled={busy || wait > 0} onClick={() => void sendCode()}>
-              {wait > 0 ? `Send it again in ${wait}s` : "Send it again"}
+            <button type="button" className="link disabled:no-underline disabled:opacity-60" disabled={busy !== null || wait > 0} onClick={() => void sendCode()}>
+              <Busy busy={busy === "send"} busyLabel="Sending…">
+                {wait > 0 ? `Send it again in ${wait}s` : "Send it again"}
+              </Busy>
             </button>
-            <button
-              type="button"
-              className="link"
-              onClick={() => {
-                setStep("email");
-                setError(null);
-              }}
-            >
+            <button type="button" className="link" onClick={() => switchTo("code")}>
               Use another email
             </button>
           </div>
@@ -200,13 +238,42 @@ export function SignInForm({ next, google, notice }: { next: string; google: boo
             or
             <span className="h-px flex-1 bg-taupe/50" />
           </div>
-          <button type="button" className="btn-outline w-full gap-3" disabled={busy} onClick={() => void withGoogle()}>
-            <GoogleMark />
-            Continue with Google
+          <button type="button" className="btn-outline w-full gap-3" disabled={busy !== null} onClick={() => void withGoogle()}>
+            <Busy busy={busy === "google"} busyLabel="Opening Google…">
+              <GoogleMark />
+              Continue with Google
+            </Busy>
           </button>
         </>
       ) : null}
+
+      <p className="border-t border-taupe/40 pt-6 text-center text-sm text-espresso-soft">
+        New here?{" "}
+        <Link href={`/account/sign-up${query}`} transitionTypes={ACROSS} className="link text-espresso">
+          Create an account
+        </Link>
+      </p>
     </div>
+  );
+}
+
+function EmailField({ value, onChange, hint }: { value: string; onChange: (v: string) => void; hint?: string }) {
+  return (
+    <label className="block">
+      <span className="text-sm font-medium">Email</span>
+      <input
+        name="email"
+        type="email"
+        inputMode="email"
+        autoComplete="email"
+        autoFocus
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="field mt-1.5"
+        placeholder="you@example.com"
+      />
+      {hint ? <span className="mt-1.5 block text-xs text-espresso-soft">{hint}</span> : null}
+    </label>
   );
 }
 

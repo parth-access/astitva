@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, type ComponentProps } from "react";
 import { saveAddressAction, type FormState } from "@/app/(store)/account/actions";
 import { INDIAN_STATES } from "@/lib/india";
+import { Busy } from "./pending";
 
 export type AddressValues = {
   id?: string;
@@ -79,7 +80,9 @@ export function AddressEditor({ address, summary, open = false }: { address?: Ad
           </label>
         )}
         <button type="submit" className="btn-primary w-full sm:w-auto" disabled={pending}>
-          {pending ? "Saving…" : address ? "Save changes" : "Save address"}
+          <Busy busy={pending} busyLabel="Saving…">
+            {address ? "Save changes" : "Save address"}
+          </Busy>
         </button>
       </form>
     </details>

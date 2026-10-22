@@ -126,16 +126,69 @@ describe.skipIf(!hasDb)("customer sign-in", () => {
     expect(statuses).toEqual([200, 200, 200, 200, 429]);
   });
 
-  it("sends only sign-in codes", async () => {
-    const res = await customer()("/email-otp/send-verification-otp", { email: "meera@example.com", type: "forget-password" });
+  it("sends only sign-in, verify and new-password codes", async () => {
+    const res = await customer()("/email-otp/send-verification-otp", { email: "meera@example.com", type: "change-email" });
     expect(res.status).toBe(400);
+  });
+
+  async function codeOf(email: string, type: "sign-in" | "email-verification" | "forget-password") {
+    return (await shop.api.getVerificationOTP({ query: { email, type } })).otp;
+  }
+
+  it("signs up with a password, unverified, then verifies the email with a code", async () => {
+    await shop.api.signUpEmail({ body: { name: "Asha", email: "asha.pw@example.com", password: "linen and silk", phone: "9812345678" } });
+    const [row] = await db.select().from(users).where(eq(users.email, "asha.pw@example.com"));
+    expect(row).toMatchObject({ name: "Asha", phone: "9812345678", emailVerified: false });
+
+    const call = customer();
+    expect((await call("/sign-in/email", { email: "asha.pw@example.com", password: "wrong password" })).status).toBe(401);
+    expect((await call("/sign-in/email", { email: "asha.pw@example.com", password: "linen and silk" })).status).toBe(200);
+    const me = await readCustomer(shop, call.headers());
+    expect(me).toMatchObject({ email: "asha.pw@example.com", emailVerified: false });
+
+    expect((await call("/email-otp/send-verification-otp", { email: "asha.pw@example.com", type: "email-verification" })).status).toBe(200);
+    const otp = await codeOf("asha.pw@example.com", "email-verification");
+    expect((await call("/email-otp/verify-email", { email: "asha.pw@example.com", otp })).status).toBe(200);
+    expect((await readCustomer(shop, call.headers()))?.emailVerified).toBe(true);
+  });
+
+  it("sets a new password with an emailed code, even for an account that never had one", async () => {
+    // Meera signed up with a code earlier: no password yet.
+    const call = customer();
+    expect((await call("/email-otp/send-verification-otp", { email: "meera@example.com", type: "forget-password" })).status).toBe(200);
+    const otp = await codeOf("meera@example.com", "forget-password");
+    expect((await call("/email-otp/reset-password", { email: "meera@example.com", otp, password: "a new password" })).status).toBe(200);
+    expect((await call("/sign-in/email", { email: "meera@example.com", password: "a new password" })).status).toBe(200);
+  });
+
+  it("never resets or verifies the admin's email from here, nor signs the admin in with a password", async () => {
+    const ctx = await admin.$context;
+    const [krishna] = await db.select().from(users).where(eq(users.email, "krishna@example.com"));
+    await ctx.internalAdapter.updatePassword(krishna!.id, await ctx.password.hash("the admin passphrase"));
+
+    const call = customer();
+    // The same answer as for anyone, but no code is made or sent.
+    expect((await call("/email-otp/send-verification-otp", { email: "krishna@example.com", type: "forget-password" })).status).toBe(200);
+    expect(await codeOf("krishna@example.com", "forget-password")).toBeNull();
+    expect((await call("/email-otp/send-verification-otp", { email: "krishna@example.com", type: "email-verification" })).status).toBe(200);
+    expect(await codeOf("krishna@example.com", "email-verification")).toBeNull();
+    expect((await call("/email-otp/reset-password", { email: "krishna@example.com", otp: "123456", password: "taken over!!" })).status).toBe(400);
+
+    const signIn = await call("/sign-in/email", { email: "krishna@example.com", password: "the admin passphrase" });
+    expect(signIn.status).toBe(403);
+    expect(signIn.json.code).toBe("ADMIN_ACCOUNT");
+    expect(await db.select().from(authSessions).where(eq(authSessions.userId, krishna!.id))).toEqual([]);
   });
 
   it("opens only the sign-in paths", () => {
     expect(isCustomerAuthPath("/api/account/sign-in/email-otp")).toBe(true);
+    expect(isCustomerAuthPath("/api/account/sign-in/email")).toBe(true);
+    expect(isCustomerAuthPath("/api/account/email-otp/reset-password")).toBe(true);
     expect(isCustomerAuthPath("/api/account/callback/google")).toBe(true);
-    expect(isCustomerAuthPath("/api/account/email-otp/reset-password")).toBe(false);
+    // Signing up goes through the server action, which checks the form first.
+    expect(isCustomerAuthPath("/api/account/sign-up/email")).toBe(false);
     expect(isCustomerAuthPath("/api/account/update-user")).toBe(false);
+    expect(isCustomerAuthPath("/api/account/change-email")).toBe(false);
     expect(isCustomerAuthPath("/api/account/sign-in/email-otp/")).toBe(false);
     expect(isCustomerAuthPath("/api/accountx/sign-in/email-otp")).toBe(false);
   });

@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { deleteAccountAction, saveDetailsAction, type FormState } from "@/app/(store)/account/actions";
+import { Busy } from "./pending";
 
 const empty: FormState = { errors: {} };
 
@@ -31,7 +32,9 @@ export function DetailsForm({ name, phone }: { name: string; phone: string }) {
       </label>
       <div className="flex items-center gap-4">
         <button type="submit" className="btn-primary" disabled={pending}>
-          {pending ? "Saving…" : "Save"}
+          <Busy busy={pending} busyLabel="Saving…">
+            Save
+          </Busy>
         </button>
         {state.saved && !pending ? (
           <span role="status" className="text-sm text-espresso-soft">
@@ -69,7 +72,9 @@ export function DeleteAccount() {
       </label>
       <div className="flex flex-wrap gap-3">
         <button type="submit" className="btn-primary" disabled={pending}>
-          {pending ? "Deleting…" : "Delete my account"}
+          <Busy busy={pending} busyLabel="Deleting…">
+            Delete my account
+          </Busy>
         </button>
         <button type="button" className="btn-outline" onClick={() => setOpen(false)}>
           Keep it

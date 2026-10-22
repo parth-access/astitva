@@ -2,6 +2,16 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-22 — Customer passwords, a sign-up page, and verifying the email
+
+**Decision:** Customers can also have a password (this changes "no passwords" in the accounts entry below). `/account/sign-up` asks for name, mobile, email and password (8 to 128 characters) and signs them in straight away; the email isn't verified yet. Sign-in offers a password or a code by email, plus Google. Forgot it: a code by email, then a new password, which signs out every other device. An account made by a code or Google can set a password the same way.
+
+**Verifying:** until the email is proved, Your details shows a "Needs attention: Verify your email" card (a code by email, typed in), and the other account pages point to it. An unverified account sees only orders placed while signed in to it; guest orders with that email appear once it's verified, so nobody can sign up with someone else's email to see their orders. Google won't attach itself to an unverified account (Better Auth's default).
+
+**How:** the customer Better Auth instance enables email and password without requiring verification first, and opens `/sign-in/email`, `/email-otp/verify-email` and `/email-otp/reset-password`. Signing up goes through a server action (`signUpAction`), which checks each field, then at most 10 new accounts an hour per network. Codes now have three purposes (sign in, verify, new password), each with its own email; the 4-per-email limit covers them all. An admin's email never gets a verify or reset code from the customer side, and its password can't be reset there.
+
+**Waiting:** every account button shows a spinner and its own "Signing out…"-style label, and is disabled until the action finishes. After signing in, the browser loads the next page in full, so nothing remembered from before ("/account sends you to sign in") can loop.
+
 ## 2026-10-22 — No confirming cash orders, for now
 
 **Decision:** Cash-on-delivery orders are no longer confirmed with the buyer on WhatsApp before packing; they're ready to pack as soon as they're placed. WhatsApp isn't in use yet, so nothing tells buyers to expect a message: checkout, the FAQ, the order page and the order email just say they pay the courier when it arrives. The admin has no "To confirm" step, and the new-order email has no "Confirm on WhatsApp" button.

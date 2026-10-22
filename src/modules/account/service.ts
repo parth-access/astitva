@@ -5,9 +5,9 @@
  * signed in and pass their id.
  *
  * Orders are found by the account, or by the account's email for orders
- * placed as a guest. That email was proved with a code (or by Google), so it
- * only ever finds the customer's own orders. Phone numbers aren't proved yet,
- * so they find nothing.
+ * placed as a guest, but only once that email is verified (a code, or
+ * Google): anyone can sign up with any email and a password. Phone numbers
+ * aren't proved yet, so they find nothing.
  */
 import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import type { Db, DbOrTx } from "@/db/create";
@@ -36,10 +36,12 @@ export type AccountOrder = {
   href: string;
 };
 
-export type Owner = { userId: string; email: string };
+/** `email` only when it's verified; null finds just the orders placed signed in. */
+export type Owner = { userId: string; email: string | null };
 
-/** Orders that are the customer's: placed signed in, or as a guest with their email. */
+/** Orders that are the customer's: placed signed in, or as a guest with their verified email. */
 function ownedBy(owner: Owner) {
+  if (!owner.email) return eq(orders.userId, owner.userId);
   return or(eq(orders.userId, owner.userId), and(isNull(orders.userId), sql`lower(${orders.contactEmail}) = ${owner.email.toLowerCase()}`));
 }
 

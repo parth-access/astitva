@@ -5,8 +5,11 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/db/client";
 import { AccountError, deleteAccount, deleteAddress, MAX_ADDRESSES, saveAddress, setDefaultAddress, updateDetails } from "@/modules/account/service";
-import { parseAddressForm, parseDetailsForm, type FieldErrors } from "@/modules/account/input";
+import { parseAddressForm, parseDetailsForm, parseSignUpForm, type FieldErrors } from "@/modules/account/input";
 import { customerAuth, requireCustomer } from "@/modules/auth/customer";
+import { safeNext } from "@/modules/auth/customer-config";
+import { allowRequest } from "@/modules/limits/request";
+import { LIMITS } from "@/modules/limits/service";
 
 export type FormState = { errors: FieldErrors; values?: Record<string, string>; saved?: number };
 
@@ -80,4 +83,31 @@ export async function deleteAccountAction(_prev: FormState, form: FormData): Pro
   await customerAuth.api.signOut({ headers: await headers() });
   await deleteAccount(db, userId);
   redirect("/account/sign-in?deleted=1");
+}
+
+/**
+ * Name, mobile, email and password make an account and sign it in. The email
+ * isn't verified yet: Your details asks for that. Checked here first, so each
+ * field can say what's wrong; Better Auth checks the password again.
+ */
+export async function signUpAction(_prev: FormState, form: FormData): Promise<FormState> {
+  const values = valuesOf(form);
+  delete values.password;
+  const parsed = parseSignUpForm(form);
+  if (!parsed.ok) return { errors: parsed.errors, values };
+  if (!(await allowRequest(LIMITS.signUp))) {
+    return { errors: { form: "That's a few new accounts from here in a short time. Please try again in an hour." }, values };
+  }
+  const { name, phone, email, password } = parsed.data;
+  try {
+    await customerAuth.api.signUpEmail({ body: { name, email, password, phone }, headers: await headers() });
+  } catch (e) {
+    const code = (e as { body?: { code?: string } }).body?.code ?? "";
+    if (code.startsWith("USER_ALREADY_EXISTS")) {
+      return { errors: { email: "There's already an account with this email. Sign in instead, or set a new password with “Forgot it?”." }, values };
+    }
+    if (code === "PASSWORD_TOO_SHORT" || code === "PASSWORD_TOO_LONG") return { errors: { password: "Use 8 to 128 characters." }, values };
+    throw e;
+  }
+  redirect(safeNext(form.get("next"), "/account/details?welcome=1"));
 }

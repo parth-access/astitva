@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Reveal } from "@/components/brand/reveal";
 import { AccountShell, AccountSkeleton } from "@/components/storefront/account/account-shell";
+import { VerifyNotice } from "@/components/storefront/account/verify-email";
 import { db } from "@/db/client";
 import { env } from "@/lib/env";
 import { formatINR } from "@/lib/money";
@@ -25,13 +26,21 @@ const day = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", y
 
 async function Orders() {
   const customer = await requireCustomer("/account");
-  const orders = await listAccountOrders(db, { userId: customer.id, email: customer.email }, env().BETTER_AUTH_SECRET);
+  const orders = await listAccountOrders(db, { userId: customer.id, email: customer.emailVerified ? customer.email : null }, env().BETTER_AUTH_SECRET);
   const first = customer.name.trim().split(/\s+/)[0];
 
   return (
     <div className="space-y-8">
+      {customer.emailVerified ? null : <VerifyNotice />}
       <p className="leading-relaxed text-espresso-soft">
-        {first ? `Hello, ${first}. ` : ""}Every order placed with <span className="text-espresso">{customer.email}</span> shows here, including ones from before you had an account.
+        {first ? `Hello, ${first}. ` : ""}
+        {customer.emailVerified ? (
+          <>
+            Every order placed with <span className="text-espresso">{customer.email}</span> shows here, including ones from before you had an account.
+          </>
+        ) : (
+          <>Orders you place signed in show here. Verify your email to see ones you placed with it before.</>
+        )}
         {first ? null : (
           <>
             {" "}

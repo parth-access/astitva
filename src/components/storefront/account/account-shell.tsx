@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { signOutAction } from "@/app/(store)/account/actions";
 import { ACROSS } from "@/lib/transition-types";
+import { SubmitButton } from "./pending";
 
 const TABS = [
   { key: "orders", href: "/account", label: "Orders" },
@@ -21,9 +22,9 @@ export function AccountShell({ current, children }: { current: AccountTab; child
           <h1 className="mt-2 text-5xl italic md:text-6xl">{TABS.find((t) => t.key === current)!.label}</h1>
         </div>
         <form action={signOutAction}>
-          <button type="submit" className="link text-sm text-espresso-soft">
+          <SubmitButton className="link text-sm text-espresso-soft" pending="Signing out…">
             Sign out
-          </button>
+          </SubmitButton>
         </form>
       </div>
       <nav aria-label="Your account" className="mt-8 flex flex-wrap gap-2">

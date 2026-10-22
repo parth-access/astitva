@@ -6,12 +6,13 @@ import { getSessionCookie } from "better-auth/cookies";
  * the customer sign-in. This only checks that a session cookie exists;
  * requireAdmin() and requireCustomer() on every page and action are the real checks.
  */
+const PUBLIC_ACCOUNT_PATHS = ["/account/sign-in", "/account/sign-up", "/account/forgot-password"];
 const PUBLIC_ADMIN_PATHS = ["/admin/login", "/admin/verify", "/admin/forgot-password", "/admin/reset-password"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (pathname === "/account" || pathname.startsWith("/account/")) {
-    if (pathname === "/account/sign-in" || getSessionCookie(request, { cookiePrefix: "astitva" })) return NextResponse.next();
+    if (PUBLIC_ACCOUNT_PATHS.includes(pathname) || getSessionCookie(request, { cookiePrefix: "astitva" })) return NextResponse.next();
     const signIn = new URL("/account/sign-in", request.url);
     signIn.searchParams.set("next", pathname);
     return NextResponse.redirect(signIn);

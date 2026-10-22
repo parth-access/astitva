@@ -88,7 +88,7 @@ scripts/mascot/       mascot pipeline: python3 scripts/mascot/build.py
   db/schema.ts        the whole data model, with CHECK and UNIQUE constraints
   lib/                money (integer paise), state machines, sizes, env
   modules/
-    auth/             sign-in (Better Auth): the admin's (password + 2FA, requireAdmin()) and customers' (email code, Google, getCustomer()), kept apart by session kind
+    auth/             sign-in (Better Auth): the admin's (password + 2FA, requireAdmin()) and customers' (password, email code or Google, getCustomer()), kept apart by session kind
     catalog/          cached storefront reads
     catalog-admin/    admin reads and writes for pieces (includes private fields; never import from storefront)
     inventory/        reservation engine: the only code that changes stock

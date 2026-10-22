@@ -93,6 +93,10 @@ describe.skipIf(!hasDb)("customer accounts", () => {
     await order({ email: "meera@example.com", method: "online", paid: false });
     const paidOnline = await order({ email: "meera@example.com", method: "online", paid: true });
 
+    // Before her email is verified, only the order she placed signed in.
+    const unverified = await listAccountOrders(db, { userId: meera.id, email: null }, SECRET);
+    expect(unverified.map((o) => o.number)).toEqual([signedIn.orderNumber]);
+
     const list = await listAccountOrders(db, { userId: meera.id, email: "meera@example.com" }, SECRET);
     expect(list.map((o) => o.number).sort()).toEqual([guest.orderNumber, signedIn.orderNumber, paidOnline.orderNumber].sort());
     const g = list.find((o) => o.number === guest.orderNumber)!;
