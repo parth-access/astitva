@@ -2,6 +2,12 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-22 — No confirming cash orders, for now
+
+**Decision:** Cash-on-delivery orders are no longer confirmed with the buyer on WhatsApp before packing; they're ready to pack as soon as they're placed. WhatsApp isn't in use yet, so nothing tells buyers to expect a message: checkout, the FAQ, the order page and the order email just say they pay the courier when it arrives. The admin has no "To confirm" step, and the new-order email has no "Confirm on WhatsApp" button.
+
+**Kept:** `orders.cod_verified_at` and `markCodVerified`, unused, for when confirmation comes back (with WhatsApp codes, or if fake orders become a problem). A phone number may still have at most 2 cash orders not yet packed.
+
 ## 2026-10-22 — Customer accounts: sign-in by email code or Google, apart from the admin
 
 **Decision:** Customers can have accounts, but guest checkout stays and an account is never required. Sign-in is a 6-digit code by email (free, through Resend) or Google; no passwords. WhatsApp codes come later, with the WhatsApp Business setup (about ₹0.12 + GST a message; it also unlocks order updates and COD confirmation on WhatsApp). SMS was ruled out: about the same cost, plus DLT paperwork.

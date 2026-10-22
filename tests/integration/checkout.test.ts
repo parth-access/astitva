@@ -5,6 +5,7 @@ import { codCollections, emailOutbox, orderItems, orders, products, storeSetting
 import { addToBag, BagError, openBag, readBag, setLineQuantity } from "../../src/modules/bag/service";
 import type { CheckoutInput } from "../../src/modules/checkout/input";
 import { CheckoutError, placeOrder } from "../../src/modules/checkout/service";
+import { packOrder } from "../../src/modules/orders/fulfilment";
 import { cancelOrder, markCodVerified, OrderRuleError } from "../../src/modules/orders/service";
 import { createVariant, hasDb, makeDb, movementSum, onHand, resetData } from "./helpers";
 
@@ -147,11 +148,11 @@ describe.skipIf(!hasDb)("bag and cash-on-delivery checkout", () => {
     await expectCheckout(placeOrder(db, hiddenBag, buyer()), "unavailable");
     await db.update(products).set({ status: "active" });
 
-    // Two orders waiting for Krishna's check on one number; a third waits until one is checked.
+    // Two cash orders not yet packed on one number; a third waits until one is packed.
     const first = await placeOrder(db, await bagWith(v.id), buyer());
     await placeOrder(db, await bagWith(v.id), buyer());
     await expectCheckout(placeOrder(db, await bagWith(v.id), buyer()), "too_many_unverified");
-    await markCodVerified(db, first.orderId, adminId);
+    await packOrder(db, first.orderId, adminId);
     await placeOrder(db, await bagWith(v.id), buyer());
   });
 

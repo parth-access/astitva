@@ -6,7 +6,6 @@ import { OrderSkeleton } from "@/components/lookbook/skeletons";
 import { db } from "@/db/client";
 import { env } from "@/lib/env";
 import { formatLongDate, whatsappLink } from "@/lib/format";
-import { formatMobile } from "@/lib/india";
 import { formatINR } from "@/lib/money";
 import { getConcierge } from "@/modules/catalog/queries";
 import { isOrderLinkKey } from "@/modules/orders/links";
@@ -71,8 +70,8 @@ async function OrderView({ params, searchParams }: PageProps<"/orders/[number]">
         <h1 className="mt-2 text-5xl italic md:text-6xl">{heading}</h1>
         {attention ? (
           <p className={lead}>
-            There&apos;s something we need to sort out with your order. {who} will message you on WhatsApp today; anything owed back to you is
-            refunded in full.
+            There&apos;s something we need to sort out with your order. We&apos;ll be in touch today; anything owed back to you is refunded in
+            full.
           </p>
         ) : cancelled ? (
           <p className={lead}>
@@ -105,17 +104,12 @@ async function OrderView({ params, searchParams }: PageProps<"/orders/[number]">
           <p className={lead}>Packed by hand. It goes to the courier next.</p>
         ) : !cod ? (
           <p className={lead}>Paid, thank you. We&apos;re packing it by hand and will send it soon.</p>
-        ) : order.codVerifiedAt ? (
-          <p className={lead}>Confirmed. We&apos;re packing it by hand and will send it soon.</p>
         ) : (
-          <p className={lead}>
-            {who} will message you on WhatsApp at <span className="whitespace-nowrap">{formatMobile(order.contactPhone)}</span> to confirm, then we pack
-            it by hand.
-          </p>
+          <p className={lead}>We&apos;re packing it by hand and will send it soon. You pay when it arrives.</p>
         )}
         {concierge.whatsapp && !cancelled && !awaitingPayment ? (
           <a href={whatsappLink(concierge.whatsapp, hello)} target="_blank" rel="noopener noreferrer" className={`btn-outline mt-8 ${parcel?.trackingUrl && status === "shipped" ? "ml-3" : ""}`}>
-            {status === "pending_payment" || status === "confirmed" ? "Say hello on WhatsApp" : "Message us"}
+            Message us
           </a>
         ) : null}
       </div>

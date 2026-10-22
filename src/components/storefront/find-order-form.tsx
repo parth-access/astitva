@@ -100,7 +100,7 @@ export function FindOrderForm({ whatsapp }: { whatsapp: string | null }) {
           <FieldError id="order-number-error" message={f.orderNumber} />
         ) : (
           <span id="order-number-hint" className="mt-1.5 block text-xs text-espresso-soft">
-            In the subject of your order email, and in our WhatsApp message.
+            In the subject of your order email.
           </span>
         )}
       </label>

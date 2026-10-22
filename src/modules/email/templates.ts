@@ -141,15 +141,16 @@ function addressLines(a: Order["addressSnapshot"]) {
 function journey(order: Order): { steps: string[]; current: number } {
   const s = order.orderStatus;
   const cod = order.paymentMethod === "cod";
-  const done = [
-    true,
-    cod ? order.codVerifiedAt !== null : order.paymentStatus !== "unpaid",
-    s === "packed" || s === "shipped" || s === "delivered",
-    s === "shipped" || s === "delivered",
-    s === "delivered",
+  // Cash on delivery has no "Paid" step before packing: it's paid at the door.
+  const all: [string, boolean][] = [
+    ["Placed", true],
+    ...(cod ? [] : [["Paid", order.paymentStatus !== "unpaid"] as [string, boolean]]),
+    ["Packed", s === "packed" || s === "shipped" || s === "delivered"],
+    ["On its way", s === "shipped" || s === "delivered"],
+    ["With you", s === "delivered"],
   ];
-  const current = done.findIndex((d) => !d);
-  return { steps: ["Placed", cod ? "Confirmed" : "Paid", "Packed", "On its way", "With you"], current: current === -1 ? done.length : current };
+  const current = all.findIndex(([, d]) => !d);
+  return { steps: all.map(([label]) => label), current: current === -1 ? all.length : current };
 }
 
 /** The first piece Krishna has written a styling note for. */
@@ -289,7 +290,6 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
   const total = formatINR(Number(order.totalMinor));
   const buyerLink = `${appUrl}${orderPath(order.orderNumber, orderLinkKey(order.id, ctx.linkSecret))}`;
   const adminLink = `${appUrl}/admin/orders/${order.id}`;
-  const who = settings.who ?? "We";
   const first = order.contactName.split(/\s+/)[0]!;
   const cod = order.paymentMethod === "cod";
   const list = emailPieces(items, appUrl);
@@ -301,7 +301,7 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
   switch (template) {
     case "order_placed": {
       const lead = cod
-        ? `${who} will message you on WhatsApp at ${formatMobile(order.contactPhone)} to confirm your order, then we pack it by hand. You pay ${total} when it arrives.`
+        ? `We'll pack it by hand and let you know when it's on its way. You pay ${total} when it arrives.`
         : `We've received your payment of ${total}. We'll pack it by hand and let you know when it's on its way.`;
       const note = noteToShare(items);
       const promise = cardPromise(items);
@@ -310,7 +310,7 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
         text: textOf(`Thank you, ${first}.`, [lead, itemLines(items, order), `Going to:\n${addressLines(order.addressSnapshot)}`, { label: "See your order", url: buyerLink }]),
         html: shell({
           appUrl,
-          preheader: cod ? `${who === "We" ? "We'll" : `${who} will`} WhatsApp you to confirm, then it's packed by hand.` : `Paid, thank you. ${list.length === 1 ? `${list[0]!.title} is` : "Your pieces are"} being packed by hand.`,
+          preheader: cod ? `It's packed by hand next. You pay ${total} when it arrives.` : `Paid, thank you. ${list.length === 1 ? `${list[0]!.title} is` : "Your pieces are"} being packed by hand.`,
           title: `Thank you, ${first}.`,
           footerLinks: buyerFooter([{ label: "Your order", url: buyerLink }]),
           footerNote: orderFooterNote,
@@ -458,11 +458,8 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
     }
 
     case "owner_new_order": {
-      const how = cod ? `Cash on delivery, ${total}. Confirm with the buyer on WhatsApp before packing.` : `Paid online, ${total}. Ready to pack.`;
-      const itemsText = items.map((l) => `${l.item.productNameSnapshot}${variantText(l.item) ? ` (${variantText(l.item)})` : ""}${l.item.quantity > 1 ? ` × ${l.item.quantity}` : ""}`).join("; ");
+      const how = cod ? `Cash on delivery, ${total}, collected by the courier. Ready to pack.` : `Paid online, ${total}. Ready to pack.`;
       const a = order.addressSnapshot;
-      // The same message the admin's order page prepares, one tap from the email.
-      const confirm = `Hello ${first}, this is Astitva. Thank you for order ${order.orderNumber}: ${itemsText}. It comes to ${total}, to pay on delivery, and goes to ${a.city} ${a.pincode}. Shall we pack it?`;
       return {
         subject: `New order ${order.orderNumber} · ${total} · ${cod ? "cash on delivery" : "paid online"}`,
         text: textOf(`New order from ${first}`, [
@@ -475,14 +472,14 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
         html: shell({
           appUrl,
           forOwner: true,
-          preheader: `${order.contactName}, ${a.city}. ${cod ? "Cash on delivery: confirm on WhatsApp first." : "Paid online: ready to pack."}`,
+          preheader: `${order.contactName}, ${a.city}. ${cod ? "Cash on delivery" : "Paid online"}: ready to pack.`,
           title: `New order from ${first}`,
           footerLinks: [{ label: "Today in the admin", url: `${appUrl}/admin` }],
           body: [
             kicker(`New order · ${order.orderNumber}`, "left"),
             heading(`${total} from ${first}`, "left"),
             paragraph(`${order.contactName}, ${a.city} · ${formatMobile(order.contactPhone)}`, { color: C.soft }),
-            panel(cod ? "Cash on delivery" : "Paid online", paragraph(how).replace("margin:0 0 16px", "margin:0"), cod ? "attention" : "ivory"),
+            panel(cod ? "Cash on delivery" : "Paid online", paragraph(how).replace("margin:0 0 16px", "margin:0"), "ivory"),
             order.customerNote ? quote("Their note", order.customerNote, null) : "",
             pieces(list),
             totals(totalRows(order)),
@@ -490,8 +487,7 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
               { title: "Going to", text: addressLines(a) },
               { title: "Reach them", text: `${formatMobile(order.contactPhone)}${order.contactEmail ? `\n${order.contactEmail}` : ""}` },
             ]),
-            cod ? button("Confirm on WhatsApp", whatsappLink(`91${order.contactPhone}`, confirm), { align: "left" }) : "",
-            button("Open the order", adminLink, { tone: cod ? "outline" : "primary", align: "left" }),
+            button("Open the order", adminLink, { align: "left" }),
             clear(),
           ].join(""),
         }),

@@ -60,7 +60,7 @@ const MESSAGES: Record<CheckoutError["code"], string> = {
   unavailable: "Someone has just bought one of your pieces. Your bag shows which; change it and place the order again.",
   over_cod_limit: "This order is over our cash-on-delivery limit. Please pay online, or message us and we'll arrange it.",
   pincode: "We can't deliver to this pincode yet. Please message us.",
-  too_many_unverified: `This number already has ${MAX_UNVERIFIED_COD} cash-on-delivery orders waiting for our call. Pay online, or message us.`,
+  too_many_unverified: `This number already has ${MAX_UNVERIFIED_COD} cash-on-delivery orders we haven't packed yet. Pay online, or order again once they're on their way.`,
   discount: "That code can't be used on this order.",
 };
 

@@ -11,7 +11,6 @@ import {
   ReturnedForm,
   ShipForm,
   UnpackButton,
-  VerifyButton,
 } from "@/components/admin/order-actions";
 import { OrderStatusBadge } from "@/components/admin/order-status";
 import { Card, cardClass, PageHeader } from "@/components/admin/ui";
@@ -59,22 +58,19 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
   if (!order) notFound();
 
   const a = order.addressSnapshot;
-  const toConfirm = order.paymentMethod === "cod" && order.orderStatus === "confirmed" && !order.codVerifiedAt;
   const canSend = (order.orderStatus === "confirmed" || order.orderStatus === "packed") && packingBlocker(order) === null;
   const awaitingRemittance = order.paymentMethod === "cod" && order.orderStatus === "delivered" && order.cod?.status === "collected_by_courier";
   const refundable = await refundableMinor(db, order.id);
   const canRazorpayRefund = order.payment?.status === "captured" && razorpay() !== null;
   const isOwner = role === "owner";
   const firstName = order.contactName.split(/\s+/)[0];
-  const itemsText = order.items.map((i) => `${i.name}${[i.variant.color, i.variant.size].some(Boolean) ? ` (${[i.variant.color, i.variant.size].filter(Boolean).join(", ")})` : ""}${i.quantity > 1 ? ` × ${i.quantity}` : ""}`).join("; ");
   // The buyer's private page, for a buyer who lost it.
   const buyerPage = `${env().APP_URL.replace(/\/$/, "")}${orderPath(order.orderNumber, orderLinkKey(order.id, env().BETTER_AUTH_SECRET))}`;
   const shareMessage = `Hello ${firstName}, here's the page for your Astitva order ${order.orderNumber}. It shows where your order is: ${buyerPage}`;
-  const confirmMessage = `Hello ${firstName}, this is Astitva. Thank you for order ${order.orderNumber}: ${itemsText}. It comes to ${formatINR(order.totalMinor)}, to pay on delivery, and goes to ${a.city} ${a.pincode}. Shall we pack it?`;
 
   const steps: { label: string; done: boolean }[] = [
     { label: "Placed", done: true },
-    order.paymentMethod === "cod" ? { label: "Confirmed", done: order.codVerifiedAt !== null } : { label: "Paid", done: order.paymentStatus !== "unpaid" },
+    ...(order.paymentMethod === "online" ? [{ label: "Paid", done: order.paymentStatus !== "unpaid" }] : []),
     { label: "Packed", done: ["packed", "shipped", "delivered", "returned"].includes(order.orderStatus) },
     { label: "Sent", done: ["shipped", "delivered", "returned"].includes(order.orderStatus) },
     { label: "Delivered", done: order.orderStatus === "delivered" },
@@ -89,7 +85,7 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
         title={
           <span className="flex flex-wrap items-center gap-3">
             <span className="tabular-nums">{order.orderNumber}</span>
-            <OrderStatusBadge status={order.orderStatus} method={order.paymentMethod} verified={order.codVerifiedAt !== null} needsResolution={order.needsResolution} />
+            <OrderStatusBadge status={order.orderStatus} method={order.paymentMethod} needsResolution={order.needsResolution} />
           </span>
         }
         subtitle={
@@ -244,18 +240,6 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
                 <p className="whitespace-pre-line">{order.resolutionNote}</p>
                 <p className="text-espresso-soft">Message the buyer to offer another colour or size, or refund them below.</p>
                 <ResolveForm orderId={order.id} />
-              </div>
-            </Card>
-          ) : null}
-
-          {toConfirm ? (
-            <Card title="Confirm before packing" tone="attention">
-              <div className="space-y-3">
-                <p className="text-sm text-espresso-soft">Message {firstName} on WhatsApp, then mark it confirmed.</p>
-                <a href={whatsappLink(`91${order.contactPhone}`, confirmMessage)} target="_blank" rel="noopener noreferrer" className="btn-outline w-full">
-                  Message on WhatsApp
-                </a>
-                <VerifyButton orderId={order.id} />
               </div>
             </Card>
           ) : null}

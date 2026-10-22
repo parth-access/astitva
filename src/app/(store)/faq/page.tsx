@@ -35,7 +35,7 @@ const SECTIONS: { id: string; title: string; faqs: { q: string; a: ReactNode }[]
       },
       {
         q: "Is cash on delivery available everywhere?",
-        a: <>For most pincodes and orders, yes. Checkout tells you if it isn&apos;t available for your pincode or for an order of that value. After a cash order we&apos;ll message you on WhatsApp to confirm it before we pack it.</>,
+        a: <>For most pincodes and orders, yes. Checkout tells you if it isn&apos;t available for your pincode or for an order of that value.</>,
       },
       {
         q: "Is paying online safe?",

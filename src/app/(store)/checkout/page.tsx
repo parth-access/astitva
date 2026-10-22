@@ -8,7 +8,7 @@ import { CheckoutForm } from "@/components/storefront/checkout-form";
 import { db } from "@/db/client";
 import { BAG_COOKIE, findBag, readBag } from "@/modules/bag/service";
 import { EMPTY_BAG } from "@/modules/bag/types";
-import { getConcierge, getStorefront } from "@/modules/catalog/queries";
+import { getStorefront } from "@/modules/catalog/queries";
 import { priceOrder } from "@/modules/checkout/pricing";
 import { getCheckoutSettings } from "@/modules/checkout/queries";
 import { razorpay } from "@/modules/payments/client";
@@ -25,7 +25,7 @@ function Quiet({ title, children }: { title: string; children: ReactNode }) {
 }
 
 async function Checkout() {
-  const [store, settings, concierge] = await Promise.all([getStorefront(), getCheckoutSettings(), getConcierge()]);
+  const [store, settings] = await Promise.all([getStorefront(), getCheckoutSettings()]);
   if (!store.orderingOpen) {
     return (
       <Quiet title="Not open yet">
@@ -61,7 +61,6 @@ async function Checkout() {
       codEnabled={settings.codEnabled}
       overCodLimit={totals.cod.totalMinor > settings.codMaxOrderMinor}
       holdMinutes={settings.holdMinutes}
-      who={concierge.name}
       // One key per visit to this page: a double tap or a resubmit places one order.
       idempotencyKey={randomUUID()}
     />

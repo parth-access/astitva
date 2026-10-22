@@ -14,7 +14,7 @@ import {
   shipOrder,
   unpackOrder,
 } from "../../src/modules/orders/fulfilment";
-import { cancelOrder, markCodVerified, OrderRuleError } from "../../src/modules/orders/service";
+import { cancelOrder, OrderRuleError } from "../../src/modules/orders/service";
 import { refundableMinor, RefundError, refundOrder } from "../../src/modules/payments/refunds";
 import { confirmFromCheckout, handleWebhook, openPayment } from "../../src/modules/payments/service";
 import { fakeRazorpay } from "./fake-razorpay";
@@ -73,10 +73,8 @@ describe.skipIf(!hasDb)("after the order: packing, shipping, returns and refunds
     await db.$client.end();
   });
 
-  it("COD: confirm, pack, ship, deliver, the courier pays over, then a refund in two parts", async () => {
+  it("COD: pack straight away, ship, deliver, the courier pays over, then a refund in two parts", async () => {
     const { orderId } = await codOrder();
-    expect(await rule(packOrder(db, orderId, admin))).toMatch(/Confirm it with the buyer/);
-    await markCodVerified(db, orderId, admin);
 
     await packOrder(db, orderId, admin);
     await unpackOrder(db, orderId, admin);

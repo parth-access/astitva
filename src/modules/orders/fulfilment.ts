@@ -43,9 +43,8 @@ async function move(tx: Tx, order: Order, to: OrderStatus, actorId: string, even
 }
 
 /** Why an order can't be packed yet, or null. */
-export function packingBlocker(order: Pick<Order, "needsResolution" | "paymentMethod" | "codVerifiedAt" | "paymentStatus">): string | null {
+export function packingBlocker(order: Pick<Order, "needsResolution" | "paymentMethod" | "paymentStatus">): string | null {
   if (order.needsResolution) return "Sort out what's flagged first.";
-  if (order.paymentMethod === "cod" && !order.codVerifiedAt) return "Confirm it with the buyer first.";
   if (order.paymentMethod === "online" && order.paymentStatus !== "paid") return "It isn't paid.";
   return null;
 }

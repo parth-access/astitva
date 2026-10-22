@@ -8,7 +8,6 @@ import type { DbOrTx } from "@/db/create";
  * a parcel that came back. Refunds aren't taken off.
  */
 export type Overview = {
-  toConfirm: number;
   needsYou: number;
   toPack: number;
   toShip: number;
@@ -20,11 +19,10 @@ export type Overview = {
 
 export async function getOverview(db: DbOrTx): Promise<Overview> {
   const went = sql`order_status not in ('cancelled', 'returned', 'pending_payment')`;
-  const ready = sql`(payment_method = 'online' and payment_status <> 'unpaid') or (payment_method = 'cod' and cod_verified_at is not null)`;
+  const ready = sql`(payment_method = 'online' and payment_status <> 'unpaid') or payment_method = 'cod'`;
   const cash = sql`order_status = 'delivered' and payment_method = 'cod' and payment_status = 'unpaid'`;
   const { rows } = await db.execute<Record<string, string | number>>(sql`
     select
-      count(*) filter (where payment_method = 'cod' and order_status = 'confirmed' and cod_verified_at is null and not needs_resolution) as to_confirm,
       count(*) filter (where needs_resolution) as needs_you,
       count(*) filter (where order_status = 'confirmed' and not needs_resolution and (${ready})) as to_pack,
       count(*) filter (where order_status = 'packed') as to_ship,
@@ -39,7 +37,6 @@ export async function getOverview(db: DbOrTx): Promise<Overview> {
   const r = rows[0] ?? {};
   const n = (k: string) => Number(r[k] ?? 0);
   return {
-    toConfirm: n("to_confirm"),
     needsYou: n("needs_you"),
     toPack: n("to_pack"),
     toShip: n("to_ship"),

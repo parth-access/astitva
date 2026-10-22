@@ -40,7 +40,7 @@ export default async function FindOrderPage() {
           <div>
             <h2 className="caption text-lg">Where&apos;s the order number?</h2>
             <p className="mt-2 leading-relaxed text-espresso-soft">
-              It starts with AST-, like AST-001005. It&apos;s in the subject of the email we sent when you ordered, and in our WhatsApp message.
+              It starts with AST-, like AST-001005. It&apos;s in the subject of the email we sent when you ordered.
             </p>
           </div>
           <div>

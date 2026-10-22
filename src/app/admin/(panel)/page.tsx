@@ -27,7 +27,7 @@ export default async function TodayPage() {
   const { user } = await requireAdmin();
   const now = new Date();
   const [o, failedEmails, recent, low] = await Promise.all([getOverview(db), failedEmailCount(db), listOrders(db, "open"), listLowStock(6)]);
-  const waiting = o.toConfirm + o.needsYou + o.toPack + o.toShip;
+  const waiting = o.needsYou + o.toPack + o.toShip;
   const firstName = user.name.split(/\s+/)[0];
 
   return (
@@ -49,10 +49,9 @@ export default async function TodayPage() {
         />
       ) : null}
 
-      <section aria-label="Waiting on you" className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-5">
-        <Stat label="To confirm" value={o.toConfirm} hint="Cash orders to check on WhatsApp" href="/admin/orders?show=to_check" tone={o.toConfirm ? "attention" : undefined} />
+      <section aria-label="Waiting on you" className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
         <Stat label="Needs you" value={o.needsYou} hint="Paid, but can't go ahead" href="/admin/orders?show=to_check" tone={o.needsYou ? "attention" : undefined} />
-        <Stat label="To pack" value={o.toPack} hint="Confirmed or paid" href="/admin/orders?show=open" />
+        <Stat label="To pack" value={o.toPack} hint="Cash on delivery, or paid" href="/admin/orders?show=open" />
         <Stat label="To send" value={o.toShip} hint="Packed, for the courier" href="/admin/orders?show=open" />
         <Stat label="On the way" value={o.onTheWay} hint="With the courier" href="/admin/orders?show=open" />
       </section>
@@ -91,7 +90,7 @@ export default async function TodayPage() {
                       </span>
                     </span>
                     <span className="text-sm tabular-nums">{formatINR(r.totalMinor)}</span>
-                    <OrderStatusBadge status={r.orderStatus} method={r.paymentMethod} verified={r.codVerifiedAt !== null} needsResolution={r.needsResolution} />
+                    <OrderStatusBadge status={r.orderStatus} method={r.paymentMethod} needsResolution={r.needsResolution} />
                   </Link>
                 </li>
               ))}

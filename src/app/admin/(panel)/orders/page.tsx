@@ -20,7 +20,7 @@ const FILTERS: [OrderListFilter, string][] = [
 const when = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" });
 
 const EMPTY: Record<OrderListFilter, [string, string]> = {
-  to_check: ["Nothing waiting on you", "Cash orders to confirm and paid orders that can't go ahead show here."],
+  to_check: ["Nothing waiting on you", "Paid orders that can't go ahead show here."],
   open: ["No open orders", "Orders show here from the moment they're placed until they're delivered and paid for."],
   all: ["No orders yet", "The first one will show here."],
 };
@@ -33,7 +33,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/admin/ord
 
   return (
     <div>
-      <PageHeader title="Orders" subtitle="Newest first. Open an order to confirm, pack, send or refund it." />
+      <PageHeader title="Orders" subtitle="Newest first. Open an order to pack, send or refund it." />
       <Tabs
         label="Show"
         current={filter}
@@ -57,7 +57,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/admin/ord
                     <span className="block text-xs font-normal text-espresso-soft">{when.format(o.createdAt)}</span>
                   </span>
                   <span className="justify-self-end sm:order-last">
-                    <OrderStatusBadge status={o.orderStatus} method={o.paymentMethod} verified={o.codVerifiedAt !== null} needsResolution={o.needsResolution} />
+                    <OrderStatusBadge status={o.orderStatus} method={o.paymentMethod} needsResolution={o.needsResolution} />
                   </span>
                   <span className="min-w-0 text-sm">
                     <span className="block truncate">{o.contactName}</span>

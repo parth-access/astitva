@@ -3,7 +3,7 @@
  * Krishna does from the admin (check a COD order with the buyer, cancel).
  * Packing, shipping and refunds arrive in M5.
  */
-import { and, asc, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, or, sql } from "drizzle-orm";
 import type { DbOrTx, Db } from "@/db/create";
 import { auditLogs, codCollections, orderEvents, orderItems, orders, payments, refunds, shipments } from "@/db/schema";
 import { formatINR } from "@/lib/money";
@@ -86,11 +86,8 @@ export async function getOrderForBuyer(db: DbOrTx, orderNumber: string) {
 
 export type OrderListFilter = "to_check" | "open" | "all";
 
-/** Orders waiting on Krishna: COD orders not yet confirmed with the buyer, and payments that need a refund or a call. */
-const needsKrishna = or(
-  and(eq(orders.paymentMethod, "cod"), eq(orders.orderStatus, "confirmed"), isNull(orders.codVerifiedAt)),
-  eq(orders.needsResolution, true),
-);
+/** Orders waiting on Krishna: payments that need a refund or a call. */
+const needsKrishna = eq(orders.needsResolution, true);
 
 /**
  * Newest first. "to_check": orders waiting on Krishna. "open": everything not

@@ -5,7 +5,7 @@ import { addToBag, openBag } from "../../src/modules/bag/service";
 import { placeOrder } from "../../src/modules/checkout/service";
 import { packOrder } from "../../src/modules/orders/fulfilment";
 import { getOverview } from "../../src/modules/orders/overview";
-import { cancelOrder, markCodVerified } from "../../src/modules/orders/service";
+import { cancelOrder } from "../../src/modules/orders/service";
 import { createVariant, hasDb, makeDb, resetData } from "./helpers";
 
 describe.skipIf(!hasDb)("the admin's Today numbers", () => {
@@ -38,17 +38,15 @@ describe.skipIf(!hasDb)("the admin's Today numbers", () => {
   });
 
   it("counts what's waiting and what sold, leaving out cancelled orders", async () => {
-    const a = await codOrder("9811111111");
+    await codOrder("9811111111");
     const b = await codOrder("9822222222");
     const c = await codOrder("9833333333");
-    expect(await getOverview(db)).toMatchObject({ toConfirm: 3, toPack: 0, week: { orders: 3, minor: 600_000 } });
+    // Cash orders are ready to pack straight away: there is no confirming step.
+    expect(await getOverview(db)).toMatchObject({ toPack: 3, week: { orders: 3, minor: 600_000 } });
 
-    await markCodVerified(db, a.orderId, admin);
-    await markCodVerified(db, b.orderId, admin);
     await packOrder(db, b.orderId, admin);
     await cancelOrder(db, c.orderId, admin, "Buyer changed their mind");
     expect(await getOverview(db)).toMatchObject({
-      toConfirm: 0,
       needsYou: 0,
       toPack: 1,
       toShip: 1,

@@ -38,7 +38,6 @@ export function CheckoutForm({
   codEnabled,
   overCodLimit,
   holdMinutes,
-  who,
   idempotencyKey,
 }: {
   bag: Bag;
@@ -48,7 +47,6 @@ export function CheckoutForm({
   codEnabled: boolean;
   overCodLimit: boolean;
   holdMinutes: number;
-  who: string | null;
   idempotencyKey: string;
 }) {
   const [state, action, pending] = useActionState(placeOrderAction, empty);
@@ -116,7 +114,6 @@ export function CheckoutForm({
   const methodBlocked = method === "cod" ? !codEnabled || overLimit : !online;
   const busy = pending || paying.phase === "window" || paying.phase === "confirming";
   const blocked = methodBlocked || bag.hasProblems;
-  const contact = who ?? "We";
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-8 md:pt-10">
@@ -158,7 +155,7 @@ export function CheckoutForm({
                 placeholder="98123 45678"
                 defaultValue={v("phone")}
                 error={e("phone")}
-                hint={`${contact} will WhatsApp you here about your order.`}
+                hint="For the courier, and in case we need to reach you about your order."
               />
               <Field
                 label="Email (optional)"
@@ -223,7 +220,7 @@ export function CheckoutForm({
                       {shown.cod.codFeeMinor ? <span className="font-normal text-espresso-soft"> · {formatINR(shown.cod.codFeeMinor)} extra</span> : null}
                     </span>
                     <span className="mt-1 block text-sm text-espresso-soft">
-                      Pay in cash or by UPI to the courier when it arrives. {contact} will message you on WhatsApp to confirm before we pack it.
+                      Pay in cash or by UPI to the courier when it arrives.
                     </span>
                   </span>
                 </label>

@@ -11,25 +11,18 @@ const LABEL: Record<OrderStatus, string> = {
   returned: "Came back",
 };
 
-/**
- * One badge per order. "Needs you" (money taken but the order can't go ahead)
- * comes first; a COD order nobody has confirmed with the buyer reads "To confirm".
- */
+/** One badge per order. "Needs you" (money taken but the order can't go ahead) comes first. */
 export function OrderStatusBadge({
   status,
-  method,
-  verified,
   needsResolution = false,
 }: {
   status: OrderStatus;
   method: "cod" | "online";
-  verified: boolean;
   needsResolution?: boolean;
 }) {
-  const toConfirm = method === "cod" && status === "confirmed" && !verified;
-  const label = needsResolution ? "Needs you" : toConfirm ? "To confirm" : LABEL[status];
+  const label = needsResolution ? "Needs you" : LABEL[status];
   const tone: ChipTone =
-    needsResolution || toConfirm
+    needsResolution
       ? "attention"
       : status === "cancelled" || status === "pending_payment" || status === "returned"
         ? "quiet"

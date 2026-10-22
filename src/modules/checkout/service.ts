@@ -36,7 +36,7 @@ import { orderMachine } from "@/modules/orders/machines";
 import type { CheckoutInput } from "./input";
 import { priceOrder } from "./pricing";
 
-/** A phone number may have this many cash-on-delivery orders waiting for Krishna's check. */
+/** A phone number may have this many cash-on-delivery orders not yet packed: a brake on fake orders. */
 export const MAX_UNVERIFIED_COD = 2;
 
 export type CheckoutErrorCode =

@@ -69,7 +69,8 @@ describe.skipIf(!hasDb)("emails, alerts, scheduled jobs and limits", () => {
     expect(result).toEqual({ sent: 3, retrying: 0, gaveUp: 0 });
     const toBuyer = sent.find((e) => e.to === "asha@example.com")!;
     expect(toBuyer.subject).toBe(`Your Astitva order ${placed.orderNumber}`);
-    expect(toBuyer.text).toMatch(/Krishna will message you on WhatsApp at \+91 98123 45678/);
+    expect(toBuyer.text).toMatch(/You pay .+ when it arrives/);
+    expect(toBuyer.text).not.toMatch(/WhatsApp/);
     expect(toBuyer.text).toMatch(new RegExp(`https://astitva.test/orders/${placed.orderNumber}\\?k=`));
     expect(toBuyer.html).toContain("Thank you, Asha.");
     const toOwner = sent.find((e) => e.to === "krishna@astitva.test")!;
