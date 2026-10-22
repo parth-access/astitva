@@ -56,6 +56,15 @@ export type Razorpay = {
 
 const API = "https://api.razorpay.com/v1";
 
+type RazorpayErrorBody = { code?: string; description?: string; reason?: string | null; source?: string | null; step?: string | null; field?: string | null };
+
+/** "invalid request sent (reason: …, source: …, step: …)", leaving out what Razorpay marks as not applicable. */
+export function describeError(e: RazorpayErrorBody): string {
+  const known = (v: string | null | undefined) => (v && v !== "NA" ? v : null);
+  const extra = (["reason", "source", "step", "field"] as const).flatMap((k) => (known(e[k]) ? [`${k}: ${e[k]}`] : []));
+  return extra.length ? `${e.description} (${extra.join(", ")})` : (e.description ?? "");
+}
+
 function sameHex(expected: string, given: string): boolean {
   const a = Buffer.from(expected);
   const b = Buffer.from(given);
@@ -85,9 +94,12 @@ export function createRazorpay(keys: RazorpayKeys, fetchImpl: typeof fetch = fet
     const text = await res.text();
     if (!res.ok) {
       // Razorpay's error body names the problem; it never contains card data.
+      // A vague description ("invalid request sent") often comes with a reason,
+      // source and step that say more, so those are kept too.
       let reason = text.slice(0, 300);
       try {
-        reason = (JSON.parse(text) as { error?: { description?: string } }).error?.description ?? reason;
+        const e = (JSON.parse(text) as { error?: RazorpayErrorBody }).error;
+        if (e?.description) reason = describeError(e);
       } catch {}
       throw new RazorpayError(`Razorpay ${method} ${path.split("?")[0]} failed (${res.status}): ${reason}`, res.status);
     }

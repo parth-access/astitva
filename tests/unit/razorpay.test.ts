@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createRazorpay, hmacHex, isWebhookSignature } from "../../src/modules/payments/razorpay";
+import { createRazorpay, describeError, hmacHex, isWebhookSignature } from "../../src/modules/payments/razorpay";
 
 describe("Razorpay signatures", () => {
   const rzp = createRazorpay({ keyId: "rzp_test_x", keySecret: "secret" }, (() => {
@@ -25,5 +25,20 @@ describe("Razorpay signatures", () => {
   it("knows test keys", () => {
     expect(rzp.testMode).toBe(true);
     expect(createRazorpay({ keyId: "rzp_live_x", keySecret: "s" }).testMode).toBe(false);
+  });
+
+  it("keeps the details Razorpay gives with an error, without its NA placeholders", async () => {
+    expect(describeError({ description: "invalid request sent", reason: "refund_not_supported", source: "business", step: "NA", field: null })).toBe(
+      "invalid request sent (reason: refund_not_supported, source: business)",
+    );
+    expect(describeError({ description: "Bad amount", reason: "NA" })).toBe("Bad amount");
+
+    const refusing = createRazorpay({ keyId: "rzp_test_x", keySecret: "s" }, (async () =>
+      new Response(JSON.stringify({ error: { code: "BAD_REQUEST_ERROR", description: "invalid request sent", reason: "input_validation_failed", source: "business", step: "payment_initiation" } }), {
+        status: 400,
+      })) as unknown as typeof fetch);
+    await expect(refusing.refundPayment("pay_1", 100, {})).rejects.toThrow(
+      "Razorpay POST /payments/pay_1/refund failed (400): invalid request sent (reason: input_validation_failed, source: business, step: payment_initiation)",
+    );
   });
 });
