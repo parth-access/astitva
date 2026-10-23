@@ -28,7 +28,7 @@ function price(paise: number): string {
 
 type Ld = Record<string, unknown>;
 
-export function organizationLd(opts: { whatsapp: string | null; email: string | null }): Ld {
+export function organizationLd(opts: { whatsapp: string | null; email: string | null; profiles?: string[] }): Ld {
   const contactPoint = [
     ...(opts.whatsapp ? [{ "@type": "ContactPoint", contactType: "customer service", telephone: `+${opts.whatsapp}`, areaServed: "IN", availableLanguage: ["en", "hi"] }] : []),
     ...(opts.email ? [{ "@type": "ContactPoint", contactType: "customer service", email: opts.email, areaServed: "IN" }] : []),
@@ -42,6 +42,8 @@ export function organizationLd(opts: { whatsapp: string | null; email: string | 
     url: siteUrl(),
     logo: absolute("/icon.png"),
     ...(contactPoint.length ? { contactPoint } : {}),
+    // The brand's own profiles elsewhere, so search engines connect them to it.
+    ...(opts.profiles?.length ? { sameAs: opts.profiles } : {}),
   };
 }
 
@@ -62,6 +64,16 @@ export function breadcrumbLd(trail: { name: string; path: string }[]): Ld {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: trail.map((t, i) => ({ "@type": "ListItem", position: i + 1, name: t.name, item: absolute(t.path) })),
+  };
+}
+
+/** The pieces a page lists, in order: a category page's grid. */
+export function itemListLd(name: string, paths: string[]): Ld {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name,
+    itemListElement: paths.map((path, i) => ({ "@type": "ListItem", position: i + 1, url: absolute(path) })),
   };
 }
 
@@ -168,4 +180,13 @@ export function productLd(p: LdPiece): Ld {
 /** For a <script type="application/ld+json">: "<" escaped so text can never close the tag. */
 export function ldJson(data: Ld | Ld[]): string {
   return JSON.stringify(data).replace(/</g, "\\u003c");
+}
+
+/** The questions and answers a FAQ page shows, word for word. */
+export function faqLd(items: { question: string; answer: string }[]): Ld {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: items.map((i) => ({ "@type": "Question", name: i.question, acceptedAnswer: { "@type": "Answer", text: i.answer } })),
+  };
 }

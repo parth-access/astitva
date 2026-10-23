@@ -478,6 +478,8 @@ export const storeSettings = pgTable(
     /** Who answers WhatsApp, shown as "Ask Krishna". Null shows "Ask us". */
     conciergeName: varchar("concierge_name", { length: 40 }),
     gstin: varchar("gstin", { length: 15 }),
+    /** The brand's profiles elsewhere (Instagram, Pinterest…), https only. Tell search engines they're the same brand. */
+    profileLinks: text("profile_links").array().notNull().default(sql`'{}'::text[]`),
     /** Customers can add to bag and check out. Off while the site is a preview. */
     orderingOpen: boolean("ordering_open").notNull().default(false),
     /** The home page lookbook's title and line, e.g. "Autumn–Winter 2026". */
@@ -520,6 +522,8 @@ export const carts = pgTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
+  // A signed-in customer's bag is found by its owner.
+  (t) => [index("carts_user_idx").on(t.userId)],
 ).enableRLS();
 
 export const cartItems = pgTable(
@@ -849,6 +853,61 @@ export const shipments = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [index("shipments_order_idx").on(t.orderId)],
+).enableRLS();
+
+/* ------------------------------------------------------------------ */
+/* Receipts                                                            */
+/* ------------------------------------------------------------------ */
+
+export const receiptNumberSeq = pgSequence("receipt_number_seq", { startWith: 1 });
+
+/** The order as the receipt shows it, frozen when the receipt is issued. */
+export type ReceiptSnapshot = {
+  orderNumber: string;
+  placedAt: string;
+  buyer: { name: string; phone: string; email: string | null };
+  address: AddressSnapshot;
+  items: { name: string; variant: VariantSnapshot; quantity: number; unitPriceMinor: number; lineTotalMinor: number }[];
+  subtotalMinor: number;
+  discountMinor: number;
+  discountCode: string | null;
+  shippingMinor: number;
+  codFeeMinor: number;
+  totalMinor: number;
+};
+
+/**
+ * One receipt per order, numbered in sequence. Cash on delivery: issued when
+ * the order is placed, for the amount to pay on delivery. Online: issued when
+ * the payment is captured. Never edited; refunds show beside it.
+ */
+export const receipts = pgTable(
+  "receipts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    receiptNumber: varchar("receipt_number", { length: 16 })
+      .notNull()
+      .unique()
+      .default(sql`'ASTR-' || lpad(nextval('receipt_number_seq')::text, 6, '0')`),
+    orderId: uuid("order_id")
+      .notNull()
+      .unique()
+      .references(() => orders.id, { onDelete: "restrict" }),
+    paymentMethod: paymentMethod("payment_method").notNull(),
+    amountMinor: money("amount_minor").notNull(),
+    /** Online: how Razorpay says it was paid (upi, card, netbanking, wallet…). */
+    paidWith: varchar("paid_with", { length: 24 }),
+    /** Online: Razorpay's payment id, the buyer's reference. */
+    providerPaymentId: varchar("provider_payment_id", { length: 64 }),
+    /** Online: when the money was captured. Cash on delivery: null (paid later, to the courier). */
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+    snapshot: jsonb("snapshot").$type<ReceiptSnapshot>().notNull(),
+    issuedAt: createdAt(),
+  },
+  (t) => [
+    check("receipts_amount_pos", sql`${t.amountMinor} > 0`),
+    check("receipts_online_paid", sql`${t.paymentMethod} = 'cod' or ${t.paidAt} is not null`),
+  ],
 ).enableRLS();
 
 export const refunds = pgTable(

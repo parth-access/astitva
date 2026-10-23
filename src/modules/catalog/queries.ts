@@ -12,6 +12,7 @@ import {
 } from "@/db/schema";
 import type { Measurements } from "@/db/schema";
 import { compareSizes } from "@/lib/sizes";
+import { pickRelated } from "./related";
 
 /**
  * Storefront reads. Content is cached and tagged "catalog"; admin edits and
@@ -222,6 +223,15 @@ export async function listCategories() {
   return rows.map((r) => ({ ...r, styles: Number(r.styles) }));
 }
 
+/** "You might also like" for a piece: see ./related. Cached with the catalogue. */
+export async function listRelatedPieces(productId: string, categorySlug: string | null): Promise<PieceCard[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(CATALOG_TAG);
+  const [pieces, cats] = await Promise.all([listPieces({ limit: 500 }), listCategories()]);
+  return pickRelated({ id: productId, categorySlug }, pieces, cats.map((c) => c.slug));
+}
+
 /* ------------------------------------------------------------------ */
 /* Piece detail                                                        */
 /* ------------------------------------------------------------------ */
@@ -341,10 +351,10 @@ export async function getConcierge() {
   cacheTag(SETTINGS_TAG);
 
   const [row] = await db
-    .select({ whatsapp: storeSettings.supportWhatsapp, name: storeSettings.conciergeName, email: storeSettings.supportEmail })
+    .select({ whatsapp: storeSettings.supportWhatsapp, name: storeSettings.conciergeName, email: storeSettings.supportEmail, profileLinks: storeSettings.profileLinks })
     .from(storeSettings)
     .where(eq(storeSettings.id, 1));
-  return row ?? { whatsapp: null, name: null, email: null };
+  return row ?? { whatsapp: null, name: null, email: null, profileLinks: [] };
 }
 
 /** The home page lookbook's words, and whether customers can order yet. */

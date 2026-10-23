@@ -8,8 +8,9 @@ import { env } from "@/lib/env";
 import { formatLongDate, whatsappLink } from "@/lib/format";
 import { formatINR } from "@/lib/money";
 import { getConcierge } from "@/modules/catalog/queries";
-import { isOrderLinkKey } from "@/modules/orders/links";
+import { isOrderLinkKey, receiptPath } from "@/modules/orders/links";
 import { getOrderForBuyer } from "@/modules/orders/service";
+import { getReceipt, statusLine } from "@/modules/receipts/service";
 import { PayNow } from "@/components/storefront/pay-now";
 import { RememberOrder } from "@/components/storefront/orders-on-device";
 
@@ -39,7 +40,8 @@ async function OrderView({ params, searchParams }: PageProps<"/orders/[number]">
   // Without the private key the page doesn't exist, rather than "forbidden".
   if (!order || !isOrderLinkKey(order.id, typeof k === "string" ? k : null, env().BETTER_AUTH_SECRET)) notFound();
 
-  const concierge = await getConcierge();
+  const [concierge, receipt] = await Promise.all([getConcierge(), getReceipt(db, order.id)]);
+  const key = typeof k === "string" ? k : "";
   const who = concierge.name ?? "We";
   const firstName = order.contactName.split(/\s+/)[0];
   const paid = order.paymentStatus !== "unpaid";
@@ -188,10 +190,32 @@ async function OrderView({ params, searchParams }: PageProps<"/orders/[number]">
         <div>
           <h2 className="caption text-lg">Placed</h2>
           <p className="mt-2">{formatLongDate(order.createdAt)}</p>
-          {order.contactEmail ? <p className="mt-1 text-espresso-soft">A receipt goes to {order.contactEmail}.</p> : null}
+          {order.contactEmail && !receipt ? <p className="mt-1 text-espresso-soft">A receipt goes to {order.contactEmail}.</p> : null}
           {order.customerNote ? <p className="mt-4 text-espresso-soft">Your note: {order.customerNote}</p> : null}
         </div>
       </section>
+
+      {receipt ? (
+        <section aria-labelledby="receipt" className="mt-12 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-taupe/40 bg-[rgb(255_252_245/0.7)] px-5 py-4 text-sm">
+          <div className="min-w-0">
+            <h2 id="receipt" className="caption text-lg">
+              Receipt <span className="font-sans text-base not-italic tabular-nums">{receipt.receiptNumber}</span>
+            </h2>
+            <p className="mt-1 text-espresso-soft">
+              {statusLine(receipt)}
+              {order.contactEmail ? ` A copy went to ${order.contactEmail}.` : ""}
+            </p>
+          </div>
+          <div className="flex shrink-0 gap-3">
+            <Link href={receiptPath(order.orderNumber, key)} className="btn-outline">
+              View
+            </Link>
+            <a href={receiptPath(order.orderNumber, key, "pdf")} className="btn-primary" download>
+              Download PDF
+            </a>
+          </div>
+        </section>
+      ) : null}
 
       <p className="mt-16 text-center text-sm text-espresso-soft">
         This page&apos;s address is private to you. It&apos;s also kept in this browser, under{" "}

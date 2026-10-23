@@ -11,9 +11,9 @@
  */
 import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import type { Db, DbOrTx } from "@/db/create";
-import { auditLogs, customerAddresses, orderItems, orders, stockAlerts, users, type AddressSnapshot } from "@/db/schema";
+import { auditLogs, customerAddresses, orderItems, orders, receipts, stockAlerts, users, type AddressSnapshot } from "@/db/schema";
 import { isAdminUser } from "@/modules/auth/kinds";
-import { orderLinkKey, orderPath } from "@/modules/orders/links";
+import { orderLinkKey, orderPath, receiptPath } from "@/modules/orders/links";
 import type { AddressInput, DetailsInput } from "./input";
 
 export const MAX_ADDRESSES = 10;
@@ -34,6 +34,8 @@ export type AccountOrder = {
   summary: string;
   /** The order's private page. */
   href: string;
+  /** Its receipt, once it has one. */
+  receipt: { number: string; href: string } | null;
 };
 
 /** `email` only when it's verified; null finds just the orders placed signed in. */
@@ -58,8 +60,10 @@ export async function listAccountOrders(db: DbOrTx, owner: Owner, secret: string
       status: orders.orderStatus,
       paymentMethod: orders.paymentMethod,
       totalMinor: orders.totalMinor,
+      receiptNumber: receipts.receiptNumber,
     })
     .from(orders)
+    .leftJoin(receipts, eq(receipts.orderId, orders.id))
     .where(and(ownedBy(owner), or(eq(orders.paymentMethod, "cod"), ne(orders.paymentStatus, "unpaid"))))
     .orderBy(desc(orders.createdAt))
     .limit(100);
@@ -73,10 +77,17 @@ export async function listAccountOrders(db: DbOrTx, owner: Owner, secret: string
   const names = new Map<string, string[]>();
   for (const i of items) names.set(i.orderId, [...(names.get(i.orderId) ?? []), i.name]);
 
-  return rows.map(({ id, ...r }) => {
+  return rows.map(({ id, receiptNumber, ...r }) => {
     const n = names.get(id) ?? [];
     const summary = n.length <= 1 ? (n[0] ?? "Your order") : `${n[0]} and ${n.length - 1} more`;
-    return { ...r, totalMinor: Number(r.totalMinor), summary, href: orderPath(r.number, orderLinkKey(id, secret)) };
+    const key = orderLinkKey(id, secret);
+    return {
+      ...r,
+      totalMinor: Number(r.totalMinor),
+      summary,
+      href: orderPath(r.number, key),
+      receipt: receiptNumber ? { number: receiptNumber, href: receiptPath(r.number, key) } : null,
+    };
   });
 }
 
@@ -95,6 +106,15 @@ export async function listAddresses(db: DbOrTx, userId: string): Promise<SavedAd
     .orderBy(desc(customerAddresses.isDefault), desc(customerAddresses.createdAt));
 }
 
+/** One of the customer's own addresses, or null. */
+export async function getAddress(db: DbOrTx, userId: string, id: string): Promise<SavedAddress | null> {
+  const [row] = await db
+    .select()
+    .from(customerAddresses)
+    .where(and(eq(customerAddresses.id, id), eq(customerAddresses.userId, userId)));
+  return row ?? null;
+}
+
 const columns = (a: AddressInput) => ({
   recipientName: a.name,
   phone: a.phone,
@@ -106,15 +126,27 @@ const columns = (a: AddressInput) => ({
   pincode: a.pincode,
 });
 
+/** The same place for the same person: house and street, pincode and name, ignoring case. */
+const sameAddress = (a: Pick<SavedAddress, "line1" | "pincode" | "recipientName">, b: AddressInput) =>
+  a.line1.toLowerCase() === b.line1.toLowerCase() && a.pincode === b.pincode && a.recipientName.toLowerCase() === b.name.toLowerCase();
+
 /**
  * Adds an address, or changes one of the customer's own (`id`). The first
  * address is the default; `makeDefault` moves the default to this one.
+ * `unlessSaved`: adding one already saved returns that one instead (checked
+ * under the same lock, so two checkouts at once save it once).
  */
-export async function saveAddress(db: Db, userId: string, input: AddressInput & { id?: string | null; makeDefault?: boolean }): Promise<SavedAddress> {
+export async function saveAddress(
+  db: Db,
+  userId: string,
+  input: AddressInput & { id?: string | null; makeDefault?: boolean; unlessSaved?: boolean },
+): Promise<SavedAddress> {
   return db.transaction(async (tx) => {
     // One customer's address changes run one at a time, so the count and the default stay right.
     await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for("update");
-    const existing = await tx.select({ id: customerAddresses.id, isDefault: customerAddresses.isDefault }).from(customerAddresses).where(eq(customerAddresses.userId, userId));
+    const existing = await tx.select().from(customerAddresses).where(eq(customerAddresses.userId, userId));
+    const already = !input.id && input.unlessSaved ? existing.find((a) => sameAddress(a, input)) : undefined;
+    if (already) return already;
 
     if (input.id && !existing.some((a) => a.id === input.id)) throw new AccountError("not_found");
     if (!input.id && existing.length >= MAX_ADDRESSES) throw new AccountError("too_many_addresses");

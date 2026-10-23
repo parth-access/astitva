@@ -49,6 +49,9 @@ const checkoutSchema = z.object({
   key: z.uuid("Please reload the page and try again."),
 });
 
+/** Delivering to a saved address: its fields come from the account, not the form. */
+const savedAddressSchema = checkoutSchema.omit({ line1: true, line2: true, landmark: true, city: true, state: true, pincode: true });
+
 export type CheckoutInput = {
   idempotencyKey: string;
   contact: { name: string; phone: string; email: string | null };
@@ -61,31 +64,45 @@ export type CheckoutInput = {
 
 export type CheckoutFieldErrors = Record<string, string>;
 
-export function parseCheckoutForm(form: FormData): { ok: true; data: CheckoutInput } | { ok: false; errors: CheckoutFieldErrors } {
+/**
+ * `saved`: the customer chose one of their saved addresses (the caller reads
+ * it from their account). The order goes there, to its recipient, and the
+ * form's address fields are ignored.
+ */
+export function parseCheckoutForm(
+  form: FormData,
+  saved: AddressSnapshot | null = null,
+): { ok: true; data: CheckoutInput } | { ok: false; errors: CheckoutFieldErrors } {
   const raw = Object.fromEntries([...form].filter(([, v]) => typeof v === "string"));
-  const parsed = checkoutSchema.safeParse(raw);
+  const parsed = saved ? savedAddressSchema.safeParse(raw) : checkoutSchema.safeParse(raw);
   if (!parsed.success) {
     const errors: CheckoutFieldErrors = {};
     for (const issue of parsed.error.issues) errors[issue.path.join(".") || "form"] ??= issue.message;
     return { ok: false, errors };
   }
   const d = parsed.data;
+  const address: AddressSnapshot =
+    saved ??
+    (() => {
+      const a = d as z.infer<typeof checkoutSchema>;
+      return {
+        recipientName: a.name,
+        phone: a.phone,
+        line1: a.line1,
+        ...(a.line2 ? { line2: a.line2 } : {}),
+        ...(a.landmark ? { landmark: a.landmark } : {}),
+        city: a.city,
+        state: a.state,
+        pincode: a.pincode,
+        countryCode: "IN",
+      };
+    })();
   return {
     ok: true,
     data: {
       idempotencyKey: d.key,
       contact: { name: d.name, phone: d.phone, email: d.email?.toLowerCase() ?? null },
-      address: {
-        recipientName: d.name,
-        phone: d.phone,
-        line1: d.line1,
-        ...(d.line2 ? { line2: d.line2 } : {}),
-        ...(d.landmark ? { landmark: d.landmark } : {}),
-        city: d.city,
-        state: d.state,
-        pincode: d.pincode,
-        countryCode: "IN",
-      },
+      address,
       note: d.note,
       paymentMethod: d.payment,
       discountCode: d.discountCode,

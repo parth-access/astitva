@@ -1,21 +1,9 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { z } from "zod";
 import { db } from "@/db/client";
-import {
-  addToBag,
-  BAG_COOKIE,
-  BAG_DAYS,
-  BagError,
-  EMPTY_BAG,
-  findBag,
-  openBag,
-  readBag,
-  removeLine,
-  setLineQuantity,
-  type Bag,
-} from "@/modules/bag/service";
+import { currentBag, openCurrentBag } from "@/modules/bag/current";
+import { addToBag, BagError, EMPTY_BAG, readBag, removeLine, setLineQuantity, type Bag } from "@/modules/bag/service";
 import { getStorefront } from "@/modules/catalog/queries";
 import { allowRequest } from "@/modules/limits/request";
 import { LIMITS } from "@/modules/limits/service";
@@ -23,20 +11,6 @@ import { LIMITS } from "@/modules/limits/service";
 export type BagResult = { bag: Bag; error?: string };
 
 const id = z.uuid();
-
-async function currentToken() {
-  return (await cookies()).get(BAG_COOKIE)?.value ?? null;
-}
-
-async function setToken(token: string) {
-  (await cookies()).set(BAG_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: BAG_DAYS * 86_400,
-  });
-}
 
 function message(err: unknown): string {
   if (err instanceof BagError) {
@@ -60,11 +34,10 @@ export async function addToBagAction(variantId: string, quantity = 1): Promise<B
   const closed = await guard();
   if (closed) {
     // No new bag for a refused request.
-    const existing = await findBag(db, await currentToken());
+    const existing = await currentBag();
     return { bag: existing ? await readBag(db, existing.id) : EMPTY_BAG, error: closed };
   }
-  const bag = await openBag(db, await currentToken());
-  if (bag.newToken) await setToken(bag.newToken);
+  const bag = await openCurrentBag();
   try {
     await addToBag(db, bag.id, variantId, Math.max(1, Math.min(10, Math.trunc(quantity))));
     return { bag: await readBag(db, bag.id) };
@@ -74,7 +47,7 @@ export async function addToBagAction(variantId: string, quantity = 1): Promise<B
 }
 
 export async function setBagQuantityAction(lineId: string, quantity: number): Promise<BagResult> {
-  const bag = await findBag(db, await currentToken());
+  const bag = await currentBag();
   if (!bag || !id.safeParse(lineId).success) return { bag: EMPTY_BAG };
   const closed = await guard();
   if (closed) return { bag: await readBag(db, bag.id), error: closed };
@@ -87,7 +60,7 @@ export async function setBagQuantityAction(lineId: string, quantity: number): Pr
 }
 
 export async function removeFromBagAction(lineId: string): Promise<BagResult> {
-  const bag = await findBag(db, await currentToken());
+  const bag = await currentBag();
   if (!bag || !id.safeParse(lineId).success) return { bag: EMPTY_BAG };
   await removeLine(db, bag.id, lineId);
   return { bag: await readBag(db, bag.id) };
@@ -95,6 +68,6 @@ export async function removeFromBagAction(lineId: string): Promise<BagResult> {
 
 /** For a page that needs the latest stock in the bag (opening the drawer after a while). */
 export async function refreshBagAction(): Promise<Bag> {
-  const bag = await findBag(db, await currentToken());
+  const bag = await currentBag();
   return bag ? readBag(db, bag.id) : EMPTY_BAG;
 }

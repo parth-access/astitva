@@ -24,7 +24,7 @@ export const C = {
 };
 
 const SERIF = "'Playfair Display', Georgia, 'Times New Roman', serif";
-const SANS = "Montserrat, 'Helvetica Neue', Helvetica, Arial, sans-serif";
+export const SANS = "Montserrat, 'Helvetica Neue', Helvetica, Arial, sans-serif";
 const ARCH = "border-radius:999px 999px 0 0";
 
 /** A Cloudinary photo cut to an exact size, as JPEG (Outlook can't show WebP or AVIF). Anything else unchanged. */

@@ -4,7 +4,7 @@ import { POLICY_PAGES } from "@/content/policies";
 
 export function SiteFooter() {
   return (
-    <footer className="mt-32 border-t border-taupe/30">
+    <footer className="mt-32 border-t border-taupe/30 print:hidden">
       <div className="mx-auto grid max-w-6xl gap-12 px-4 pb-10 pt-16 sm:px-8 md:grid-cols-12">
         <div className="md:col-span-5">
           <p className="font-display text-3xl italic">Your true form</p>

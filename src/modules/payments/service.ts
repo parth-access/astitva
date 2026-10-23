@@ -22,6 +22,7 @@ import { cartItems, orderEvents, orderItems, orders, paymentEvents, payments } f
 import { commitOrderReservations, releaseOrderHolds } from "@/modules/inventory/service";
 import { queueOrderPlacedEmails } from "@/modules/checkout/service";
 import { releaseCodeUse } from "@/modules/discounts/service";
+import { issueReceipt } from "@/modules/receipts/service";
 import { alertOwners } from "@/modules/email/outbox";
 import { orderMachine, orderPaymentMachine, paymentAttemptMachine } from "@/modules/orders/machines";
 import type { Razorpay, RazorpayPayment, RazorpayRefund } from "./razorpay";
@@ -161,6 +162,8 @@ export async function recordCapture(db: Db, payment: RazorpayPayment, source: "b
 
     orderPaymentMachine.assertTransition(order!.paymentStatus, "paid");
     await tx.update(orders).set({ paymentStatus: "paid" }).where(eq(orders.id, order!.id));
+    // Money received: it gets a receipt, whatever happens to the order next.
+    await issueReceipt(tx, order!.id, { paidWith: payment.method ?? null, providerPaymentId: payment.id, paidAt: new Date() });
     await tx.insert(orderEvents).values({
       orderId: order!.id,
       eventType: "payment.captured",

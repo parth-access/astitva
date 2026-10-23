@@ -2,15 +2,16 @@ import type { MetadataRoute } from "next";
 import { POLICY_PAGES } from "@/content/policies";
 import { cloudinaryUrl } from "@/lib/cloudinary-url";
 import { env } from "@/lib/env";
-import { listPieces } from "@/modules/catalog/queries";
+import { listCategories, listPieces } from "@/modules/catalog/queries";
 
-/** Public pages only: the lookbook, the shop, every published piece, and the help and policy pages. */
+/** Public pages only: the lookbook, the shop and its categories with pieces in them, every published piece, and the help and policy pages. */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = env().APP_URL.replace(/\/$/, "");
-  const pieces = await listPieces({ limit: 500 });
+  const [pieces, categories] = await Promise.all([listPieces({ limit: 500 }), listCategories()]);
   return [
     { url: `${base}/`, changeFrequency: "weekly", priority: 1 },
     { url: `${base}/shop`, changeFrequency: "weekly", priority: 0.9 },
+    ...categories.filter((c) => c.styles > 0).map((c) => ({ url: `${base}/shop/${c.slug}`, changeFrequency: "weekly" as const, priority: 0.85 })),
     ...pieces.map((p) => ({
       url: `${base}/pieces/${p.slug}`,
       lastModified: p.updatedAt,

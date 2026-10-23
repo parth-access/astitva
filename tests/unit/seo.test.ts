@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- reading JSON-LD shapes in tests */
 import { describe, expect, it } from "vitest";
-import { breadcrumbLd, ldJson, productLd, type LdPiece } from "../../src/lib/seo";
+import { parseSettingsForm } from "../../src/modules/catalog-admin/settings";
+import { breadcrumbLd, faqLd, itemListLd, ldJson, organizationLd, productLd, type LdPiece } from "../../src/lib/seo";
 
 const neem: LdPiece = {
   slug: "neem-linen-wrap-dress",
@@ -54,5 +55,39 @@ describe("structured data", () => {
     const json = ldJson({ description: "</script><script>alert(1)</script>" });
     expect(json).not.toContain("</script>");
     expect(JSON.parse(json).description).toBe("</script><script>alert(1)</script>");
+  });
+});
+
+describe("brand, FAQ and category data", () => {
+  it("names the brand's own profiles, and leaves sameAs out without any", () => {
+    const ld = organizationLd({ whatsapp: null, email: null, profiles: ["https://www.instagram.com/astitva"] }) as any;
+    expect(ld.sameAs).toEqual(["https://www.instagram.com/astitva"]);
+    expect("sameAs" in organizationLd({ whatsapp: null, email: null })).toBe(false);
+  });
+
+  it("describes a FAQ page question by question", () => {
+    const ld = faqLd([{ question: "How can I pay?", answer: "By UPI, card or cash on delivery." }]) as any;
+    expect(ld["@type"]).toBe("FAQPage");
+    expect(ld.mainEntity[0]).toEqual({ "@type": "Question", name: "How can I pay?", acceptedAnswer: { "@type": "Answer", text: "By UPI, card or cash on delivery." } });
+  });
+
+  it("lists a category's pieces in order, at absolute addresses", () => {
+    const ld = itemListLd("Dresses", ["/pieces/neem", "/pieces/saanjh"]) as any;
+    expect(ld.itemListElement.map((i: any) => i.position)).toEqual([1, 2]);
+    expect(ld.itemListElement[0].url).toMatch(/^https?:\/\/[^/]+\/pieces\/neem$/);
+  });
+
+  it("takes profile links one per line, https only, without repeats", () => {
+    const form = (links: string) => {
+      const f = new FormData();
+      for (const [k, v] of Object.entries({ note: "", supportWhatsapp: "", shippingFlatMinor: "0", codFeeMinor: "0", codMaxOrderMinor: "5000", profileLinks: links })) f.append(k, v);
+      return f;
+    };
+    const ok = parseSettingsForm(form("https://www.instagram.com/astitva\n\nhttps://in.pinterest.com/astitva\nhttps://www.instagram.com/astitva"));
+    expect(ok.ok && ok.data.profileLinks).toEqual(["https://www.instagram.com/astitva", "https://in.pinterest.com/astitva"]);
+    const bad = parseSettingsForm(form("http://instagram.com/astitva"));
+    expect(!bad.ok && bad.errors.profileLinks).toMatch(/https/);
+    const none = parseSettingsForm(form(""));
+    expect(none.ok && none.data.profileLinks).toEqual([]);
   });
 });

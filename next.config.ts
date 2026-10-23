@@ -22,6 +22,8 @@ const nextConfig: NextConfig = {
       // Chapters and the archive were retired: the home page is the lookbook.
       { source: "/chapters/:slug", destination: "/", permanent: true },
       { source: "/archive", destination: "/", permanent: true },
+      // Categories have their own pages now: /shop?category=dresses → /shop/dresses.
+      { source: "/shop", has: [{ type: "query", key: "category", value: "(?<category>[a-z0-9-]+)" }], destination: "/shop/:category", permanent: true },
     ];
   },
 };

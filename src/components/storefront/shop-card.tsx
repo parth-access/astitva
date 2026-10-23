@@ -6,6 +6,7 @@ import { pieceHref } from "@/components/brand/piece-caption";
 import { pieceTransitionName, Plate } from "@/components/brand/plate";
 import { defaultColour } from "@/components/lookbook/lookbook-style";
 import type { PieceCard } from "@/modules/catalog/queries";
+import { HeartButton } from "./saved/saved-context";
 import { SwatchPicker } from "./swatch-picker";
 
 /**
@@ -21,7 +22,7 @@ export function ShopCard({ piece, priority, caption }: { piece: PieceCard; prior
   const title = piece.pieceName ?? piece.name;
 
   return (
-    <div className="group">
+    <div className="group relative">
       <Link href={href} transitionTypes={["nav-forward"]} aria-label={`${title}, ${piece.name}${colour ? `, in ${colour}` : ""}`} className="block">
         <div className="transition-transform duration-500 ease-[cubic-bezier(0.22,0.61,0.36,1)] group-hover:-translate-y-1">
           <div key={photo ?? "sketch"} className={photo ? "fade-in" : undefined}>
@@ -40,6 +41,8 @@ export function ShopCard({ piece, priority, caption }: { piece: PieceCard; prior
           </div>
         </div>
       </Link>
+      {/* Beside the link, not in it: a heart doesn't open the piece. */}
+      <HeartButton productId={piece.id} name={title} className="absolute right-2 top-2 z-10" />
       {piece.colours.filter((c) => c.name).length > 1 ? (
         <div className="mt-4">
           <SwatchPicker colours={piece.colours} value={colour} onChange={setColour} onPreview={setPreview} size="sm" legend={`Colours of ${title}`} showName={false} />

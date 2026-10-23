@@ -2,6 +2,40 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-23 — You might also like
+
+**Decision:** each piece page ends with "You might also like": up to 4 other pieces from its category, in the shop's order. If the category has too few, the row is topped up from the categories after it in the shop's menu order (set in the admin), wrapping round from the last to the first; pieces without a category come last. Never the piece itself, never sold-out pieces; no section when there's nothing to show. A piece's category is its first one, as for its sketch. Kept simple on purpose: hand-picked pairings ("wear it with") or suggestions from hearts and orders can come later.
+
+**How:** `pickRelated` (`src/modules/catalog/related.ts`) is a pure function with unit tests; `listRelatedPieces` feeds it the cached catalogue, so the row is cached and refreshed with it.
+
+## 2026-10-23 — Category pages, FAQ and brand profiles for search
+
+**Category pages:** each category has its own address, `/shop/dresses`, with its own title ("Women's dresses"), a description written from what it lists (its styles, colours and lowest price), a canonical address, breadcrumbs and the list of its pieces as structured data, and a place in the sitemap. Sorting stays a view of the page (`?sort=`). A category with nothing published yet shows "Coming soon" and is kept out of search (noindex, not in the sitemap). Old `/shop?category=dresses` links redirect permanently. Piece pages link their category ("In: Dresses") and include it in their breadcrumbs.
+
+**FAQ:** the questions page carries FAQPage structured data, written from the answers the page shows (words only, links removed), so the two can't drift apart. One answer still said accounts had no password; it now matches the site.
+
+**Brand profiles:** Lookbook & settings → "Profiles elsewhere": up to 8 https links (Instagram, Pinterest…), one per line. They go into the brand's structured data as `sameAs`, so search engines connect those accounts to Astitva. New column `store_settings.profile_links`.
+
+## 2026-10-23 — Receipts
+
+**Decision:** every order gets one receipt, numbered in sequence (`ASTR-000001`, its own sequence), with the order frozen into it when issued (`receipts`, never edited). Online: issued in the same transaction that records the Razorpay capture, with how it was paid (UPI, card…), the payment id and when. Cash on delivery: issued when the order is placed, for the amount to pay on delivery (chosen over waiting for delivery, so it goes with the confirmation email). Astitva has no GSTIN, so it says "Payment receipt, not a tax invoice. Prices include all taxes."; a tax invoice (GSTIN, HSN codes, tax breakdown) is separate work for when there is one.
+
+**Where it shows:** the confirmation email has a "Your receipt" panel and the receipt as a PDF attachment (about 17 KB). The order's private page has a receipt block (View, Download PDF); `/orders/<number>/receipt?k=…` is a printable page (site header and footer hidden in print) and `/receipt.pdf?k=…` the download, both behind the order's key. The account's orders list links each receipt, and the admin's order page shows its number.
+
+**Live status beside the frozen receipt:** the page and PDF say where the money stands now: paid online; to pay on delivery; paid on delivery (once the courier has collected); not paid (returned undelivered). Refunds show as lines below the total. No separate refund document yet.
+
+**PDF:** pdf-lib with fontkit, pure JavaScript. Fonts come from `src/fonts/og` (Montserrat; Playfair for the title and for ₹, which the Latin Montserrat subset lacks; any character neither has prints as "?"). Long orders carry over onto more pages.
+
+## 2026-10-23 — Checkout from the account, the bag following it, and hearts
+
+**Checkout:** signed in, the name, mobile and email are filled in from the account, and saved addresses are offered as cards (the one used first is chosen), with "Somewhere else" for typing one in. The form sends only the saved address's id; the server reads the address from the customer's own account (`getAddress`) and the order goes to its recipient. A typed address can be saved to the account for next time (ticked by default while there's room; one already saved isn't saved twice). Saving happens after the order is placed and never stops it.
+
+**The bag follows the account:** a signed-in customer's bag belongs to the account (`carts.user_id`, no token), so it's the same bag on every device. Signing in, by any route, brings the guest bag on that device in (`claimGuestBag`, run whenever a signed-in request still carries the guest cookie): with no account bag, the guest bag becomes it; otherwise its lines join, the same colour and size adding up to 10, and the guest bag goes. Stock isn't checked when joining: the bag shows what has sold, as always. Signing out leaves the account's bag with the account, so a shared computer shows an empty bag. Guest bags are found only by cookie, account bags only by owner (`src/modules/bag/current.ts`). New index `carts_user_idx`.
+
+**Edge case accepted:** a guest opens a payment window, closes it, then signs in to an account that already has a bag. If that payment completes later, the paid pieces stay in the account's bag (the order's bag is gone) and the buyer removes them.
+
+**Hearts:** a heart on each piece in the shop and "Save for later" on the piece page. Saved by style (`saved_pieces`), up to 100, published styles only. Signed out, a heart goes to sign in and back to the page. The account has a "Saved" tab, newest first; tapping a heart there again lets the piece go (it stays until reload, so a mistaken tap can be undone). A style no longer offered drops out of the list. At most 60 heart taps per 10 minutes per network.
+
 ## 2026-10-22 — Customer passwords, a sign-up page, and verifying the email
 
 **Decision:** Customers can also have a password (this changes "no passwords" in the accounts entry below). `/account/sign-up` asks for name, mobile, email and password (8 to 128 characters) and signs them in straight away; the email isn't verified yet. Sign-in offers a password or a code by email, plus Google. Forgot it: a code by email, then a new password, which signs out every other device. An account made by a code or Google can set a password the same way.
@@ -30,7 +64,7 @@ Short records of choices that differ from, or add to, the revised PRD. Newest fi
 
 **Account pages** (`/account`, behind `requireCustomer()`; `proxy.ts` sends visitors without the cookie to sign in): orders (the account's, and guest orders with its email, leaving out online checkouts never paid), addresses (up to 10, one used first), and details (name, mobile, sign out everywhere, delete the account). Deleting removes sign-ins, sessions, addresses, saved pieces and back-in-stock alerts; orders stay, unlinked, for tax records. The header shows an account icon on wider screens; on phones it's in the menu.
 
-**Next:** checkout using the account, the bag following the account, hearts.
+**Next:** checkout using the account, the bag following the account, hearts (done 2026-10-23).
 
 ## 2026-10-21 — The site speaks as Astitva; content confirmed
 

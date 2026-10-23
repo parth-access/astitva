@@ -81,6 +81,11 @@ async function Orders() {
                   →
                 </span>
               </Link>
+              {o.receipt ? (
+                <Link href={o.receipt.href} transitionTypes={FORWARD} className="link mt-1.5 inline-block px-5 text-xs text-espresso-soft">
+                  Receipt {o.receipt.number}
+                </Link>
+              ) : null}
             </li>
           ))}
         </ul>

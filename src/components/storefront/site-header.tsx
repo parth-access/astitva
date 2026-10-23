@@ -21,7 +21,7 @@ export function SiteHeader({ notice }: { notice?: string | null }) {
   return (
     // Named so it stays still while the page under it changes. The name makes
     // it a layer of its own, so it's lifted above the page for the menu.
-    <header className="relative z-30" style={{ viewTransitionName: "site-header" }}>
+    <header className="relative z-30 print:hidden" style={{ viewTransitionName: "site-header" }}>
       {notice ? <p className="bg-espresso px-4 py-2 text-center text-xs text-ivory">{notice}</p> : null}
       <div className="mx-auto grid max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 py-6 sm:px-8 md:py-8">
         <nav aria-label="Main" className="hidden md:block">

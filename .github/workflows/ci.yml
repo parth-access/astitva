@@ -26,6 +26,8 @@ jobs:
       DATABASE_URL_TEST: postgres://astitva:astitva@localhost:5432/astitva_test
       # A production build needs the site's address set (src/lib/env.ts).
       APP_URL: http://localhost:3000
+      # The build loads the auth config, which checks for a secret. A placeholder is enough: CI signs nothing real.
+      BETTER_AUTH_SECRET: ci-build-only-not-a-real-secret-0123456789
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

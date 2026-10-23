@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { isValidElement, type ReactNode } from "react";
+import { JsonLd } from "@/components/brand/json-ld";
+import { faqLd } from "@/lib/seo";
 import { ACROSS } from "@/lib/transition-types";
 
 export const metadata: Metadata = {
@@ -30,7 +32,7 @@ const SECTIONS: { id: string; title: string; faqs: { q: string; a: ReactNode }[]
         a: (
           <>
             No. Add pieces to your bag and check out with your name, mobile number and address. An email is optional, but it&apos;s how your receipt and updates reach you. If
-            you like, <L href="/account">sign in</L> with your email (we send a code, no password) to see all your orders in one place and keep your addresses.
+            you like, <L href="/account/sign-up">make an account</L> to see all your orders in one place, keep your addresses and save pieces for later.
           </>
         ),
       },
@@ -151,9 +153,18 @@ const SECTIONS: { id: string; title: string; faqs: { q: string; a: ReactNode }[]
   },
 ];
 
+/** An answer's words without its links, for the structured data: the same text the page shows. */
+function textOf(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(textOf).join("");
+  if (isValidElement<{ children?: ReactNode }>(node)) return textOf(node.props.children);
+  return "";
+}
+
 export default function FaqPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 pb-28 pt-12 sm:px-8 md:pt-20">
+      <JsonLd data={faqLd(SECTIONS.flatMap((s) => s.faqs.map((f) => ({ question: f.q, answer: textOf(f.a).replace(/\s+/g, " ").trim() }))))} />
       <p className="caption text-xl">Before you ask</p>
       <h1 className="mt-2 text-5xl italic md:text-6xl">Questions</h1>
       <nav aria-label="Topics" className="mt-8 flex flex-wrap gap-2">
