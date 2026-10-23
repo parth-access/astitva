@@ -1,19 +1,21 @@
 "use server";
 
 import { updateTag } from "next/cache";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db/client";
 import { env } from "@/lib/env";
 import { normaliseMobile } from "@/lib/india";
+import type { AddressInput } from "@/modules/account/input";
+import { AccountError, getAddress, listAddresses, saveAddress, toSnapshot } from "@/modules/account/service";
 import { getCustomer } from "@/modules/auth/customer";
-import { BAG_COOKIE, findBag, readBag } from "@/modules/bag/service";
+import { currentBag } from "@/modules/bag/current";
+import { readBag } from "@/modules/bag/service";
 import { priceOrder, type OrderTotals } from "@/modules/checkout/pricing";
 import { getCheckoutSettings } from "@/modules/checkout/queries";
 import { checkCode } from "@/modules/discounts/service";
 import { CATALOG_TAG } from "@/modules/catalog/queries";
-import { parseCheckoutForm } from "@/modules/checkout/input";
+import { parseCheckoutForm, type CheckoutInput } from "@/modules/checkout/input";
 import { CheckoutError, MAX_UNVERIFIED_COD, placeOrder } from "@/modules/checkout/service";
 import { isOrderLinkKey, orderLinkKey, orderPath } from "@/modules/orders/links";
 import { alertError } from "@/modules/email/outbox";
@@ -43,7 +45,7 @@ export type DiscountPreview =
 /** "Apply" on the checkout page: is the code good for this bag, and what does the order come to with it? */
 export async function previewDiscountAction(input: string, phone: string): Promise<DiscountPreview> {
   if (!(await allowRequest(LIMITS.checkoutIp))) return { ok: false, message: "Too many tries in a short time. Please wait a few minutes." };
-  const bag = await findBag(db, (await cookies()).get(BAG_COOKIE)?.value);
+  const bag = await currentBag();
   if (!bag) return { ok: false, message: "Your bag is empty." };
   const contents = await readBag(db, bag.id);
   const lines = contents.lines.map((l) => ({ unitPriceMinor: l.priceMinor, quantity: l.quantity }));
@@ -67,9 +69,22 @@ const MESSAGES: Record<CheckoutError["code"], string> = {
 
 const linkFor = (orderId: string, orderNumber: string) => orderPath(orderNumber, orderLinkKey(orderId, env().BETTER_AUTH_SECRET));
 
+const uuid = z.uuid();
+
 export async function placeOrderAction(_prev: CheckoutState, form: FormData): Promise<CheckoutState> {
   const values = Object.fromEntries([...form].filter((e): e is [string, string] => typeof e[1] === "string"));
-  const parsed = parseCheckoutForm(form);
+  const customer = await getCustomer();
+
+  // A saved address is read from the account, never from the form.
+  const savedId = String(form.get("savedAddress") ?? "");
+  let saved = null;
+  if (savedId && savedId !== "new") {
+    const address = customer && uuid.safeParse(savedId).success ? await getAddress(db, customer.id, savedId) : null;
+    if (!address) return { errors: { savedAddress: "That address has gone from your account. Choose another, or type it in." }, values };
+    saved = toSnapshot(address);
+  }
+
+  const parsed = parseCheckoutForm(form, saved);
   if (!parsed.ok) return { errors: parsed.errors, values };
   if (!(await allowRequest(LIMITS.checkoutIp)) || !(await allowRequest(LIMITS.checkoutPhone, parsed.data.contact.phone))) {
     return { errors: {}, values, message: "Too many orders in a short time. Please wait a little, or message us and we'll help." };
@@ -78,18 +93,22 @@ export async function placeOrderAction(_prev: CheckoutState, form: FormData): Pr
   const rzp = parsed.data.paymentMethod === "online" ? razorpay() : null;
   if (parsed.data.paymentMethod === "online" && !rzp) return { errors: {}, message: "Online payment isn't available right now.", values };
 
-  const bag = await findBag(db, (await cookies()).get(BAG_COOKIE)?.value);
+  const bag = await currentBag();
   if (!bag) return { errors: {}, message: MESSAGES.empty, values };
 
   let placed;
   try {
-    placed = await placeOrder(db, bag.id, parsed.data, (await getCustomer())?.id ?? null);
+    placed = await placeOrder(db, bag.id, parsed.data, customer?.id ?? null);
   } catch (err) {
     if (err instanceof CheckoutError) {
       if (err.code === "discount") return { errors: { discountCode: err.detail ?? MESSAGES.discount }, values, discountRejected: true };
       return { errors: {}, message: MESSAGES[err.code], bagChanged: err.code === "unavailable", values };
     }
     throw err;
+  }
+  if (customer && !saved && !placed.repeated && form.get("saveAddress") === "on") {
+    // The order is placed whatever happens here.
+    await keepAddress(customer.id, parsed.data.address).catch((e) => console.error("Saving a checkout address", e));
   }
   // Stock changed (taken or held): the shop's sold-out marks must follow.
   updateTag(CATALOG_TAG);
@@ -106,6 +125,19 @@ export async function placeOrderAction(_prev: CheckoutState, form: FormData): Pr
     }
     throw err;
   }
+}
+
+/** "Save it for next time": a new address joins the account (unless it's already there, or the account is full). */
+async function keepAddress(userId: string, a: CheckoutInput["address"]) {
+  const input = { name: a.recipientName, phone: a.phone, line1: a.line1, line2: a.line2 ?? null, landmark: a.landmark ?? null, city: a.city, state: a.state as AddressInput["state"], pincode: a.pincode };
+  const same = (await listAddresses(db, userId)).some(
+    (s) => s.line1.toLowerCase() === a.line1.toLowerCase() && s.pincode === a.pincode && s.recipientName.toLowerCase() === a.recipientName.toLowerCase(),
+  );
+  if (same) return;
+  await saveAddress(db, userId, input).catch((e) => {
+    // A full account just isn't saved to.
+    if (!(e instanceof AccountError)) throw e;
+  });
 }
 
 const reply = z.object({

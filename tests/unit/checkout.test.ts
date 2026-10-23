@@ -111,6 +111,15 @@ describe("parseCheckoutForm", () => {
     expect(Object.keys(r.errors).sort()).toEqual(["name", "phone", "pincode", "state"]);
   });
 
+  it("sends the order to a saved address, whatever the form's address fields say", () => {
+    const saved = { recipientName: "Meera Rao", phone: "9876543210", line1: "4 Lake Road", city: "Pune", state: "Maharashtra", pincode: "411001", countryCode: "IN" as const };
+    const r = parseCheckoutForm(form({ ...valid, line1: "", pincode: "nope", state: "" }), saved);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.data.address).toEqual(saved);
+    expect(r.data.contact.name).toBe("Asha Rao");
+  });
+
   it("ignores any amount sent with the form", () => {
     const r = parseCheckoutForm(form({ ...valid, totalMinor: "1" }));
     expect(r.ok && "totalMinor" in r.data).toBe(false);

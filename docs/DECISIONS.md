@@ -2,6 +2,16 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-23 — Checkout from the account, the bag following it, and hearts
+
+**Checkout:** signed in, the name, mobile and email are filled in from the account, and saved addresses are offered as cards (the one used first is chosen), with "Somewhere else" for typing one in. The form sends only the saved address's id; the server reads the address from the customer's own account (`getAddress`) and the order goes to its recipient. A typed address can be saved to the account for next time (ticked by default while there's room; one already saved isn't saved twice). Saving happens after the order is placed and never stops it.
+
+**The bag follows the account:** a signed-in customer's bag belongs to the account (`carts.user_id`, no token), so it's the same bag on every device. Signing in, by any route, brings the guest bag on that device in (`claimGuestBag`, run whenever a signed-in request still carries the guest cookie): with no account bag, the guest bag becomes it; otherwise its lines join, the same colour and size adding up to 10, and the guest bag goes. Stock isn't checked when joining: the bag shows what has sold, as always. Signing out leaves the account's bag with the account, so a shared computer shows an empty bag. Guest bags are found only by cookie, account bags only by owner (`src/modules/bag/current.ts`). New index `carts_user_idx`.
+
+**Edge case accepted:** a guest opens a payment window, closes it, then signs in to an account that already has a bag. If that payment completes later, the paid pieces stay in the account's bag (the order's bag is gone) and the buyer removes them.
+
+**Hearts:** a heart on each piece in the shop and "Save for later" on the piece page. Saved by style (`saved_pieces`), up to 100, published styles only. Signed out, a heart goes to sign in and back to the page. The account has a "Saved" tab, newest first; tapping a heart there again lets the piece go (it stays until reload, so a mistaken tap can be undone). A style no longer offered drops out of the list. At most 60 heart taps per 10 minutes per network.
+
 ## 2026-10-22 — Customer passwords, a sign-up page, and verifying the email
 
 **Decision:** Customers can also have a password (this changes "no passwords" in the accounts entry below). `/account/sign-up` asks for name, mobile, email and password (8 to 128 characters) and signs them in straight away; the email isn't verified yet. Sign-in offers a password or a code by email, plus Google. Forgot it: a code by email, then a new password, which signs out every other device. An account made by a code or Google can set a password the same way.
@@ -30,7 +40,7 @@ Short records of choices that differ from, or add to, the revised PRD. Newest fi
 
 **Account pages** (`/account`, behind `requireCustomer()`; `proxy.ts` sends visitors without the cookie to sign in): orders (the account's, and guest orders with its email, leaving out online checkouts never paid), addresses (up to 10, one used first), and details (name, mobile, sign out everywhere, delete the account). Deleting removes sign-ins, sessions, addresses, saved pieces and back-in-stock alerts; orders stay, unlinked, for tax records. The header shows an account icon on wider screens; on phones it's in the menu.
 
-**Next:** checkout using the account, the bag following the account, hearts.
+**Next:** checkout using the account, the bag following the account, hearts (done 2026-10-23).
 
 ## 2026-10-21 — The site speaks as Astitva; content confirmed
 

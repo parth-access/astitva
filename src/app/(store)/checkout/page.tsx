@@ -2,12 +2,14 @@ import { randomUUID } from "node:crypto";
 import { Reveal } from "@/components/brand/reveal";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { cookies } from "next/headers";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
-import { CheckoutForm } from "@/components/storefront/checkout-form";
+import { CheckoutForm, type CheckoutAccount } from "@/components/storefront/checkout-form";
 import { db } from "@/db/client";
-import { BAG_COOKIE, findBag, readBag } from "@/modules/bag/service";
+import { getDetails, listAddresses, MAX_ADDRESSES } from "@/modules/account/service";
+import { getCustomer } from "@/modules/auth/customer";
+import { currentBag } from "@/modules/bag/current";
+import { readBag } from "@/modules/bag/service";
 import { EMPTY_BAG } from "@/modules/bag/types";
 import { getStorefront } from "@/modules/catalog/queries";
 import { priceOrder } from "@/modules/checkout/pricing";
@@ -38,7 +40,7 @@ async function Checkout() {
     );
   }
 
-  const found = await findBag(db, (await cookies()).get(BAG_COOKIE)?.value);
+  const found = await currentBag();
   const bag = found ? await readBag(db, found.id) : EMPTY_BAG;
   if (bag.count === 0) {
     return (
@@ -54,6 +56,7 @@ async function Checkout() {
   const lines = bag.lines.map((l) => ({ unitPriceMinor: l.priceMinor, quantity: l.quantity }));
   const totals = { cod: priceOrder(lines, settings, "cod"), online: priceOrder(lines, settings, "online") };
   const rzp = razorpay();
+  const account = await accountFor((await getCustomer())?.id ?? null);
   // The order key below is new on every request, never prerendered.
   await connection();
   return (
@@ -64,10 +67,32 @@ async function Checkout() {
       codEnabled={settings.codEnabled}
       overCodLimit={totals.cod.totalMinor > settings.codMaxOrderMinor}
       holdMinutes={settings.holdMinutes}
+      account={account}
       // One key per visit to this page: a double tap or a resubmit places one order.
       idempotencyKey={randomUUID()}
     />
   );
+}
+
+/** A signed-in customer's details and saved addresses, to fill the form in. */
+async function accountFor(userId: string | null): Promise<CheckoutAccount | null> {
+  if (!userId) return null;
+  const [details, addresses] = await Promise.all([getDetails(db, userId), listAddresses(db, userId)]);
+  if (!details) return null;
+  return {
+    name: details.name,
+    email: details.email,
+    phone: details.phone,
+    canSave: addresses.length < MAX_ADDRESSES,
+    addresses: addresses.map((a) => ({
+      id: a.id,
+      recipientName: a.recipientName,
+      phone: a.phone,
+      lines: [a.line1, a.line2, a.landmark ? `Near ${a.landmark}` : null].filter((l): l is string => Boolean(l)).join(", "),
+      place: `${a.city}, ${a.state} ${a.pincode}`,
+      isDefault: a.isDefault,
+    })),
+  };
 }
 
 function CheckoutSkeleton() {

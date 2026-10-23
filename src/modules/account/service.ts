@@ -95,6 +95,15 @@ export async function listAddresses(db: DbOrTx, userId: string): Promise<SavedAd
     .orderBy(desc(customerAddresses.isDefault), desc(customerAddresses.createdAt));
 }
 
+/** One of the customer's own addresses, or null. */
+export async function getAddress(db: DbOrTx, userId: string, id: string): Promise<SavedAddress | null> {
+  const [row] = await db
+    .select()
+    .from(customerAddresses)
+    .where(and(eq(customerAddresses.id, id), eq(customerAddresses.userId, userId)));
+  return row ?? null;
+}
+
 const columns = (a: AddressInput) => ({
   recipientName: a.name,
   phone: a.phone,

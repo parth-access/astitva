@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState, useTransition, type ComponentProps, type ReactNode } from "react";
 import { confirmPaymentAction, placeOrderAction, previewDiscountAction, type CheckoutState } from "@/app/(store)/checkout/actions";
 import { Plate } from "@/components/brand/plate";
-import { INDIAN_STATES } from "@/lib/india";
+import { formatMobile, INDIAN_STATES } from "@/lib/india";
 import { formatINR } from "@/lib/money";
 import type { Bag } from "@/modules/bag/types";
 import type { OrderTotals } from "@/modules/checkout/pricing";
@@ -14,6 +14,16 @@ import { useBag } from "./bag/bag-context";
 import { openRazorpay } from "./razorpay-window";
 
 const empty: CheckoutState = { errors: {} };
+
+/** A signed-in customer: their details fill the form in, and their saved addresses are offered. */
+export type CheckoutAccount = {
+  name: string;
+  email: string;
+  phone: string | null;
+  /** Room for one more saved address. */
+  canSave: boolean;
+  addresses: { id: string; recipientName: string; phone: string; lines: string; place: string; isDefault: boolean }[];
+};
 
 type Method = "online" | "cod";
 type Paying =
@@ -39,6 +49,7 @@ export function CheckoutForm({
   overCodLimit,
   holdMinutes,
   idempotencyKey,
+  account = null,
 }: {
   bag: Bag;
   totals: Record<Method, OrderTotals>;
@@ -48,6 +59,7 @@ export function CheckoutForm({
   overCodLimit: boolean;
   holdMinutes: number;
   idempotencyKey: string;
+  account?: CheckoutAccount | null;
 }) {
   const [state, action, pending] = useActionState(placeOrderAction, empty);
   const router = useRouter();
@@ -55,7 +67,11 @@ export function CheckoutForm({
   const form = useRef<HTMLFormElement>(null);
   const [method, setMethod] = useState<Method>((state.values?.payment as Method | undefined) ?? (online ? "online" : "cod"));
   const [paying, setPaying] = useState<Paying>({ phase: "idle" });
-  const v = (k: string) => state.values?.[k] ?? "";
+  // What they typed last time, else what the account knows.
+  const filled: Record<string, string> = { name: account?.name ?? "", phone: account?.phone ?? "", email: account?.email ?? "" };
+  const v = (k: string) => state.values?.[k] ?? filled[k] ?? "";
+  const saved = account?.addresses ?? [];
+  const [where, setWhere] = useState<string>(() => state.values?.savedAddress ?? (saved.find((a) => a.isDefault) ?? saved[0])?.id ?? "new");
   const e = (k: string) => state.errors[k];
   const errorCount = Object.keys(state.errors).filter((k) => k !== "discountCode").length;
   const [discount, setDiscount] = useState<Applied | null>(null);
@@ -182,31 +198,68 @@ export function CheckoutForm({
           </Step>
 
           <Step n={2} title="Where it goes">
-            <Field label="House or flat, street" name="line1" autoComplete="address-line1" defaultValue={v("line1")} error={e("line1")} />
-            <Field label="Area or locality (optional)" name="line2" autoComplete="address-line2" defaultValue={v("line2")} error={e("line2")} />
-            <Field label="Landmark (optional)" name="landmark" defaultValue={v("landmark")} error={e("landmark")} hint="Helps the courier find you." />
-            <div className="grid gap-5 sm:grid-cols-3">
-              <Field label="Pincode" name="pincode" inputMode="numeric" autoComplete="postal-code" maxLength={6} defaultValue={v("pincode")} error={e("pincode")} />
-              <Field label="Town or city" name="city" autoComplete="address-level2" defaultValue={v("city")} error={e("city")} />
-              <label className="block">
-                <span className="text-sm">State</span>
-                <select
-                  name="state"
-                  autoComplete="address-level1"
-                  defaultValue={v("state")}
-                  aria-invalid={e("state") ? true : undefined}
-                  className="field mt-1.5"
-                >
-                  <option value="" disabled>
-                    Choose
-                  </option>
-                  {INDIAN_STATES.map((s) => (
-                    <option key={s}>{s}</option>
-                  ))}
-                </select>
-                {e("state") ? <span className="mt-1 block text-xs text-burgundy">{e("state")}</span> : null}
-              </label>
-            </div>
+            {saved.length ? (
+              <div className="space-y-3" role="radiogroup" aria-label="Your saved addresses">
+                {saved.map((a) => (
+                  <label key={a.id} className="choice-card">
+                    <input type="radio" name="savedAddress" value={a.id} checked={where === a.id} onChange={() => setWhere(a.id)} className="mt-1 accent-burgundy" />
+                    <span className="min-w-0 text-sm leading-relaxed">
+                      <span className="block font-medium">{a.recipientName}</span>
+                      <span className="block text-espresso-soft">{a.lines}</span>
+                      <span className="block text-espresso-soft">{a.place}</span>
+                      <span className="block tabular-nums text-espresso-soft">{formatMobile(a.phone)}</span>
+                    </span>
+                  </label>
+                ))}
+                <label className="choice-card">
+                  <input type="radio" name="savedAddress" value="new" checked={where === "new"} onChange={() => setWhere("new")} className="mt-1 accent-burgundy" />
+                  <span className="text-sm font-medium">Somewhere else</span>
+                </label>
+                {e("savedAddress") ? <p className="text-xs text-burgundy">{e("savedAddress")}</p> : null}
+              </div>
+            ) : null}
+            {where === "new" ? (
+              <div className={saved.length ? "fade-in space-y-5 pt-2" : "space-y-5"}>
+                <Field label="House or flat, street" name="line1" autoComplete="address-line1" defaultValue={v("line1")} error={e("line1")} />
+                <Field label="Area or locality (optional)" name="line2" autoComplete="address-line2" defaultValue={v("line2")} error={e("line2")} />
+                <Field label="Landmark (optional)" name="landmark" defaultValue={v("landmark")} error={e("landmark")} hint="Helps the courier find you." />
+                <div className="grid gap-5 sm:grid-cols-3">
+                  <Field label="Pincode" name="pincode" inputMode="numeric" autoComplete="postal-code" maxLength={6} defaultValue={v("pincode")} error={e("pincode")} />
+                  <Field label="Town or city" name="city" autoComplete="address-level2" defaultValue={v("city")} error={e("city")} />
+                  <label className="block">
+                    <span className="text-sm">State</span>
+                    <select
+                      name="state"
+                      autoComplete="address-level1"
+                      defaultValue={v("state")}
+                      aria-invalid={e("state") ? true : undefined}
+                      className="field mt-1.5"
+                    >
+                      <option value="" disabled>
+                        Choose
+                      </option>
+                      {INDIAN_STATES.map((s) => (
+                        <option key={s}>{s}</option>
+                      ))}
+                    </select>
+                    {e("state") ? <span className="mt-1 block text-xs text-burgundy">{e("state")}</span> : null}
+                  </label>
+                </div>
+                {account?.canSave ? (
+                  <label className="flex items-center gap-3 text-sm">
+                    <input type="checkbox" name="saveAddress" defaultChecked={state.values ? state.values.saveAddress === "on" : true} className="size-4 accent-burgundy" />
+                    Save it to your account for next time
+                  </label>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-xs text-espresso-soft">
+                The courier asks for the name on the address.{" "}
+                <Link href="/account/addresses" className="link">
+                  Change your addresses
+                </Link>
+              </p>
+            )}
           </Step>
 
           <Step n={3} title="How you'll pay">

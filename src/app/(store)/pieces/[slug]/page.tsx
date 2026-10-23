@@ -10,6 +10,7 @@ import { pieceHref } from "@/components/brand/piece-caption";
 import { BuyPanel } from "@/components/storefront/buy-panel";
 import { PieceGallery } from "@/components/storefront/piece-gallery";
 import { PieceSelection } from "@/components/storefront/piece-selection";
+import { HeartButton } from "@/components/storefront/saved/saved-context";
 import { Price } from "@/components/storefront/price";
 import { PACKED_BY_HAND, showPromise } from "@/content/brand";
 import { db } from "@/db/client";
@@ -254,7 +255,10 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
               <LiveBuyPanel product={product} orderingOpen={store.orderingOpen} />
             </Suspense>
 
-            <AskAboutPiece piece={product} withSelection className="mt-6 inline-block text-sm" />
+            <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2">
+              <AskAboutPiece piece={product} withSelection className="inline-block text-sm" />
+              <HeartButton productId={product.id} name={title} variant="inline" />
+            </div>
 
             <dl className="mt-10 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2.5 border-t border-taupe/30 pt-6 text-sm">
               {condition && (

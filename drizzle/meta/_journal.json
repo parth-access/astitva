@@ -99,6 +99,13 @@
       "when": 1792648322606,
       "tag": "0013_customer_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792731085212,
+      "tag": "0014_account_bags",
+      "breakpoints": true
     }
   ]
 }

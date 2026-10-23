@@ -17,6 +17,8 @@ export type Limit = { name: string; max: number; windowSeconds: number };
 export const LIMITS = {
   /** Bag changes per visitor (IP). */
   bag: { name: "bag", max: 60, windowSeconds: 10 * 60 },
+  /** Hearts tapped on or off per visitor (IP). */
+  saved: { name: "saved", max: 60, windowSeconds: 10 * 60 },
   /** Checkout attempts per visitor (IP). */
   checkoutIp: { name: "checkout-ip", max: 10, windowSeconds: 10 * 60 },
   /** "Find my order" requests per visitor (IP): enough for typos, too few to guess with. */

@@ -1,6 +1,9 @@
 /**
- * The bag: a guest's chosen pieces, kept on the server against a random
- * cookie token (only its SHA-256 is stored). No account needed.
+ * The bag: the chosen pieces, kept on the server. A guest's bag is found by a
+ * random cookie token (only its SHA-256 is stored); no account needed. A
+ * signed-in customer's bag belongs to the account instead, so it follows them
+ * to every device. Signing in brings the guest bag on that device into the
+ * account's (see claimGuestBag); signing out leaves the account's bag behind.
  *
  * Adding a piece does not hold stock: it is checked when added and again,
  * under lock, at checkout. Holding stock for bags would lock pieces away
@@ -10,9 +13,9 @@
  * Framework-free (takes a db handle) so tests can drive it directly.
  */
 import { createHash, randomBytes } from "node:crypto";
-import { and, asc, eq, gt, inArray, sql } from "drizzle-orm";
-import type { DbOrTx } from "@/db/create";
-import { cartItems, carts, productImages, productVariants, products } from "@/db/schema";
+import { and, asc, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
+import type { Db, DbOrTx } from "@/db/create";
+import { cartItems, carts, productImages, productVariants, products, users } from "@/db/schema";
 import { getAvailability } from "@/modules/inventory/service";
 import { EMPTY_BAG, lineProblem, MAX_PER_LINE, type Bag, type BagLine } from "./types";
 
@@ -41,30 +44,98 @@ export function hashBagToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-/** The bag for a cookie token, if it exists and hasn't lapsed. */
+const live = sql`now()`;
+const extended = () => sql`now() + make_interval(days => ${BAG_DAYS})`;
+
+/** The guest bag for a cookie token, if it exists and hasn't lapsed. Never an account's bag. */
 export async function findBag(db: DbOrTx, token: string | null | undefined): Promise<{ id: string } | null> {
   if (!token) return null;
   const [row] = await db
     .select({ id: carts.id })
     .from(carts)
-    .where(and(eq(carts.guestTokenHash, hashBagToken(token)), gt(carts.expiresAt, sql`now()`)));
+    .where(and(eq(carts.guestTokenHash, hashBagToken(token)), isNull(carts.userId), gt(carts.expiresAt, live)));
   return row ?? null;
 }
 
 /**
- * The visitor's bag, made on first use. Each use pushes its expiry another
+ * The visitor's guest bag, made on first use. Each use pushes its expiry another
  * BAG_DAYS out. Returns a new token when a bag was made (set it as the cookie).
  */
 export async function openBag(db: DbOrTx, token: string | null | undefined): Promise<{ id: string; newToken: string | null }> {
   const existing = await findBag(db, token);
-  const expiresAt = sql`now() + make_interval(days => ${BAG_DAYS})`;
   if (existing) {
-    await db.update(carts).set({ expiresAt }).where(eq(carts.id, existing.id));
+    await db.update(carts).set({ expiresAt: extended() }).where(eq(carts.id, existing.id));
     return { id: existing.id, newToken: null };
   }
   const fresh = newBagToken();
-  const [row] = await db.insert(carts).values({ guestTokenHash: hashBagToken(fresh), expiresAt }).returning({ id: carts.id });
+  const [row] = await db.insert(carts).values({ guestTokenHash: hashBagToken(fresh), expiresAt: extended() }).returning({ id: carts.id });
   return { id: row!.id, newToken: fresh };
+}
+
+/** A customer's bag, if they have one that hasn't lapsed. */
+export async function findAccountBag(db: DbOrTx, userId: string): Promise<{ id: string } | null> {
+  const [row] = await db
+    .select({ id: carts.id })
+    .from(carts)
+    .where(and(eq(carts.userId, userId), gt(carts.expiresAt, live)))
+    .orderBy(desc(carts.expiresAt))
+    .limit(1);
+  return row ?? null;
+}
+
+/** A customer's bag, made on first use; each use pushes its expiry out, as for guests. */
+export async function openAccountBag(db: Db, userId: string): Promise<{ id: string }> {
+  return db.transaction(async (tx) => {
+    // One at a time per customer, so two first adds make one bag.
+    await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for("update");
+    const existing = await findAccountBag(tx, userId);
+    if (existing) {
+      await tx.update(carts).set({ expiresAt: extended() }).where(eq(carts.id, existing.id));
+      return existing;
+    }
+    const [row] = await tx.insert(carts).values({ userId, expiresAt: extended() }).returning({ id: carts.id });
+    return row!;
+  });
+}
+
+/**
+ * Brings this device's guest bag into the customer's account. With no account
+ * bag yet, the guest bag becomes it. Otherwise its lines join the account's
+ * (the same colour and size adds up, to MAX_PER_LINE) and the guest bag goes.
+ * Stock isn't checked here: the bag shows what has sold, as it always does.
+ * Returns whether there was a guest bag to bring.
+ */
+export async function claimGuestBag(db: Db, token: string | null | undefined, userId: string): Promise<boolean> {
+  if (!token) return false;
+  return db.transaction(async (tx) => {
+    await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for("update");
+    const [guest] = await tx
+      .select({ id: carts.id })
+      .from(carts)
+      .where(and(eq(carts.guestTokenHash, hashBagToken(token)), isNull(carts.userId), gt(carts.expiresAt, live)))
+      .for("update");
+    if (!guest) return false;
+
+    const account = await findAccountBag(tx, userId);
+    if (!account) {
+      // No token any more: from now on only the account finds it.
+      await tx.update(carts).set({ userId, guestTokenHash: null, expiresAt: extended() }).where(eq(carts.id, guest.id));
+      return true;
+    }
+    const lines = await tx.select({ variantId: cartItems.variantId, quantity: cartItems.quantity }).from(cartItems).where(eq(cartItems.cartId, guest.id));
+    if (lines.length) {
+      await tx
+        .insert(cartItems)
+        .values(lines.map((l) => ({ cartId: account.id, variantId: l.variantId, quantity: Math.min(l.quantity, MAX_PER_LINE) })))
+        .onConflictDoUpdate({
+          target: [cartItems.cartId, cartItems.variantId],
+          set: { quantity: sql`least(${cartItems.quantity} + excluded.quantity, ${MAX_PER_LINE})` },
+        });
+    }
+    await tx.update(carts).set({ expiresAt: extended() }).where(eq(carts.id, account.id));
+    await tx.delete(carts).where(eq(carts.id, guest.id));
+    return true;
+  });
 }
 
 /** The piece's first category, which picks its sketch. Outer table written out (see catalog/queries). */

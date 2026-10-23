@@ -6,6 +6,7 @@ import { SubmitButton } from "./pending";
 
 const TABS = [
   { key: "orders", href: "/account", label: "Orders" },
+  { key: "saved", href: "/account/saved", label: "Saved" },
   { key: "addresses", href: "/account/addresses", label: "Addresses" },
   { key: "details", href: "/account/details", label: "Your details" },
 ] as const;

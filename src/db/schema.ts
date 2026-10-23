@@ -520,6 +520,8 @@ export const carts = pgTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
+  // A signed-in customer's bag is found by its owner.
+  (t) => [index("carts_user_idx").on(t.userId)],
 ).enableRLS();
 
 export const cartItems = pgTable(

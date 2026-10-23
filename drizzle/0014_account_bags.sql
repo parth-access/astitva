@@ -1,0 +1,1 @@
+CREATE INDEX "carts_user_idx" ON "carts" USING btree ("user_id");

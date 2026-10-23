@@ -15,7 +15,7 @@ The specification is the revised PRD (Astitva PRD Review and Revised Specificati
 | M4 Razorpay | Done, in test mode: pay now at checkout (stock held 15 minutes), signature and server-side checks, webhook, late-payment flags. Test keys (`rzp_test_…`) show "Test mode" at checkout; live keys once Krishna's current account is verified |
 | M5 Fulfilment and refunds | Done: pack, ship with courier and tracking, delivered, came back (RTO, stock returned), COD cash remitted, refunds through Razorpay or recorded UPI/bank, flags for Krishna, tracking on the buyer's order page. Order and shipping emails sent through Resend |
 | M6 Hardening and launch | In progress: deployed on Netlify; owner alerts and buyer emails (sent through Resend, retried), scheduled jobs and encrypted nightly backups (GitHub Actions), abuse limits, error alerts, security headers, sitemap and robots, a loading bar on every page change. Left: final policies, business details, live Razorpay keys |
-| Customer accounts | Done: sign up (name, mobile, email, password); sign in by password, a 6-digit email code or Google; verify the email with a code; forgot password; orders, saved addresses, details, sign out everywhere, delete the account. Guest checkout stays. Next: checkout filled in from the account, the bag following the account, saved pieces |
+| Customer accounts | Done: sign up (name, mobile, email, password); sign in by password, a 6-digit email code or Google; verify the email with a code; forgot password; orders, saved addresses (offered at checkout, which also fills in the account's details), saved pieces (hearts), details, sign out everywhere, delete the account. The bag follows the account across devices. Guest checkout stays |
 
 ## Stack
 
@@ -77,7 +77,7 @@ Integration tests need a local throwaway Postgres in `DATABASE_URL_TEST` (they w
 
 ```
 src/
-  app/(store)/        storefront pages, including account/ (sign in, sign up, orders, addresses, details)
+  app/(store)/        storefront pages, including account/ (sign in, sign up, orders, saved pieces, addresses, details)
   app/admin/          admin: (auth) sign-in pages, (panel) everything behind requireAdmin()
   app/api/            account/ and auth/ (Better Auth), cron/ (scheduled jobs), webhooks/razorpay, health/
   proxy.ts            sends signed-out visitors of /admin and /account to sign in (a shortcut, not the check)
@@ -88,7 +88,7 @@ src/
   db/schema.ts        the whole data model, with CHECK and UNIQUE constraints
   lib/                money (integer paise), state machines, sizes, env
   modules/
-    account/          customer accounts: orders, addresses, details
+    account/          customer accounts: orders, addresses, details, saved pieces
     alerts/           back-in-stock alerts
     auth/             sign-in (Better Auth): the admin's (password + 2FA, requireAdmin()) and customers' (password, email code or Google, getCustomer()), kept apart by session kind
     bag/              the bag, kept against a cookie
