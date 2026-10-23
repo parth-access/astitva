@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { carts, products, savedPieces, users } from "../../src/db/schema";
+import { carts, customerAddresses, products, savedPieces, users } from "../../src/db/schema";
 import { getAddress, saveAddress } from "../../src/modules/account/service";
 import { listSavedIds, MAX_SAVED, savePiece, unsavePiece } from "../../src/modules/account/saved";
 import { addToBag, claimGuestBag, findAccountBag, findBag, openAccountBag, openBag, readBag } from "../../src/modules/bag/service";
@@ -81,6 +81,19 @@ describe.skipIf(!hasDb)("what follows a customer's account", () => {
       const home = await saveAddress(db, meera, { name: "Meera", phone: "9812345678", line1: "12 Lake Road", line2: null, landmark: null, city: "Pune", state: "Maharashtra", pincode: "411001" });
       expect((await getAddress(db, meera, home.id))?.line1).toBe("12 Lake Road");
       expect(await getAddress(db, asha, home.id)).toBeNull();
+    });
+  });
+
+  describe("saving a checkout address", () => {
+    it("saves the same address once, even from two checkouts at the same moment", async () => {
+      const meera = await customer();
+      const home = { name: "Meera", phone: "9812345678", line1: "12 Lake Road", line2: null, landmark: null, city: "Pune", state: "Maharashtra" as const, pincode: "411001", unlessSaved: true };
+      const [a, b] = await Promise.all([saveAddress(db, meera, home), saveAddress(db, meera, { ...home, line1: "12 LAKE ROAD" })]);
+      expect(a.id).toBe(b.id);
+      expect(await db.select().from(customerAddresses).where(eq(customerAddresses.userId, meera))).toHaveLength(1);
+      // Without it (the address book's "Add"), a second copy is the customer's choice.
+      await saveAddress(db, meera, { ...home, unlessSaved: false });
+      expect(await db.select().from(customerAddresses).where(eq(customerAddresses.userId, meera))).toHaveLength(2);
     });
   });
 

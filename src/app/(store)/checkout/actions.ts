@@ -7,7 +7,7 @@ import { db } from "@/db/client";
 import { env } from "@/lib/env";
 import { normaliseMobile } from "@/lib/india";
 import type { AddressInput } from "@/modules/account/input";
-import { AccountError, getAddress, listAddresses, saveAddress, toSnapshot } from "@/modules/account/service";
+import { AccountError, getAddress, saveAddress, toSnapshot } from "@/modules/account/service";
 import { getCustomer } from "@/modules/auth/customer";
 import { currentBag } from "@/modules/bag/current";
 import { readBag } from "@/modules/bag/service";
@@ -130,11 +130,7 @@ export async function placeOrderAction(_prev: CheckoutState, form: FormData): Pr
 /** "Save it for next time": a new address joins the account (unless it's already there, or the account is full). */
 async function keepAddress(userId: string, a: CheckoutInput["address"]) {
   const input = { name: a.recipientName, phone: a.phone, line1: a.line1, line2: a.line2 ?? null, landmark: a.landmark ?? null, city: a.city, state: a.state as AddressInput["state"], pincode: a.pincode };
-  const same = (await listAddresses(db, userId)).some(
-    (s) => s.line1.toLowerCase() === a.line1.toLowerCase() && s.pincode === a.pincode && s.recipientName.toLowerCase() === a.recipientName.toLowerCase(),
-  );
-  if (same) return;
-  await saveAddress(db, userId, input).catch((e) => {
+  await saveAddress(db, userId, { ...input, unlessSaved: true }).catch((e) => {
     // A full account just isn't saved to.
     if (!(e instanceof AccountError)) throw e;
   });

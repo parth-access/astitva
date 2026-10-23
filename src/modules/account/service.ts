@@ -126,15 +126,27 @@ const columns = (a: AddressInput) => ({
   pincode: a.pincode,
 });
 
+/** The same place for the same person: house and street, pincode and name, ignoring case. */
+const sameAddress = (a: Pick<SavedAddress, "line1" | "pincode" | "recipientName">, b: AddressInput) =>
+  a.line1.toLowerCase() === b.line1.toLowerCase() && a.pincode === b.pincode && a.recipientName.toLowerCase() === b.name.toLowerCase();
+
 /**
  * Adds an address, or changes one of the customer's own (`id`). The first
  * address is the default; `makeDefault` moves the default to this one.
+ * `unlessSaved`: adding one already saved returns that one instead (checked
+ * under the same lock, so two checkouts at once save it once).
  */
-export async function saveAddress(db: Db, userId: string, input: AddressInput & { id?: string | null; makeDefault?: boolean }): Promise<SavedAddress> {
+export async function saveAddress(
+  db: Db,
+  userId: string,
+  input: AddressInput & { id?: string | null; makeDefault?: boolean; unlessSaved?: boolean },
+): Promise<SavedAddress> {
   return db.transaction(async (tx) => {
     // One customer's address changes run one at a time, so the count and the default stay right.
     await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for("update");
-    const existing = await tx.select({ id: customerAddresses.id, isDefault: customerAddresses.isDefault }).from(customerAddresses).where(eq(customerAddresses.userId, userId));
+    const existing = await tx.select().from(customerAddresses).where(eq(customerAddresses.userId, userId));
+    const already = !input.id && input.unlessSaved ? existing.find((a) => sameAddress(a, input)) : undefined;
+    if (already) return already;
 
     if (input.id && !existing.some((a) => a.id === input.id)) throw new AccountError("not_found");
     if (!input.id && existing.length >= MAX_ADDRESSES) throw new AccountError("too_many_addresses");
