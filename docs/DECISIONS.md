@@ -2,6 +2,12 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-23 — You might also like
+
+**Decision:** each piece page ends with "You might also like": up to 4 other pieces from its category, in the shop's order. If the category has too few, the row is topped up from the categories after it in the shop's menu order (set in the admin), wrapping round from the last to the first; pieces without a category come last. Never the piece itself, never sold-out pieces; no section when there's nothing to show. A piece's category is its first one, as for its sketch. Kept simple on purpose: hand-picked pairings ("wear it with") or suggestions from hearts and orders can come later.
+
+**How:** `pickRelated` (`src/modules/catalog/related.ts`) is a pure function with unit tests; `listRelatedPieces` feeds it the cached catalogue, so the row is cached and refreshed with it.
+
 ## 2026-10-23 — Category pages, FAQ and brand profiles for search
 
 **Category pages:** each category has its own address, `/shop/dresses`, with its own title ("Women's dresses"), a description written from what it lists (its styles, colours and lowest price), a canonical address, breadcrumbs and the list of its pieces as structured data, and a place in the sitemap. Sorting stays a view of the page (`?sort=`). A category with nothing published yet shows "Coming soon" and is kept out of search (noindex, not in the sitemap). Old `/shop?category=dresses` links redirect permanently. Piece pages link their category ("In: Dresses") and include it in their breadcrumbs.

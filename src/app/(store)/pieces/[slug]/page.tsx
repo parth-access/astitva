@@ -6,11 +6,12 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { AskAboutPiece } from "@/components/brand/concierge";
-import { pieceHref } from "@/components/brand/piece-caption";
+import { PieceCaption, pieceHref } from "@/components/brand/piece-caption";
 import { BuyPanel } from "@/components/storefront/buy-panel";
 import { PieceGallery } from "@/components/storefront/piece-gallery";
 import { PieceSelection } from "@/components/storefront/piece-selection";
 import { HeartButton } from "@/components/storefront/saved/saved-context";
+import { ShopCard } from "@/components/storefront/shop-card";
 import { Price } from "@/components/storefront/price";
 import { PACKED_BY_HAND, showPromise } from "@/content/brand";
 import { db } from "@/db/client";
@@ -20,7 +21,7 @@ import { formatINR } from "@/lib/money";
 import { breadcrumbLd, productLd } from "@/lib/seo";
 import { JsonLd } from "@/components/brand/json-ld";
 import { OptionsSkeleton, PieceSkeleton } from "@/components/lookbook/skeletons";
-import { getAdjacentPieces, getProductBySlug, getStorefront, listCategories, listPieces, type ProductDetail } from "@/modules/catalog/queries";
+import { getAdjacentPieces, getProductBySlug, getStorefront, listCategories, listPieces, listRelatedPieces, type ProductDetail } from "@/modules/catalog/queries";
 import { getAvailability } from "@/modules/inventory/service";
 
 export async function generateStaticParams() {
@@ -141,6 +142,27 @@ function MeasurementsTable({ variants }: { variants: ProductDetail["variants"] }
         Measured flat and doubled where relevant. <Link href="/size-guide" className="link">How to measure yourself</Link>
       </p>
     </div>
+  );
+}
+
+/** Other pieces from its category, topped up from the next ones (see modules/catalog/related). */
+async function YouMightAlsoLike({ productId, categorySlug }: { productId: string; categorySlug: string | null }) {
+  const pieces = await listRelatedPieces(productId, categorySlug);
+  if (pieces.length === 0) return null;
+  return (
+    <section aria-labelledby="also-like" className="mx-auto mt-28 max-w-6xl px-4 sm:px-8 md:mt-40">
+      <p className="caption text-xl">From the collection</p>
+      <h2 id="also-like" className="mt-1 text-4xl italic md:text-5xl">
+        You might also like
+      </h2>
+      <ul className="mt-10 grid grid-cols-2 gap-x-4 gap-y-12 sm:gap-x-8 lg:grid-cols-4">
+        {pieces.map((p) => (
+          <li key={p.id}>
+            <ShopCard piece={p} caption={<PieceCaption piece={p} size="grid" showStory={false} />} />
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -330,6 +352,8 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
             </p>
           </div>
         </div>
+
+        <YouMightAlsoLike productId={product.id} categorySlug={product.categorySlug} />
 
         {product.pieceNumber ? <Neighbours pieceNumber={product.pieceNumber} /> : null}
       </PieceSelection>
