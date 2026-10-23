@@ -268,7 +268,7 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
           </div>
 
           <div className="md:sticky md:top-8 md:col-span-4 md:col-start-9 md:self-start">
-            <Link href={`/#${product.slug}`} transitionTypes={["nav-back"]} className="caption link text-lg no-underline hover:underline">
+            <Link href="/#the-pieces" transitionTypes={["nav-back"]} className="caption link text-lg no-underline hover:underline">
               {store.title ? `${store.title}, the lookbook` : "The lookbook"}
             </Link>
 

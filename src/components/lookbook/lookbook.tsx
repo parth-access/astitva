@@ -1,15 +1,18 @@
 import Image from "next/image";
+import Link from "next/link";
+import { pieceHref } from "@/components/brand/piece-caption";
 import { Letter } from "@/components/brand/letter";
 import { MASCOT_GROUND } from "@/components/brand/mascot-data";
 import { firstSentence, formatPieceNumber, paragraphs } from "@/lib/format";
+import { formatINR } from "@/lib/money";
 import type { LookbookPiece, PieceColour, Storefront } from "@/modules/catalog/queries";
 import { Folio, RunningHead } from "./print";
 
 /**
- * The home page as a printed lookbook: a cover spread, Krishna's note, a
- * contents page, then one page per style. Pages carry the furniture of print (running heads,
+ * The home page opens as a printed lookbook: a cover spread, Krishna's note
+ * and a contents page. Pages carry the furniture of print (running heads,
  * folios, a gutter), and on wide screens each page slides over the last like
- * a turned leaf.
+ * a turned leaf. The shop follows (home-sections.tsx).
  */
 
 export function pieceTitle(p: Pick<LookbookPiece, "pieceName" | "name">) {
@@ -117,23 +120,23 @@ export function LookbookContents({ store, pieces, folio = "iii" }: { store: Stor
             Contents
           </h2>
           <p className="mt-6 max-w-xs text-sm leading-relaxed text-espresso-soft">
-            Every style has its number. Turn to it for its colours, sizes and how we&apos;d wear it.
+            Every style has its number. Open one for its colours, sizes and how we&apos;d wear it.
           </p>
         </div>
         <ol className="md:col-span-7 md:col-start-6">
-          {pieces.map((p, i) => {
+          {pieces.map((p) => {
             const gone = p.onHand <= 0;
             return (
               <li key={p.id}>
-                <a href={`#${p.slug}`} className={`contents-row group ${gone ? "text-espresso-soft" : ""}`}>
+                <Link href={pieceHref(p.slug)} transitionTypes={["nav-forward"]} className={`contents-row group ${gone ? "text-espresso-soft" : ""}`}>
                   <span className="w-14 shrink-0 font-display tabular-nums text-espresso-soft">
                     {p.pieceNumber ? formatPieceNumber(p.pieceNumber) : "—"}
                   </span>
                   <span className="font-display text-2xl italic group-hover:text-burgundy md:text-3xl">{pieceTitle(p)}</span>
                   <span className="leader" aria-hidden="true" />
                   <span className="hidden text-sm text-espresso-soft sm:inline">{gone ? "sold out" : (colourLine(p.colours) ?? p.name)}</span>
-                  <span className="w-8 shrink-0 text-right text-sm tabular-nums text-espresso-soft">{i + 1}</span>
-                </a>
+                  <span className="shrink-0 text-right text-sm tabular-nums text-espresso-soft">{formatINR(p.priceMinor)}</span>
+                </Link>
               </li>
             );
           })}

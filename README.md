@@ -159,4 +159,4 @@ pg_restore --clean --if-exists --no-owner --no-privileges -d "$TARGET_DATABASE_U
 
 ## Before launch
 
-Search the code for `TODO(launch)` and `TODO(brand)`. The brand colours in `src/app/globals.css` are confirmed; the final logo files are still to come. Also left: final policies (still drafts, kept out of search), business details (GSTIN), live Razorpay keys, and the old unused Google client secret to disable in Google Cloud.
+Search the code for `TODO(launch)` and `TODO(brand)`. The brand colours in `src/app/globals.css` are confirmed; the final logo files are still to come. Also left: Krishna to confirm the policies (written in full in `src/content/policies.ts`, still drafts kept out of search; mark each `final` once confirmed), business details (GSTIN), live Razorpay keys, and the old unused Google client secret to disable in Google Cloud.

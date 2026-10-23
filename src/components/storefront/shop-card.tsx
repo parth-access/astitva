@@ -4,10 +4,14 @@ import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { pieceHref } from "@/components/brand/piece-caption";
 import { pieceTransitionName, Plate } from "@/components/brand/plate";
-import { defaultColour } from "@/components/lookbook/lookbook-style";
-import type { PieceCard } from "@/modules/catalog/queries";
+import type { PieceCard, PieceColour } from "@/modules/catalog/queries";
 import { HeartButton } from "./saved/saved-context";
 import { SwatchPicker } from "./swatch-picker";
+
+/** The style's first colour that has stock, else its first colour. */
+export function defaultColour(colours: PieceColour[]) {
+  return (colours.find((c) => c.available > 0) ?? colours[0])?.name ?? null;
+}
 
 /**
  * A piece in the shop grid. Pointing at (or focusing) a swatch previews that

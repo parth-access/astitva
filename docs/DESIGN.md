@@ -1,6 +1,6 @@
 # Storefront design: the Lookbook
 
-Astitva is a fashion label whose store reads like a printed lookbook rather than a shop grid: a cover, a note from Krishna, contents, then each style as a plate, numbered and named, in the colours and sizes the house has.
+Astitva is a fashion label whose store opens like a printed lookbook: a cover, a note from Krishna and a contents page, each style numbered and named. Then it turns into the shop: every piece at once, in the colours and sizes the house has, then the categories.
 
 ## The ideas the design carries
 
@@ -34,7 +34,7 @@ Code: `components/brand/intro.tsx` (markup and the two inline scripts), the "Fir
 
 ## Mascot assets
 
-All mascot artwork is generated from the logo by `python3 scripts/mascot/build.py`: the painting cut into transparent layers (`public/intro/*.webp`), the cover image (`public/brand/mascot.webp`), the browser icons (`src/app/icon.png`, `apple-icon.png`, `favicon.ico`) and `components/brand/mascot-data.ts` (layer positions and sketch strokes). The sketch strokes are hand-placed in `scripts/mascot/sketch.py`.
+All mascot artwork is generated from the logo by `python3 scripts/mascot/build.py`: the painting cut into transparent layers (`public/intro/*.webp`), the cover image (`public/brand/mascot.webp`), the browser and search icons (`src/app/icon.png`, `apple-icon.png`, `favicon.ico`: the whole mascot in the logo's ring; `--icons` rebuilds only these, from `public/brand/mascot.webp`) and `components/brand/mascot-data.ts` (layer positions and sketch strokes). The sketch strokes are hand-placed in `scripts/mascot/sketch.py`.
 
 The logo was generated with ChatGPT and exists only as a 1067 px raster. Before print (cards, packaging), have a designer redraw it as layered vector art; then replace this pipeline with their files and keep `mascot-data.ts`'s shape.
 
@@ -68,7 +68,8 @@ All are disabled under `prefers-reduced-motion`. A transition name must appear o
 
 ## Layout
 
-- **The lookbook** (`components/lookbook/lookbook.tsx`): the home page is a printed lookbook. A cover spread (the lookbook title set huge; short titles run across the fold and over the arch, long ones wrap; the opening line of Krishna's note, signed), the whole note as its own page, a contents page (numbers, names, colours, dotted leaders, page numbers), then one page per style with its colour swatches, alternating sides. Pages carry print furniture: running heads, folios (roman for front matter), a gutter shadow on spreads, paper grain. On wide screens each page sticks and the next slides over it like a turned leaf; on phones pages simply follow one another. A sold-out style keeps its page, marked "Sold out for now".
+- **The lookbook** (`components/lookbook/lookbook.tsx`): the home page opens as a printed lookbook. A cover spread (the lookbook title set huge; short titles run across the fold and over the arch, long ones wrap; the opening line of Krishna's note, signed), the whole note as its own page, and a contents page (numbers, names, colours, dotted leaders, prices; each row opens its piece). Pages carry print furniture: running heads, folios (roman for front matter), a gutter shadow on spreads, paper grain. On wide screens each page sticks and the next slides over it like a turned leaf; on phones pages simply follow one another.
+- **The shop on the home page** (`components/lookbook/home-sections.tsx`): after the contents, "The pieces" (every piece as a shop card: swatches, price, save) slides over the last leaf, then "Categories" (a sketched arch per category, its number of styles or "Coming soon", each opening `/shop/<category>`). Both scroll normally.
 - **Grid** (`/shop`): every piece at once for people who know what they want; middle column stepped down.
 - **Masthead**: wordmark centred with the tagline beneath, navigation split either side; a no-JavaScript disclosure on phones.
 

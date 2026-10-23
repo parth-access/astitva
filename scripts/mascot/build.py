@@ -2,6 +2,7 @@
 Builds every mascot asset the site uses from the logo artwork.
 
     python3 scripts/mascot/build.py          (needs Pillow with WebP support)
+    python3 scripts/mascot/build.py --icons  (only the icons, from public/brand/mascot.webp)
 
 Inputs
   assets/brand/logo-source.jpg   the logo as supplied (1067 x 1067)
@@ -10,7 +11,7 @@ Inputs
 Outputs
   public/intro/{hair,face,earring,hat}.webp   the painting cut into layers (transparent)
   public/brand/mascot.webp                    the mascot on the logo's own ground, for covers
-  src/app/icon.png, apple-icon.png, favicon.ico   browser and home-screen icons (the hat)
+  src/app/icon.png, apple-icon.png, favicon.ico   browser, search and home-screen icons (the whole mascot)
   src/components/brand/mascot-data.ts         layer positions and sketch paths (generated)
 
 When a designer redraws the mascot as layered vector art, replace this
@@ -111,17 +112,31 @@ def write(path, data):
     print(f"  {path}  {len(data) / 1024:.1f} KB")
 
 
-def hat_icon(layers, size):
-    """The hat in the logo's circle: ivory disc, burgundy ring, the painted hat."""
+def mascot_icon(mascot, size):
+    """The whole mascot in the logo's circle: her ground inside a burgundy ring, hat and face centred."""
     s = 1024
+    ring = 44
+    inner = s - 2 * (8 + ring)
+    # Wide enough that the hat's brim reaches the ring; her hair runs off the bottom of the circle.
+    scale = inner * 1.02 / mascot.width
+    art = mascot.convert("RGBA").resize((round(mascot.width * scale), round(mascot.height * scale)), Image.LANCZOS)
+    disc = Image.new("RGBA", (s, s), BG + (255,))
+    disc.alpha_composite(art, ((s - art.width) // 2, (s - art.height) // 2 + 40))
+    mask = Image.new("L", (s, s), 0)
+    ImageDraw.Draw(mask).ellipse((8, 8, s - 8, s - 8), fill=255)
     canvas = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    d = ImageDraw.Draw(canvas)
-    d.ellipse((8, 8, s - 8, s - 8), fill=(243, 234, 220, 255), outline=(91, 20, 30, 255), width=44)
-    hat = layers["hat"].crop(layers["hat"].getbbox())
-    scale = (s * 0.74) / hat.width
-    hat = hat.resize((round(hat.width * scale), round(hat.height * scale)), Image.LANCZOS)
-    canvas.alpha_composite(hat, ((s - hat.width) // 2, (s - hat.height) // 2 + 30))
+    canvas.paste(disc, (0, 0), mask)
+    ImageDraw.Draw(canvas).ellipse((8, 8, s - 8, s - 8), outline=(91, 20, 30, 255), width=ring)
     return canvas.resize((size, size), Image.LANCZOS)
+
+
+def write_icons(mascot):
+    b = io.BytesIO(); mascot_icon(mascot, 256).save(b, "PNG", optimize=True); write("src/app/icon.png", b.getvalue())
+    # Home screens round the corners themselves: a full square in her ground.
+    apple = Image.new("RGBA", (180, 180), BG + (255,))
+    apple.alpha_composite(mascot_icon(mascot, 180))
+    b = io.BytesIO(); apple.convert("RGB").save(b, "PNG", optimize=True); write("src/app/apple-icon.png", b.getvalue())
+    b = io.BytesIO(); mascot_icon(mascot, 256).save(b, "ICO", sizes=[(16, 16), (32, 32), (48, 48)]); write("src/app/favicon.ico", b.getvalue())
 
 
 def main():
@@ -139,12 +154,7 @@ def main():
 
     write("public/brand/mascot.webp", webp_bytes(crop, 84))
 
-    icon = hat_icon(layers, 256)
-    b = io.BytesIO(); icon.save(b, "PNG", optimize=True); write("src/app/icon.png", b.getvalue())
-    apple = Image.new("RGBA", (180, 180), (243, 234, 220, 255))
-    apple.alpha_composite(hat_icon(layers, 180))
-    b = io.BytesIO(); apple.convert("RGB").save(b, "PNG", optimize=True); write("src/app/apple-icon.png", b.getvalue())
-    b = io.BytesIO(); hat_icon(layers, 256).save(b, "ICO", sizes=[(16, 16), (32, 32), (48, 48)]); write("src/app/favicon.ico", b.getvalue())
+    write_icons(crop)
 
     sketch = {k: smooth(v) for k, v in STROKES.items()}
     ts = (
@@ -162,4 +172,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if "--icons" in sys.argv:
+        print("Writing icons:")
+        write_icons(Image.open(os.path.join(ROOT, "public/brand/mascot.webp")).convert("RGB"))
+    else:
+        main()

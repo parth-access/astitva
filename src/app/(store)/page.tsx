@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import { Reveal } from "@/components/brand/reveal";
 import { cacheLife } from "next/cache";
 import { ConciergeBand } from "@/components/brand/concierge";
-import { headOf, LookbookContents, LookbookCover, LookbookNote } from "@/components/lookbook/lookbook";
-import { LookbookPage } from "@/components/lookbook/lookbook-style";
+import { LookbookContents, LookbookCover, LookbookNote } from "@/components/lookbook/lookbook";
+import { HomeCategories, HomePieces } from "@/components/lookbook/home-sections";
 import { LookbookSkeleton } from "@/components/lookbook/skeletons";
 import { JsonLd } from "@/components/brand/json-ld";
 import { organizationLd, websiteLd } from "@/lib/seo";
-import { getConcierge, getStorefront, listLookbookPieces } from "@/modules/catalog/queries";
+import { getConcierge, getStorefront, listCategories, listLookbookPieces, listPieces } from "@/modules/catalog/queries";
 
 export async function generateMetadata(): Promise<Metadata> {
   const store = await getStorefront();
@@ -22,15 +22,16 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * The home page is the lookbook: a cover spread, Krishna's note, a contents
- * page, then a page for every style. Its title and note are store settings.
+ * The home page opens as the lookbook (a cover spread, Krishna's note, a
+ * contents page), then turns into the shop: every piece at once, then the
+ * categories. Its title and note are store settings.
  * Design notes: docs/DESIGN.md.
  */
 async function Home() {
   "use cache";
   cacheLife("minutes");
 
-  const [store, pieces, concierge] = await Promise.all([getStorefront(), listLookbookPieces(), getConcierge()]);
+  const [store, pieces, cards, categories, concierge] = await Promise.all([getStorefront(), listLookbookPieces(), listPieces(), listCategories(), getConcierge()]);
   const hasNote = store.note.trim().length > 0;
 
   return (
@@ -39,10 +40,9 @@ async function Home() {
       <LookbookCover store={store} pieces={pieces} />
       <LookbookNote store={store} />
       <LookbookContents store={store} pieces={pieces} folio={hasNote ? "iv" : "iii"} />
-      {pieces.map((p, i) => (
-        <LookbookPage key={p.id} head={headOf(store)} piece={p} index={i} />
-      ))}
-      {/* End matter scrolls normally and covers the last leaf. */}
+      {/* The shop scrolls normally and covers the last leaf. */}
+      <HomePieces pieces={cards} />
+      <HomeCategories categories={categories} pieces={cards} />
       <div className="relative z-10 border-t border-sand bg-ivory pb-10 pt-24 md:pt-32">
         <ConciergeBand />
       </div>

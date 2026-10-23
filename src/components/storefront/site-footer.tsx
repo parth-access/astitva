@@ -8,7 +8,7 @@ export function SiteFooter() {
     <footer className="mt-32 border-t border-taupe/30 print:hidden">
       <div className="mx-auto grid max-w-6xl gap-12 px-4 pb-10 pt-16 sm:px-8 md:grid-cols-12">
         <div className="md:col-span-5">
-          <p className="font-display text-3xl italic">Your true form</p>
+          <p className="font-display text-3xl italic">Astitva</p>
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-espresso-soft">
             A few styles, chosen by hand, in the colours we couldn&apos;t choose between.
           </p>
