@@ -11,9 +11,9 @@
  */
 import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import type { Db, DbOrTx } from "@/db/create";
-import { auditLogs, customerAddresses, orderItems, orders, stockAlerts, users, type AddressSnapshot } from "@/db/schema";
+import { auditLogs, customerAddresses, orderItems, orders, receipts, stockAlerts, users, type AddressSnapshot } from "@/db/schema";
 import { isAdminUser } from "@/modules/auth/kinds";
-import { orderLinkKey, orderPath } from "@/modules/orders/links";
+import { orderLinkKey, orderPath, receiptPath } from "@/modules/orders/links";
 import type { AddressInput, DetailsInput } from "./input";
 
 export const MAX_ADDRESSES = 10;
@@ -34,6 +34,8 @@ export type AccountOrder = {
   summary: string;
   /** The order's private page. */
   href: string;
+  /** Its receipt, once it has one. */
+  receipt: { number: string; href: string } | null;
 };
 
 /** `email` only when it's verified; null finds just the orders placed signed in. */
@@ -58,8 +60,10 @@ export async function listAccountOrders(db: DbOrTx, owner: Owner, secret: string
       status: orders.orderStatus,
       paymentMethod: orders.paymentMethod,
       totalMinor: orders.totalMinor,
+      receiptNumber: receipts.receiptNumber,
     })
     .from(orders)
+    .leftJoin(receipts, eq(receipts.orderId, orders.id))
     .where(and(ownedBy(owner), or(eq(orders.paymentMethod, "cod"), ne(orders.paymentStatus, "unpaid"))))
     .orderBy(desc(orders.createdAt))
     .limit(100);
@@ -73,10 +77,17 @@ export async function listAccountOrders(db: DbOrTx, owner: Owner, secret: string
   const names = new Map<string, string[]>();
   for (const i of items) names.set(i.orderId, [...(names.get(i.orderId) ?? []), i.name]);
 
-  return rows.map(({ id, ...r }) => {
+  return rows.map(({ id, receiptNumber, ...r }) => {
     const n = names.get(id) ?? [];
     const summary = n.length <= 1 ? (n[0] ?? "Your order") : `${n[0]} and ${n.length - 1} more`;
-    return { ...r, totalMinor: Number(r.totalMinor), summary, href: orderPath(r.number, orderLinkKey(id, secret)) };
+    const key = orderLinkKey(id, secret);
+    return {
+      ...r,
+      totalMinor: Number(r.totalMinor),
+      summary,
+      href: orderPath(r.number, key),
+      receipt: receiptNumber ? { number: receiptNumber, href: receiptPath(r.number, key) } : null,
+    };
   });
 }
 

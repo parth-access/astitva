@@ -11,10 +11,12 @@ import type { DbOrTx } from "@/db/create";
 import { orderItems, orders, productImages, productVariants, products, refunds, shipments, storeSettings } from "@/db/schema";
 import { PACKED_BY_HAND, showPromise } from "@/content/brand";
 import type { Email } from "@/lib/email";
-import { formatPieceNumber, whatsappLink } from "@/lib/format";
+import { formatLongDate, formatPieceNumber, whatsappLink } from "@/lib/format";
 import { formatMobile } from "@/lib/india";
 import { formatINR, paiseToRupeesText } from "@/lib/money";
-import { orderLinkKey, orderPath } from "@/modules/orders/links";
+import { orderLinkKey, orderPath, receiptPath } from "@/modules/orders/links";
+import { renderReceiptPdf } from "@/modules/receipts/pdf";
+import { getReceipt, paidWithLabel, statusLine, type ReceiptView } from "@/modules/receipts/service";
 import {
   button,
   C,
@@ -32,6 +34,7 @@ import {
   progress,
   quote,
   rule,
+  SANS,
   shell,
   signoff,
   totals,
@@ -121,6 +124,36 @@ function itemLines(lines: Line[], order?: Order) {
   if (order && Number(order.discountMinor) > 0) out.push(`Discount${order.discountCode ? ` (${order.discountCode})` : ""}  −${formatINR(Number(order.discountMinor))}`);
   if (order) out.push(`Total  ${formatINR(Number(order.totalMinor))}`);
   return out.join("\n");
+}
+
+/** The receipt's facts, as a panel in the confirmation email. */
+function receiptFacts(r: ReceiptView): [string, string][] {
+  const s = r.status;
+  return [
+    ["Receipt", r.receiptNumber],
+    ["Issued", formatLongDate(r.issuedAt)],
+    ...(s.kind === "paid_online"
+      ? ([
+          ["Paid with", paidWithLabel(s.paidWith)],
+          ["Reference", s.reference],
+        ] as [string, string][])
+      : ([["Payment", "Cash on delivery"]] as [string, string][])),
+  ];
+}
+
+function receiptPanel(r: ReceiptView, pageUrl: string) {
+  const rows = receiptFacts(r)
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:0 0 4px;font-family:${SANS};font-size:13px;color:${C.soft}">${esc(k)}</td><td align="right" style="padding:0 0 4px;font-family:${SANS};font-size:13px;color:${C.espresso}">${esc(v)}</td></tr>`,
+    )
+    .join("");
+  return panel(
+    "Your receipt",
+    `<p style="margin:0 0 12px;font-family:${SANS};font-size:14px;line-height:1.6;color:${C.espresso}">${esc(statusLine(r))}</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>
+<p style="margin:12px 0 0;font-family:${SANS};font-size:13px;line-height:1.6;color:${C.soft}">It's attached as a PDF, and always on <a href="${esc(pageUrl)}" style="color:${C.burgundy}">your receipt page</a>.</p>`,
+  );
 }
 
 function totalRows(order: Order): [string, string][] {
@@ -305,9 +338,20 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
         : `We've received your payment of ${total}. We'll pack it by hand and let you know when it's on its way.`;
       const note = noteToShare(items);
       const promise = cardPromise(items);
+      const receipt = await getReceipt(db, order.id);
+      const receiptUrl = `${appUrl}${receiptPath(order.orderNumber, orderLinkKey(order.id, ctx.linkSecret))}`;
+      const attachments = receipt ? [{ filename: `Astitva-receipt-${receipt.receiptNumber}.pdf`, content: await renderReceiptPdf(receipt, appUrl) }] : undefined;
       return {
         subject: `Your Astitva order ${order.orderNumber}`,
-        text: textOf(`Thank you, ${first}.`, [lead, itemLines(items, order), `Going to:\n${addressLines(order.addressSnapshot)}`, { label: "See your order", url: buyerLink }]),
+        text: textOf(`Thank you, ${first}.`, [
+          lead,
+          itemLines(items, order),
+          `Going to:\n${addressLines(order.addressSnapshot)}`,
+          receipt ? `Receipt ${receipt.receiptNumber}: ${statusLine(receipt)}\n${receiptFacts(receipt).slice(1).map(([k, v]) => `${k}: ${v}`).join("\n")}\nThe PDF is attached.` : null,
+          receipt ? { label: "Your receipt", url: receiptUrl } : null,
+          { label: "See your order", url: buyerLink },
+        ]),
+        attachments,
         html: shell({
           appUrl,
           preheader: cod ? `It's packed by hand next. You pay ${total} when it arrives.` : `Paid, thank you. ${list.length === 1 ? `${list[0]!.title} is` : "Your pieces are"} being packed by hand.`,
@@ -329,6 +373,7 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
               { title: "Going to", text: addressLines(order.addressSnapshot) },
               { title: "Paying", text: cod ? `Cash on delivery\n${total} when it arrives` : `Paid online\n${total}` },
             ]),
+            receipt ? receiptPanel(receipt, receiptUrl) : "",
             button("See your order", buyerLink),
             rule(),
             signoff(signer),

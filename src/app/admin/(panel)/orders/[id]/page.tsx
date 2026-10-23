@@ -22,8 +22,9 @@ import { formatINR } from "@/lib/money";
 import { requireAdmin } from "@/modules/auth/auth";
 import { isCancellable } from "@/modules/orders/machines";
 import { packingBlocker } from "@/modules/orders/fulfilment";
-import { orderLinkKey, orderPath } from "@/modules/orders/links";
+import { orderLinkKey, orderPath, receiptPath } from "@/modules/orders/links";
 import { getOrderForAdmin } from "@/modules/orders/service";
+import { getReceipt } from "@/modules/receipts/service";
 import { razorpay } from "@/modules/payments/client";
 import { refundableMinor } from "@/modules/payments/refunds";
 
@@ -60,7 +61,7 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
   const a = order.addressSnapshot;
   const canSend = (order.orderStatus === "confirmed" || order.orderStatus === "packed") && packingBlocker(order) === null;
   const awaitingRemittance = order.paymentMethod === "cod" && order.orderStatus === "delivered" && order.cod?.status === "collected_by_courier";
-  const refundable = await refundableMinor(db, order.id);
+  const [refundable, receipt] = await Promise.all([refundableMinor(db, order.id), getReceipt(db, order.id)]);
   const canRazorpayRefund = order.payment?.status === "captured" && razorpay() !== null;
   const isOwner = role === "owner";
   const firstName = order.contactName.split(/\s+/)[0];
@@ -186,6 +187,14 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
               <a href={whatsappLink(`91${order.contactPhone}`, shareMessage)} target="_blank" rel="noopener noreferrer" className="btn-outline mt-4 w-full text-sm">
                 Send them their order page
               </a>
+              {receipt ? (
+                <p className="mt-3 text-sm">
+                  Receipt{" "}
+                  <a href={receiptPath(order.orderNumber, orderLinkKey(order.id, env().BETTER_AUTH_SECRET))} target="_blank" rel="noopener noreferrer" className="link tabular-nums">
+                    {receipt.receiptNumber}
+                  </a>
+                </p>
+              ) : null}
             </Card>
             <Card title="Ship to">
               <address className="text-sm not-italic leading-relaxed">

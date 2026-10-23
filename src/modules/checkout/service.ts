@@ -32,6 +32,7 @@ import { InsufficientStockError, VariantUnavailableError } from "@/modules/inven
 import { releaseOrderHolds, reserveForOrder } from "@/modules/inventory/service";
 import { alertOwners, queueEmail } from "@/modules/email/outbox";
 import { orderMachine } from "@/modules/orders/machines";
+import { issueReceipt } from "@/modules/receipts/service";
 import type { CheckoutInput } from "./input";
 import { priceOrder } from "./pricing";
 
@@ -260,6 +261,7 @@ export async function placeOrder(db: Db, bagId: string, input: CheckoutInput, us
 
     if (method === "cod") {
       await tx.insert(codCollections).values({ orderId, amountDueMinor: totals.totalMinor });
+      await issueReceipt(tx, orderId);
       await queueOrderPlacedEmails(tx, orderId, order!.orderNumber, input.contact.email);
       await tx.delete(cartItems).where(eq(cartItems.cartId, bagId));
     }

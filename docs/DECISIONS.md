@@ -2,6 +2,16 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-23 — Receipts
+
+**Decision:** every order gets one receipt, numbered in sequence (`ASTR-000001`, its own sequence), with the order frozen into it when issued (`receipts`, never edited). Online: issued in the same transaction that records the Razorpay capture, with how it was paid (UPI, card…), the payment id and when. Cash on delivery: issued when the order is placed, for the amount to pay on delivery (chosen over waiting for delivery, so it goes with the confirmation email). Astitva has no GSTIN, so it says "Payment receipt, not a tax invoice. Prices include all taxes."; a tax invoice (GSTIN, HSN codes, tax breakdown) is separate work for when there is one.
+
+**Where it shows:** the confirmation email has a "Your receipt" panel and the receipt as a PDF attachment (about 17 KB). The order's private page has a receipt block (View, Download PDF); `/orders/<number>/receipt?k=…` is a printable page (site header and footer hidden in print) and `/receipt.pdf?k=…` the download, both behind the order's key. The account's orders list links each receipt, and the admin's order page shows its number.
+
+**Live status beside the frozen receipt:** the page and PDF say where the money stands now: paid online; to pay on delivery; paid on delivery (once the courier has collected); not paid (returned undelivered). Refunds show as lines below the total. No separate refund document yet.
+
+**PDF:** pdf-lib with fontkit, pure JavaScript. Fonts come from `src/fonts/og` (Montserrat; Playfair for the title and for ₹, which the Latin Montserrat subset lacks; any character neither has prints as "?"). Long orders carry over onto more pages.
+
 ## 2026-10-23 — Checkout from the account, the bag following it, and hearts
 
 **Checkout:** signed in, the name, mobile and email are filled in from the account, and saved addresses are offered as cards (the one used first is chosen), with "Somewhere else" for typing one in. The form sends only the saved address's id; the server reads the address from the customer's own account (`getAddress`) and the order goes to its recipient. A typed address can be saved to the account for next time (ticked by default while there's room; one already saved isn't saved twice). Saving happens after the order is placed and never stops it.

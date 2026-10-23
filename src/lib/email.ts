@@ -6,7 +6,9 @@
  * Without RESEND_API_KEY (local development) the email is printed to the log
  * instead, so links can be followed without a mail provider.
  */
-export type Email = { to: string; subject: string; text: string; html?: string };
+export type Attachment = { filename: string; content: Uint8Array };
+
+export type Email = { to: string; subject: string; text: string; html?: string; attachments?: Attachment[] };
 
 export type SendEmail = (email: Email) => Promise<void>;
 
@@ -14,7 +16,8 @@ export async function sendEmail(email: Email, env: Partial<Record<string, string
   const key = env.RESEND_API_KEY;
   if (!key) {
     if (env.NODE_ENV === "production") throw new Error("RESEND_API_KEY is not set: cannot send email.");
-    console.info(`[email] to ${email.to}: ${email.subject}\n${email.text}`);
+    const attached = email.attachments?.length ? `\n(attached: ${email.attachments.map((a) => `${a.filename}, ${Math.round(a.content.byteLength / 1024)} KB`).join("; ")})` : "";
+    console.info(`[email] to ${email.to}: ${email.subject}\n${email.text}${attached}`);
     return;
   }
   const from = env.EMAIL_FROM;
@@ -23,7 +26,16 @@ export async function sendEmail(email: Email, env: Partial<Record<string, string
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
-    body: JSON.stringify({ from, to: [email.to], subject: email.subject, text: email.text, ...(email.html ? { html: email.html } : {}) }),
+    body: JSON.stringify({
+      from,
+      to: [email.to],
+      subject: email.subject,
+      text: email.text,
+      ...(email.html ? { html: email.html } : {}),
+      ...(email.attachments?.length
+        ? { attachments: email.attachments.map((a) => ({ filename: a.filename, content: Buffer.from(a.content).toString("base64") })) }
+        : {}),
+    }),
     signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) throw new Error(`Resend rejected the email (${res.status}): ${(await res.text()).slice(0, 300)}`);

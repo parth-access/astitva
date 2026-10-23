@@ -19,3 +19,8 @@ export function isOrderLinkKey(orderId: string, key: string | null | undefined, 
 export function orderPath(orderNumber: string, key: string): string {
   return `/orders/${encodeURIComponent(orderNumber)}?k=${encodeURIComponent(key)}`;
 }
+
+/** The order's receipt, behind the same key: the printable page, or its PDF. */
+export function receiptPath(orderNumber: string, key: string, format: "page" | "pdf" = "page"): string {
+  return `/orders/${encodeURIComponent(orderNumber)}/${format === "pdf" ? "receipt.pdf" : "receipt"}?k=${encodeURIComponent(key)}`;
+}

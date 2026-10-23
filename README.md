@@ -16,6 +16,7 @@ The specification is the revised PRD (Astitva PRD Review and Revised Specificati
 | M5 Fulfilment and refunds | Done: pack, ship with courier and tracking, delivered, came back (RTO, stock returned), COD cash remitted, refunds through Razorpay or recorded UPI/bank, flags for Krishna, tracking on the buyer's order page. Order and shipping emails sent through Resend |
 | M6 Hardening and launch | In progress: deployed on Netlify; owner alerts and buyer emails (sent through Resend, retried), scheduled jobs and encrypted nightly backups (GitHub Actions), abuse limits, error alerts, security headers, sitemap and robots, a loading bar on every page change. Left: final policies, business details, live Razorpay keys |
 | Customer accounts | Done: sign up (name, mobile, email, password); sign in by password, a 6-digit email code or Google; verify the email with a code; forgot password; orders, saved addresses (offered at checkout, which also fills in the account's details), saved pieces (hearts), details, sign out everywhere, delete the account. The bag follows the account across devices. Guest checkout stays |
+| Receipts | Done: a numbered receipt for every order (online once paid; cash on delivery when placed, "to pay on delivery"), sent as a PDF with the confirmation email and shown on the order page, the account's orders and a printable receipt page |
 
 ## Stack
 
@@ -91,7 +92,7 @@ src/
     account/          customer accounts: orders, addresses, details, saved pieces
     alerts/           back-in-stock alerts
     auth/             sign-in (Better Auth): the admin's (password + 2FA, requireAdmin()) and customers' (password, email code or Google, getCustomer()), kept apart by session kind
-    bag/              the bag, kept against a cookie
+    bag/              the bag: a guest's against a cookie, a customer's with their account
     catalog/          cached storefront reads
     catalog-admin/    admin reads and writes for pieces (includes private fields; never import from storefront)
     checkout/         pricing and placing orders (prices always from the database)
@@ -103,6 +104,7 @@ src/
     media/            Cloudinary: signed uploads, reply checks, deletes
     orders/           order, payment, COD, refund state machines; fulfilment
     payments/         Razorpay: payments, webhook, refunds
+    receipts/         numbered receipts, frozen at issue; the PDF
 assets/brand/         the logo source the mascot assets are generated from
 scripts/mascot/       mascot pipeline: python3 scripts/mascot/build.py
 drizzle/              SQL migrations (generated, reviewed, committed)

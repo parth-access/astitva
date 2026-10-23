@@ -21,7 +21,7 @@ export async function resetData(db: Db) {
       product_variants, products, categories, collections, suppliers,
       email_outbox, audit_logs, admin_role_assignments, users, pincodes,
       auth_sessions, auth_accounts, auth_verifications, auth_two_factors, auth_rate_limits, request_limits, stock_alerts, discount_codes,
-      customer_addresses, saved_pieces
+      customer_addresses, saved_pieces, receipts
     restart identity cascade
   `);
 }
