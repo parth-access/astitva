@@ -7,6 +7,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { AskAboutPiece } from "@/components/brand/concierge";
 import { PieceCaption, pieceHref } from "@/components/brand/piece-caption";
+import { Track } from "@/components/storefront/analytics";
 import { BuyPanel } from "@/components/storefront/buy-panel";
 import { PieceGallery } from "@/components/storefront/piece-gallery";
 import { PieceSelection } from "@/components/storefront/piece-selection";
@@ -18,6 +19,7 @@ import { db } from "@/db/client";
 import type { Measurements } from "@/db/schema";
 import { formatPieceNumber } from "@/lib/format";
 import { formatINR } from "@/lib/money";
+import { gaItem, gaRupees } from "@/lib/analytics";
 import { breadcrumbLd, productLd } from "@/lib/seo";
 import { JsonLd } from "@/components/brand/json-ld";
 import { OptionsSkeleton, PieceSkeleton } from "@/components/lookbook/skeletons";
@@ -241,6 +243,14 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
     <PageTransition>
       <PieceSelection colours={colours} initialColour={firstInStock}>
         <JsonLd data={ld} />
+        <Track
+          event="view_item"
+          params={{
+            currency: "INR",
+            value: gaRupees(lowest.priceMinor),
+            items: [gaItem({ slug: product.slug, name: title, category: product.categorySlug, priceMinor: lowest.priceMinor })],
+          }}
+        />
         <article className="mx-auto grid max-w-6xl gap-10 px-4 pb-28 pt-6 sm:px-8 md:grid-cols-12 md:gap-8 md:pb-0 md:pt-10">
           {/* On phones the arch is narrowed so the piece's name shows without scrolling. */}
           <div className="mx-auto w-[84%] md:col-span-7 md:w-full">

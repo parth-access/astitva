@@ -2,7 +2,9 @@
 
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { addToBagAction, refreshBagAction, removeFromBagAction, setBagQuantityAction } from "@/app/(store)/bag/actions";
+import { gaItem, gaRupees } from "@/lib/analytics";
 import { EMPTY_BAG, type Bag } from "@/modules/bag/types";
+import { track } from "../analytics";
 import type { PricingSettings } from "@/modules/checkout/pricing";
 
 /**
@@ -119,6 +121,11 @@ export function BagProvider({ enabled, pricing, children }: { enabled: boolean; 
     const [result] = await Promise.all([addToBagAction(variantId), flight]);
     setBag(result.bag);
     if (result.error) return result.error;
+    const line = result.bag.lines.find((l) => l.variantId === variantId);
+    if (line) {
+      const item = gaItem({ slug: line.slug, name: line.pieceName ?? line.name, category: line.categorySlug, colour: line.colour, size: line.size, priceMinor: line.priceMinor });
+      track("add_to_cart", { currency: "INR", value: gaRupees(line.priceMinor), items: [item] });
+    }
     setBump((n) => n + 1);
     setNotice(null);
     // Let the count bounce, then show the bag.

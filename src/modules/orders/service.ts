@@ -63,7 +63,13 @@ export async function getOrderForBuyer(db: DbOrTx, orderNumber: string) {
     .where(eq(orders.orderNumber, orderNumber));
   if (!order) return null;
   const [items, [shipment], refunded] = await Promise.all([
-    db.select(itemFields).from(orderItems).where(eq(orderItems.orderId, order.id)).orderBy(asc(orderItems.id)),
+    db
+      // The piece's public slug, for the buyer's analytics (null if the variant was since removed). Written
+      // with aliases: in a one-table select Drizzle leaves column names unqualified, and "id" would be ambiguous.
+      .select({ ...itemFields, slug: sql<string | null>`(select p.slug from product_variants v join products p on p.id = v.product_id where v.id = "order_items"."variant_id")` })
+      .from(orderItems)
+      .where(eq(orderItems.orderId, order.id))
+      .orderBy(asc(orderItems.id)),
     db
       .select({ carrierName: shipments.carrierName, trackingNumber: shipments.trackingNumber, trackingUrl: shipments.trackingUrl, shippedAt: shipments.shippedAt, deliveredAt: shipments.deliveredAt })
       .from(shipments)

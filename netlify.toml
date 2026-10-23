@@ -13,3 +13,9 @@
   # The version CI tests on (.github/workflows/ci.yml).
   NODE_VERSION = "22"
   # The install's peer-deps setting comes from .npmrc, which npm reads here as anywhere.
+
+# Google Analytics (consent banner first; see components/storefront/analytics.tsx).
+# Production only, so deploy previews, branch deploys and local work never
+# count as visits. The ID is public: it appears in every page's script.
+[context.production.environment]
+  NEXT_PUBLIC_GA_ID = "G-MG3YE1PHB6"

@@ -1109,3 +1109,24 @@ html[data-navigating] a {
     transform: scaleX(0.6);
   }
 }
+
+/* Analytics consent banner (components/storefront/analytics.tsx).       */
+/* Waits for the first-visit intro to finish, then rises in.            */
+html[data-intro="play"] .consent,
+html[data-intro="leaving"] .consent {
+  display: none;
+}
+.consent {
+  animation: consent-in 420ms var(--ease-unhurried) both;
+}
+@keyframes consent-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .consent {
+    animation: none;
+  }
+}

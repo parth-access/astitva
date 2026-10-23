@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Reveal } from "@/components/brand/reveal";
 import { OrderSkeleton } from "@/components/lookbook/skeletons";
 import { db } from "@/db/client";
+import { gaItem, gaRupees } from "@/lib/analytics";
 import { env } from "@/lib/env";
 import { formatLongDate, whatsappLink } from "@/lib/format";
 import { formatINR } from "@/lib/money";
@@ -13,6 +14,7 @@ import { getOrderForBuyer } from "@/modules/orders/service";
 import { getReceipt, statusLine } from "@/modules/receipts/service";
 import { PayNow } from "@/components/storefront/pay-now";
 import { RememberOrder } from "@/components/storefront/orders-on-device";
+import { Track } from "@/components/storefront/analytics";
 
 export const metadata: Metadata = { title: "Your order", robots: { index: false, follow: false } };
 
@@ -25,12 +27,16 @@ function Tick() {
   );
 }
 
+/** "Nº 01 Neem, linen wrap dress" → "Neem": the piece's own name is what people remember. */
+function shortName(name: string) {
+  return name.replace(/^Nº\s*\d+\s+/, "").split(",")[0]!.trim();
+}
+
 /** "Neem" or "Neem and 2 more", for the list of orders kept in this browser. */
 function orderSummary(items: { name: string }[]) {
   const [first, ...rest] = items;
   if (!first) return "Your order";
-  // "Nº 01 Neem, linen wrap dress" → "Neem": the piece's own name is what people remember.
-  const short = first.name.replace(/^Nº\s*\d+\s+/, "").split(",")[0]!.trim();
+  const short = shortName(first.name);
   return rest.length ? `${short} and ${rest.length} more` : short;
 }
 
@@ -224,6 +230,24 @@ async function OrderView({ params, searchParams }: PageProps<"/orders/[number]">
         </Link>
         .
       </p>
+      {/* Counted once per browser, and only soon after it's placed: not each time the page is opened later to track it. */}
+      {!cancelled && !awaitingPayment && new Date().getTime() - order.createdAt.getTime() < 86_400_000 ? (
+        <Track
+          event="purchase"
+          onceKey={`order:${order.orderNumber}`}
+          params={{
+            transaction_id: order.orderNumber,
+            currency: "INR",
+            value: gaRupees(order.totalMinor),
+            shipping: gaRupees(order.shippingMinor + order.codFeeMinor),
+            payment_type: cod ? "cod" : "online",
+            ...(order.discountCode ? { coupon: order.discountCode } : {}),
+            items: order.items.map((i) =>
+              gaItem({ slug: i.slug ?? i.name, name: shortName(i.name), colour: i.variant.color, size: i.variant.size, priceMinor: i.unitPriceMinor, quantity: i.quantity }),
+            ),
+          }}
+        />
+      ) : null}
       <RememberOrder
         order={{
           number: order.orderNumber,

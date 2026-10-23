@@ -133,6 +133,7 @@ function pageView() {
 type Pending = { name: string; params: Record<string, unknown>; onceKey?: string };
 /** Events from before the visitor answered: sent if they say yes on this page. */
 let pending: Pending[] = [];
+let lastEvent = { key: "", at: 0 };
 
 function counted(): string[] {
   try {
@@ -168,6 +169,10 @@ function flush() {
  */
 export function track(name: string, params: Record<string, unknown>, onceKey?: string) {
   if (!GA_ID) return;
+  // The same event again at once is one event (a page mounted twice), not two.
+  const key = JSON.stringify([name, params, onceKey]);
+  if (key === lastEvent.key && performance.now() - lastEvent.at < 1000) return;
+  lastEvent = { key, at: performance.now() };
   const choice = readChoice();
   if (choice === "no") return;
   if (choice === "yes" && window.gtag) send({ name, params, onceKey });

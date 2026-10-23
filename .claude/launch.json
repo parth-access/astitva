@@ -63,6 +63,23 @@
         "RESEND_API_KEY": "",
         "APP_URL": "http://localhost:3004"
       }
+    },
+    {
+      "name": "dev-local-ga",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "3005"
+      ],
+      "port": 3005,
+      "env": {
+        "DATABASE_URL": "postgres://localhost:5432/astitva_dev",
+        "APP_URL": "http://localhost:3005",
+        "NEXT_PUBLIC_GA_ID": "G-LOCALTEST00"
+      }
     }
   ]
 }

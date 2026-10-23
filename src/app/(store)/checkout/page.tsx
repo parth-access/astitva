@@ -4,8 +4,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
+import { Track } from "@/components/storefront/analytics";
 import { CheckoutForm, type CheckoutAccount } from "@/components/storefront/checkout-form";
 import { db } from "@/db/client";
+import { gaItem, gaRupees } from "@/lib/analytics";
 import { getDetails, listAddresses, MAX_ADDRESSES } from "@/modules/account/service";
 import { getCustomer } from "@/modules/auth/customer";
 import { currentBag } from "@/modules/bag/current";
@@ -60,17 +62,29 @@ async function Checkout() {
   // The order key below is new on every request, never prerendered.
   await connection();
   return (
-    <CheckoutForm
-      bag={bag}
-      totals={totals}
-      online={rzp ? { testMode: rzp.testMode } : null}
-      codEnabled={settings.codEnabled}
-      overCodLimit={totals.cod.totalMinor > settings.codMaxOrderMinor}
-      holdMinutes={settings.holdMinutes}
-      account={account}
-      // One key per visit to this page: a double tap or a resubmit places one order.
-      idempotencyKey={randomUUID()}
-    />
+    <>
+      <Track
+        event="begin_checkout"
+        params={{
+          currency: "INR",
+          value: gaRupees(bag.subtotalMinor),
+          items: bag.lines.map((l) =>
+            gaItem({ slug: l.slug, name: l.pieceName ?? l.name, category: l.categorySlug, colour: l.colour, size: l.size, priceMinor: l.priceMinor, quantity: l.quantity }),
+          ),
+        }}
+      />
+      <CheckoutForm
+        bag={bag}
+        totals={totals}
+        online={rzp ? { testMode: rzp.testMode } : null}
+        codEnabled={settings.codEnabled}
+        overCodLimit={totals.cod.totalMinor > settings.codMaxOrderMinor}
+        holdMinutes={settings.holdMinutes}
+        account={account}
+        // One key per visit to this page: a double tap or a resubmit places one order.
+        idempotencyKey={randomUUID()}
+      />
+    </>
   );
 }
 

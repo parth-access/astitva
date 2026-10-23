@@ -45,6 +45,7 @@ export const POLICY_PAGES: PolicyPage[] = [
     body: [
       "We collect your name, phone number, email and delivery address to deliver your order and keep you updated about it.",
       "Payments are handled by Razorpay. We never see or store your card details.",
+      "Only if you say yes, we use Google Analytics to count visits and see which pieces are looked at and bought. It sets cookies in your browser and never receives your name, phone number, email or address. Until you answer, and after a no, nothing is sent. You can change your answer any time from \"Analytics choice\" at the foot of every page.",
       "The full privacy policy will be published before launch.",
     ],
   },
