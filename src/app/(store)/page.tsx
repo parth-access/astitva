@@ -35,7 +35,7 @@ async function Home() {
 
   return (
     <div className="lookbook">
-      <JsonLd data={[organizationLd({ whatsapp: concierge.whatsapp, email: concierge.email }), websiteLd()]} />
+      <JsonLd data={[organizationLd({ whatsapp: concierge.whatsapp, email: concierge.email, profiles: concierge.profileLinks }), websiteLd()]} />
       <LookbookCover store={store} pieces={pieces} />
       <LookbookNote store={store} />
       <LookbookContents store={store} pieces={pieces} folio={hasNote ? "iv" : "iii"} />

@@ -2,6 +2,14 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-23 — Category pages, FAQ and brand profiles for search
+
+**Category pages:** each category has its own address, `/shop/dresses`, with its own title ("Women's dresses"), a description written from what it lists (its styles, colours and lowest price), a canonical address, breadcrumbs and the list of its pieces as structured data, and a place in the sitemap. Sorting stays a view of the page (`?sort=`). A category with nothing published yet shows "Coming soon" and is kept out of search (noindex, not in the sitemap). Old `/shop?category=dresses` links redirect permanently. Piece pages link their category ("In: Dresses") and include it in their breadcrumbs.
+
+**FAQ:** the questions page carries FAQPage structured data, written from the answers the page shows (words only, links removed), so the two can't drift apart. One answer still said accounts had no password; it now matches the site.
+
+**Brand profiles:** Lookbook & settings → "Profiles elsewhere": up to 8 https links (Instagram, Pinterest…), one per line. They go into the brand's structured data as `sameAs`, so search engines connect those accounts to Astitva. New column `store_settings.profile_links`.
+
 ## 2026-10-23 — Receipts
 
 **Decision:** every order gets one receipt, numbered in sequence (`ASTR-000001`, its own sequence), with the order frozen into it when issued (`receipts`, never edited). Online: issued in the same transaction that records the Razorpay capture, with how it was paid (UPI, card…), the payment id and when. Cash on delivery: issued when the order is placed, for the amount to pay on delivery (chosen over waiting for delivery, so it goes with the confirmation email). Astitva has no GSTIN, so it says "Payment receipt, not a tax invoice. Prices include all taxes."; a tax invoice (GSTIN, HSN codes, tax breakdown) is separate work for when there is one.

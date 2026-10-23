@@ -21,6 +21,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/admin/s
     supportWhatsapp: s?.supportWhatsapp ?? "",
     conciergeName: s?.conciergeName ?? "",
     supportEmail: s?.supportEmail ?? "",
+    profileLinks: (s?.profileLinks ?? []).join("\n"),
     shippingFlatMinor: paiseToRupeesText(Number(s?.shippingFlatMinor ?? 0)),
     freeShippingThresholdMinor: s?.freeShippingThresholdMinor == null ? "" : paiseToRupeesText(Number(s.freeShippingThresholdMinor)),
     codEnabled: s?.codEnabled ? "on" : "",

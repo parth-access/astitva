@@ -341,10 +341,10 @@ export async function getConcierge() {
   cacheTag(SETTINGS_TAG);
 
   const [row] = await db
-    .select({ whatsapp: storeSettings.supportWhatsapp, name: storeSettings.conciergeName, email: storeSettings.supportEmail })
+    .select({ whatsapp: storeSettings.supportWhatsapp, name: storeSettings.conciergeName, email: storeSettings.supportEmail, profileLinks: storeSettings.profileLinks })
     .from(storeSettings)
     .where(eq(storeSettings.id, 1));
-  return row ?? { whatsapp: null, name: null, email: null };
+  return row ?? { whatsapp: null, name: null, email: null, profileLinks: [] };
 }
 
 /** The home page lookbook's words, and whether customers can order yet. */

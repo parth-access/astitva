@@ -20,7 +20,7 @@ import { formatINR } from "@/lib/money";
 import { breadcrumbLd, productLd } from "@/lib/seo";
 import { JsonLd } from "@/components/brand/json-ld";
 import { OptionsSkeleton, PieceSkeleton } from "@/components/lookbook/skeletons";
-import { getAdjacentPieces, getProductBySlug, getStorefront, listPieces, type ProductDetail } from "@/modules/catalog/queries";
+import { getAdjacentPieces, getProductBySlug, getStorefront, listCategories, listPieces, type ProductDetail } from "@/modules/catalog/queries";
 import { getAvailability } from "@/modules/inventory/service";
 
 export async function generateStaticParams() {
@@ -177,8 +177,9 @@ async function Neighbours({ pieceNumber }: { pieceNumber: number }) {
 
 async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">) {
   const { slug } = await params;
-  const [product, store] = await Promise.all([getProductBySlug(slug), getStorefront()]);
+  const [product, store, categories] = await Promise.all([getProductBySlug(slug), getStorefront(), listCategories()]);
   if (!product || product.variants.length === 0) notFound();
+  const category = categories.find((c) => c.slug === product.categorySlug) ?? null;
 
   const prices = product.variants.map((v) => v.priceMinor);
   const lowest = product.variants.find((v) => v.priceMinor === Math.min(...prices))!;
@@ -192,6 +193,7 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
     breadcrumbLd([
       { name: "Astitva", path: "/" },
       { name: "Shop", path: "/shop" },
+      ...(category ? [{ name: category.name, path: `/shop/${category.slug}` }] : []),
       { name: title, path: pieceHref(product.slug) },
     ]),
     // Offers only once ordering is open: before that nothing can be bought.
@@ -261,6 +263,16 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
             </div>
 
             <dl className="mt-10 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2.5 border-t border-taupe/30 pt-6 text-sm">
+              {category && (
+                <>
+                  <dt className="text-espresso-soft">In</dt>
+                  <dd>
+                    <Link href={`/shop/${category.slug}`} className="link">
+                      {category.name}
+                    </Link>
+                  </dd>
+                </>
+              )}
               {condition && (
                 <>
                   <dt className="text-espresso-soft">Condition</dt>

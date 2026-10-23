@@ -478,6 +478,8 @@ export const storeSettings = pgTable(
     /** Who answers WhatsApp, shown as "Ask Krishna". Null shows "Ask us". */
     conciergeName: varchar("concierge_name", { length: 40 }),
     gstin: varchar("gstin", { length: 15 }),
+    /** The brand's profiles elsewhere (Instagram, Pinterest…), https only. Tell search engines they're the same brand. */
+    profileLinks: text("profile_links").array().notNull().default(sql`'{}'::text[]`),
     /** Customers can add to bag and check out. Off while the site is a preview. */
     orderingOpen: boolean("ordering_open").notNull().default(false),
     /** The home page lookbook's title and line, e.g. "Autumn–Winter 2026". */

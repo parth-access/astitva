@@ -36,6 +36,13 @@ const settingsSchema = z.object({
   ),
   conciergeName: text(40),
   supportEmail: z.preprocess(blank, z.email("An email address.").nullable()),
+  profileLinks: z.preprocess(
+    (v) => (typeof v === "string" ? v.split(/\s+/).filter(Boolean) : []),
+    z
+      .array(z.url({ protocol: /^https$/, message: "Each link starting https://, one per line." }).max(300, "That link is too long."))
+      .max(8, "Up to 8 links.")
+      .transform((links) => [...new Set(links)]),
+  ),
   shippingFlatMinor: rupees("Shipping"),
   freeShippingThresholdMinor: z.preprocess(blank, rupees("Free shipping from").nullable()),
   codEnabled: z.boolean(),
@@ -50,7 +57,8 @@ export function parseSettingsForm(form: FormData): { ok: true; data: SettingsInp
   const parsed = settingsSchema.safeParse({ ...values, orderingOpen: values.orderingOpen === "on", codEnabled: values.codEnabled === "on" });
   if (parsed.success) return { ok: true, data: parsed.data };
   const errors: FieldErrors = {};
-  for (const issue of parsed.error.issues) errors[issue.path.join(".") || "form"] ??= issue.message;
+  // By field: a bad profile link reports on the links box, not its line.
+  for (const issue of parsed.error.issues) errors[String(issue.path[0] ?? "form")] ??= issue.message;
   return { ok: false, errors };
 }
 

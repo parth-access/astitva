@@ -152,6 +152,15 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
           />
         </div>
         <Field label="Support email" name="supportEmail" type="email" defaultValue={v("supportEmail")} error={e("supportEmail")} />
+        <TextArea
+          label="Profiles elsewhere (optional)"
+          name="profileLinks"
+          rows={3}
+          defaultValue={v("profileLinks")}
+          placeholder="https://www.instagram.com/astitva"
+          error={e("profileLinks")}
+          hint="Instagram, Pinterest and the like, one link per line. Search engines use them to know these accounts are Astitva."
+        />
       </Section>
 
       <div className={saveBarClass}>
