@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ACROSS } from "@/lib/transition-types";
 import { POLICY_PAGES } from "@/content/policies";
+import { AnalyticsChoiceLink } from "./analytics";
 
 export function SiteFooter() {
   return (
@@ -45,6 +46,9 @@ export function SiteFooter() {
                 <Link className="link" transitionTypes={ACROSS} href={`/policies/${p.slug}`}>{p.title}</Link>
               </li>
             ))}
+            <li>
+              <AnalyticsChoiceLink className="link" />
+            </li>
           </ul>
         </nav>
       </div>

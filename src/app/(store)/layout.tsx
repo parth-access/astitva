@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { Intro } from "@/components/brand/intro";
+import { Analytics } from "@/components/storefront/analytics";
 import { BagProvider } from "@/components/storefront/bag/bag-context";
 import { BagDrawer } from "@/components/storefront/bag/bag-drawer";
 import { BagSeed } from "@/components/storefront/bag/bag-seed";
@@ -26,6 +27,8 @@ export default async function StoreLayout({ children }: LayoutProps<"/">) {
           Skip to content
         </a>
         <SiteHeader notice={orderingOpen ? null : PREVIEW_NOTICE} />
+        {/* Before the page, so a new page's view is counted before anything it sends. */}
+        <Analytics />
         <main id="main" className="flex-1">
           {children}
         </main>

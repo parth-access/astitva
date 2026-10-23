@@ -28,14 +28,17 @@ describe("security headers", () => {
     expect(csp).toContain("upgrade-insecure-requests");
     expect(csp).not.toContain("unsafe-eval");
   });
-  it("lets Razorpay's checkout and Cloudinary's photos through, and nothing else from outside", () => {
+  it("lets Razorpay's checkout, Cloudinary's photos and Google Analytics through, and nothing else from outside", () => {
     const csp = contentSecurityPolicy(false);
     expect(csp).toMatch(/script-src [^;]*https:\/\/checkout\.razorpay\.com/);
     expect(csp).toMatch(/frame-src [^;]*https:\/\/api\.razorpay\.com/);
     expect(csp).toMatch(/img-src [^;]*https:\/\/res\.cloudinary\.com/);
     expect(csp).toMatch(/connect-src [^;]*https:\/\/api\.cloudinary\.com/);
-    const hosts = csp.match(/https:\/\/[a-z.]+/g)!;
-    expect(new Set(hosts.map((h) => h.split(".").slice(-2).join(".")))).toEqual(new Set(["razorpay.com", "cloudinary.com"]));
+    expect(csp).toMatch(/connect-src [^;]*https:\/\/\*\.google-analytics\.com/);
+    const hosts = csp.match(/https:\/\/[a-z.*-]+/g)!;
+    expect(new Set(hosts.map((h) => h.split(".").slice(-2).join(".")))).toEqual(
+      new Set(["razorpay.com", "cloudinary.com", "googletagmanager.com", "google-analytics.com", "google.com"]),
+    );
   });
   it("relaxes only what the dev server needs", () => {
     const dev = Object.fromEntries(securityHeaders(true).map((h) => [h.key, h.value]));
