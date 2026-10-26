@@ -31,6 +31,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import type { PhotoEdit } from "@/lib/photo-edit";
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 const updatedAt = () =>
@@ -444,7 +445,12 @@ export const productImages = pgTable(
     productId: uuid("product_id")
       .notNull()
       .references(() => products.id, { onDelete: "cascade" }),
+    /** The address the site shows: the original, or the original with its edit applied (lib/photo-edit.ts). */
     url: text("url").notNull(),
+    /** The untouched upload, once the photo has been edited; null while url is the original. */
+    originalUrl: text("original_url"),
+    /** Flip, quarter turns and 4:5 crop, applied by Cloudinary on delivery. Null: shown as uploaded. */
+    edit: jsonb("edit").$type<PhotoEdit>(),
     /** The colour this photo shows (matches product_variants.color); null for photos of every colour. */
     color: varchar("color", { length: 48 }),
     altText: varchar("alt_text", { length: 240 }).notNull().default(""),

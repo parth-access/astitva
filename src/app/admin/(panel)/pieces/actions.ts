@@ -5,9 +5,11 @@ import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db/client";
+import { photoEditSchema } from "@/lib/photo-edit";
 import { InvalidTransitionError } from "@/lib/state-machine";
+import type { PanelPhoto } from "@/components/admin/photos-panel";
 import { formValues, parsePieceForm, type FieldErrors } from "@/modules/catalog-admin/input";
-import { addPhoto, movePhoto, removePhoto, setPhotoAlt, setPhotoColour } from "@/modules/catalog-admin/photos";
+import { addPhoto, movePhoto, removePhoto, setPhotoAlt, setPhotoColour, setPhotoEdit } from "@/modules/catalog-admin/photos";
 import { PieceRuleError, savePiece, setPieceStatus } from "@/modules/catalog-admin/service";
 import { setSpinVideo } from "@/modules/catalog-admin/spin";
 import { notifyRestockedSoon } from "@/modules/alerts/soon";
@@ -79,19 +81,20 @@ export async function signPhotoUploadAction(productId: string): Promise<SignedUp
 
 export type PhotoResult = { ok: true } | { ok: false; error: string };
 
-/** Records an upload after checking Cloudinary's signed reply. */
-export async function attachPhotoAction(productId: string, receipt: UploadReceipt): Promise<PhotoResult> {
+/** Records an upload after checking Cloudinary's signed reply. Returns the new photo, so it can be edited straight away. */
+export async function attachPhotoAction(productId: string, receipt: UploadReceipt): Promise<{ ok: true; photo: PanelPhoto } | { ok: false; error: string }> {
   const { user } = await requireAdmin();
   const photo = verifyUpload(receipt, PIECE_FOLDER);
   if (!photo) return { ok: false, error: "That upload couldn't be confirmed. Try again." };
+  let row;
   try {
-    await addPhoto(db, productId, photo, user.id);
+    row = await addPhoto(db, productId, photo, user.id);
   } catch (err) {
     if (err instanceof PieceRuleError) return { ok: false, error: Object.values(err.errors)[0]! };
     throw err;
   }
   updateTag(CATALOG_TAG);
-  return { ok: true };
+  return { ok: true, photo: { id: row.id, url: row.url, originalUrl: null, edit: null, altText: row.altText, color: row.color } };
 }
 
 const photoChange = z.discriminatedUnion("kind", [
@@ -99,6 +102,7 @@ const photoChange = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("move"), photoId: z.uuid(), direction: z.enum(["earlier", "later", "first"]) }),
   z.object({ kind: z.literal("remove"), photoId: z.uuid() }),
   z.object({ kind: z.literal("colour"), photoId: z.uuid(), colour: z.string().max(48).nullable() }),
+  z.object({ kind: z.literal("edit"), photoId: z.uuid(), edit: photoEditSchema.nullable() }),
 ]);
 
 export async function changePhotoAction(productId: string, change: z.infer<typeof photoChange>): Promise<PhotoResult> {
@@ -109,6 +113,7 @@ export async function changePhotoAction(productId: string, change: z.infer<typeo
     if (c.data.kind === "alt") await setPhotoAlt(db, productId, c.data.photoId, c.data.altText);
     if (c.data.kind === "move") await movePhoto(db, productId, c.data.photoId, c.data.direction);
     if (c.data.kind === "colour") await setPhotoColour(db, productId, c.data.photoId, c.data.colour);
+    if (c.data.kind === "edit") await setPhotoEdit(db, productId, c.data.photoId, c.data.edit, user.id);
     if (c.data.kind === "remove") {
       const url = await removePhoto(db, productId, c.data.photoId, user.id);
       const publicId = publicIdFromUrl(url);

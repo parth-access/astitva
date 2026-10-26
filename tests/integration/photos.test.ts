@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { asc, eq } from "drizzle-orm";
 import { auditLogs, productImages, products, users } from "../../src/db/schema";
-import { addPhoto, movePhoto, removePhoto, setPhotoAlt } from "../../src/modules/catalog-admin/photos";
+import { addPhoto, movePhoto, removePhoto, setPhotoAlt, setPhotoEdit } from "../../src/modules/catalog-admin/photos";
 import { PieceRuleError } from "../../src/modules/catalog-admin/service";
 import { hasDb, makeDb, resetData } from "./helpers";
 
@@ -72,5 +72,30 @@ describe.skipIf(!hasDb)("piece photos", () => {
 
     expect(await removePhoto(db, productId, a.id, actorId)).toBe(photo(1).url);
     expect(await order()).toEqual([]);
+  });
+
+  it("edits from the original every time, undoes, and still deletes the original file", async () => {
+    const a = await addPhoto(db, productId, photo(1), actorId);
+    const first = { rotate: 90 as const, flip: false, crop: { x: 0, y: 0.1, width: 1, height: 0.8 } };
+    await setPhotoEdit(db, productId, a.id, first, actorId);
+    let [row] = await db.select().from(productImages).where(eq(productImages.id, a.id));
+    expect(row!.url).toBe("https://res.cloudinary.com/demo/image/upload/a_90/c_crop,x_0.0000,y_0.1000,w_1.0000,h_0.8000/v1/astitva/pieces/p1.jpg");
+    expect(row!.originalUrl).toBe(photo(1).url);
+
+    // A second edit replaces the first rather than stacking on it.
+    await setPhotoEdit(db, productId, a.id, { rotate: 0, flip: true, crop: { x: 0.1, y: 0, width: 0.8, height: 0.8 } }, actorId);
+    [row] = await db.select().from(productImages).where(eq(productImages.id, a.id));
+    expect(row!.url).toBe("https://res.cloudinary.com/demo/image/upload/a_hflip/c_crop,x_0.1000,y_0.0000,w_0.8000,h_0.8000/v1/astitva/pieces/p1.jpg");
+    expect(row!.edit).toMatchObject({ flip: true, rotate: 0 });
+
+    await setPhotoEdit(db, productId, a.id, null, actorId);
+    [row] = await db.select().from(productImages).where(eq(productImages.id, a.id));
+    expect([row!.url, row!.originalUrl, row!.edit]).toEqual([photo(1).url, null, null]);
+
+    await setPhotoEdit(db, productId, a.id, first, actorId);
+    expect(await removePhoto(db, productId, a.id, actorId)).toBe(photo(1).url);
+    const actions = (await db.select({ action: auditLogs.action }).from(auditLogs)).map((r) => r.action);
+    expect(actions).toContain("piece.photo_edited");
+    expect(actions).toContain("piece.photo_edit_undone");
   });
 });

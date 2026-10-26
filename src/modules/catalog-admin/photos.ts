@@ -1,6 +1,7 @@
 import { and, asc, eq, isNull, max } from "drizzle-orm";
 import type { Db } from "@/db/create";
 import { auditLogs, productImages, products } from "@/db/schema";
+import { editedPhotoUrl, type PhotoEdit } from "@/lib/photo-edit";
 import type { VerifiedPhoto } from "@/modules/media/cloudinary";
 import { PieceRuleError } from "./service";
 
@@ -60,6 +61,28 @@ export async function setPhotoColour(db: Db, productId: string, photoId: string,
   await db.update(productImages).set({ color: colour?.trim() || null }).where(eq(productImages.id, photoId));
 }
 
+/**
+ * Saves a photo's flip, turn and crop, or undoes them (null). Always worked
+ * out from the untouched original, so editing again never stacks edits.
+ */
+export async function setPhotoEdit(db: Db, productId: string, photoId: string, edit: PhotoEdit | null, actorId: string) {
+  const row = await ownPhoto(db, productId, photoId);
+  const original = row.originalUrl ?? row.url;
+  await db.transaction(async (tx) => {
+    await tx
+      .update(productImages)
+      .set({ url: editedPhotoUrl(original, edit), originalUrl: edit ? original : null, edit })
+      .where(eq(productImages.id, photoId));
+    await tx.insert(auditLogs).values({
+      actorId,
+      action: edit ? "piece.photo_edited" : "piece.photo_edit_undone",
+      resourceType: "product",
+      resourceId: productId,
+      metadata: { photoId, edit },
+    });
+  });
+}
+
 /** Moves a photo one place earlier or later. Moving to the front makes it the cover. */
 export async function movePhoto(db: Db, productId: string, photoId: string, direction: "earlier" | "later" | "first") {
   await db.transaction(async (tx) => {
@@ -82,7 +105,7 @@ export async function movePhoto(db: Db, productId: string, photoId: string, dire
   });
 }
 
-/** Removes the photo's row and returns its address, so the caller can delete the file. */
+/** Removes the photo's row and returns its original address, so the caller can delete the file. */
 export async function removePhoto(db: Db, productId: string, photoId: string, actorId: string): Promise<string> {
   const row = await ownPhoto(db, productId, photoId);
   await db.transaction(async (tx) => {
@@ -95,5 +118,5 @@ export async function removePhoto(db: Db, productId: string, photoId: string, ac
       metadata: { photoId, url: row.url },
     });
   });
-  return row.url;
+  return row.originalUrl ?? row.url;
 }

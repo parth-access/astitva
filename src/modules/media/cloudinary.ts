@@ -105,9 +105,9 @@ export function verifyUpload(receipt: UploadReceipt, folder: UploadFolder, accou
   };
 }
 
-/** The Cloudinary id inside one of our photo (or video) addresses, or null for anything else. */
+/** The Cloudinary id inside one of our photo (or video) addresses, edited or not, or null for anything else. */
 export function publicIdFromUrl(url: string, account = cloudinaryAccount(), resource: Resource = "image"): string | null {
-  const m = new RegExp(`^https://res\\.cloudinary\\.com/${account.cloudName}/${resource}/upload/v\\d+/(.+)\\.[a-z0-9]+$`, "i").exec(url);
+  const m = new RegExp(`^https://res\\.cloudinary\\.com/${account.cloudName}/${resource}/upload/(?:[^/]+/)*?v\\d+/(.+)\\.[a-z0-9]+$`, "i").exec(url);
   return m?.[1] ?? null;
 }
 

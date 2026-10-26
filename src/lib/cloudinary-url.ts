@@ -1,10 +1,12 @@
 /**
- * Cloudinary delivery addresses. Our stored photo URLs are the untouched
- * originals; resizing and format happen by adding a transformation after
- * "/upload/". Safe for the browser: no credentials here.
+ * Cloudinary delivery addresses. A stored photo address is the original,
+ * or the original with its edit (lib/photo-edit.ts) as a transformation
+ * after "/upload/". Resizing and format are chained after that, so they
+ * apply to the edited photo. Safe for the browser: no credentials here.
  */
 
-const UPLOAD = /^(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)(v\d+\/.+)$/;
+// The address, any transformations already in it (an edit), and the version and file.
+const UPLOAD = /^(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)((?:[^/]+\/)*?)(v\d+\/.+)$/;
 
 export function isCloudinaryUrl(src: string): boolean {
   return UPLOAD.test(src);
@@ -16,8 +18,6 @@ export function isCloudinaryUrl(src: string): boolean {
  * addresses come back unchanged.
  */
 export function cloudinaryUrl(src: string, opts: { width: number; quality?: number; height?: number }): string {
-  const m = UPLOAD.exec(src);
-  if (!m) return src;
   const t = [
     "f_auto",
     opts.quality ? `q_${Math.round(opts.quality)}` : "q_auto",
@@ -27,7 +27,14 @@ export function cloudinaryUrl(src: string, opts: { width: number; quality?: numb
   ]
     .filter(Boolean)
     .join(",");
-  return `${m[1]}${t}/${m[2]}`;
+  return withTransformation(src, t);
+}
+
+/** Adds a transformation after any already in the address (so after an edit). Non-Cloudinary addresses come back unchanged. */
+export function withTransformation(src: string, transformation: string): string {
+  const m = UPLOAD.exec(src);
+  if (!m) return src;
+  return `${m[1]}${m[2]}${transformation}/${m[3]}`;
 }
 
 const VIDEO = /^(https:\/\/res\.cloudinary\.com\/[^/]+\/video\/upload\/)(v\d+\/.+)\.[a-z0-9]+$/i;

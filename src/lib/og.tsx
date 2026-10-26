@@ -9,7 +9,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
-import { isCloudinaryUrl } from "./cloudinary-url";
+import { isCloudinaryUrl, withTransformation } from "./cloudinary-url";
 import { normaliseTone } from "./tone";
 
 export const OG_SIZE = { width: 1200, height: 630 };
@@ -46,7 +46,7 @@ async function render(node: React.ReactElement) {
 
 function photoJpeg(src: string, w: number, h: number): string | null {
   if (!isCloudinaryUrl(src)) return null;
-  return src.replace("/image/upload/", `/image/upload/f_jpg,q_80,c_fill,g_auto,w_${w},h_${h}/`);
+  return withTransformation(src, `f_jpg,q_80,c_fill,g_auto,w_${w},h_${h}`);
 }
 
 function Wordmark({ size = 26 }: { size?: number }) {
