@@ -60,7 +60,7 @@ export default async function EditPiecePage({ params, searchParams }: PageProps<
             productId={product.id}
             photos={photos}
             pieceLabel={product.pieceName ?? product.name}
-            colours={colours.flatMap((c) => (c.name ? [c.name] : []))}
+            colours={colours.flatMap((c) => (c.name ? [{ name: c.name, hex: c.hex }] : []))}
           />
           <SpinPanel productId={product.id} video={product.spinVideoUrl} pieceLabel={product.pieceName ?? product.name} tone={product.tone} />
           <PieceEditor

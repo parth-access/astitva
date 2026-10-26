@@ -74,6 +74,24 @@ describe.skipIf(!hasDb)("piece photos", () => {
     expect(await order()).toEqual([]);
   });
 
+  it("keeps each colour's photos in their own order, so a colour's first is its main photo", async () => {
+    const sage1 = await addPhoto(db, productId, photo(1), actorId, "Sage");
+    const every = await addPhoto(db, productId, photo(2), actorId, null);
+    const ink1 = await addPhoto(db, productId, photo(3), actorId, "Ink");
+    const sage2 = await addPhoto(db, productId, photo(4), actorId, " Sage ");
+    expect([sage1.color, every.color, ink1.color, sage2.color]).toEqual(["Sage", null, "Ink", "Sage"]);
+
+    // Earlier within Sage jumps over the photos of other colours in between.
+    await movePhoto(db, productId, sage2.id, "earlier");
+    expect(await order()).toEqual(["0:p4", "1:p2", "2:p3", "3:p1"]);
+    // The first of its colour already: nothing moves.
+    await movePhoto(db, productId, ink1.id, "first");
+    await movePhoto(db, productId, ink1.id, "later");
+    expect(await order()).toEqual(["0:p4", "1:p2", "2:p3", "3:p1"]);
+    await movePhoto(db, productId, sage1.id, "first");
+    expect(await order()).toEqual(["0:p1", "1:p2", "2:p3", "3:p4"]);
+  });
+
   it("edits from the original every time, undoes, and still deletes the original file", async () => {
     const a = await addPhoto(db, productId, photo(1), actorId);
     const first = { rotate: 90 as const, flip: false, crop: { x: 0, y: 0.1, width: 1, height: 0.8 } };

@@ -82,13 +82,20 @@ export async function signPhotoUploadAction(productId: string): Promise<SignedUp
 export type PhotoResult = { ok: true } | { ok: false; error: string };
 
 /** Records an upload after checking Cloudinary's signed reply. Returns the new photo, so it can be edited straight away. */
-export async function attachPhotoAction(productId: string, receipt: UploadReceipt): Promise<{ ok: true; photo: PanelPhoto } | { ok: false; error: string }> {
+export async function attachPhotoAction(
+  productId: string,
+  receipt: UploadReceipt,
+  /** The colour it's a photo of; null for every colour. */
+  colour: string | null = null,
+): Promise<{ ok: true; photo: PanelPhoto } | { ok: false; error: string }> {
   const { user } = await requireAdmin();
   const photo = verifyUpload(receipt, PIECE_FOLDER);
   if (!photo) return { ok: false, error: "That upload couldn't be confirmed. Try again." };
+  const c = z.string().max(48).nullable().safeParse(colour);
+  if (!c.success) return { ok: false, error: "Unknown colour." };
   let row;
   try {
-    row = await addPhoto(db, productId, photo, user.id);
+    row = await addPhoto(db, productId, photo, user.id, c.data);
   } catch (err) {
     if (err instanceof PieceRuleError) return { ok: false, error: Object.values(err.errors)[0]! };
     throw err;
