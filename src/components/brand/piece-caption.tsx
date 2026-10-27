@@ -13,9 +13,8 @@ export function pieceTitle(p: { pieceName: string | null; name: string }) {
 }
 
 export function availabilityNote(p: Pick<PieceCard, "onHand" | "variantCount">) {
-  if (p.onHand <= 0) return "Sold out";
-  if (p.onHand <= 2) return `Only ${p.onHand} left`;
-  return null;
+  // Never how few are left: a piece is in stock or sold out.
+  return p.onHand <= 0 ? "Sold out" : null;
 }
 
 /**

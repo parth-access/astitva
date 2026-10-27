@@ -112,9 +112,7 @@ export function BuyPanel({
     ? "Sold out for now. Ask about the next batch."
     : out
       ? `Sold out${colour ? ` in ${colour}` : ""}${hasSizes && selected.size ? `, ${selected.size}` : ""}. Try another ${sizes.length > 1 ? "size or colour" : "colour"}.`
-      : selected.available <= 2
-        ? `Only ${selected.available} left${hasSizes && selected.size ? ` in ${selected.size}` : ""}.`
-        : "In stock, ready to send.";
+      : "In stock, ready to send.";
 
   return (
     <div>
