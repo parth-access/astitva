@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { and, asc, eq } from "drizzle-orm";
-import { auditLogs, inventoryMovements, productVariants, products, users } from "../../src/db/schema";
+import { auditLogs, inventoryMovements, productImages, productVariants, products, users } from "../../src/db/schema";
 import { parsePieceForm, type PieceInput } from "../../src/modules/catalog-admin/input";
 import { nextPieceNumber, PieceRuleError, savePiece, setPieceStatus } from "../../src/modules/catalog-admin/service";
 import { createOrder, hasDb, makeDb, movementSum, resetData } from "./helpers";
@@ -94,6 +94,40 @@ describe.skipIf(!hasDb)("piece editor writes", () => {
     // Bringing a retired combination back reactivates it rather than duplicating it.
     await savePiece(db, input({ pieceNumber: "1", ...grid, "c.0.name": "Moss", "c.0.was": "Moss", "c.1.was": "Ink", "s.0.was": "M", "s.1.was": "L", "stock.0.1": "4" }), { productId: id, actorId });
     expect((await variantsOf(id)).filter((v) => v.color === "Moss" && v.size === "L")).toHaveLength(1);
+  });
+
+  it("a renamed colour keeps its photos", async () => {
+    const id = await savePiece(db, input({ pieceNumber: "1", ...grid }), { actorId });
+    const url = (n: number) => `https://res.cloudinary.com/demo/image/upload/v1/astitva/pieces/p${n}.jpg`;
+    await db.insert(productImages).values([
+      { productId: id, url: url(1), color: "Sage", sortOrder: 0 },
+      { productId: id, url: url(2), color: "Ink", sortOrder: 1 },
+      { productId: id, url: url(3), color: null, sortOrder: 2 },
+    ]);
+    await savePiece(db, input({ pieceNumber: "1", ...grid, "c.0.name": "Moss", "c.0.was": "Sage", "c.1.was": "Ink", "s.0.was": "M", "s.1.was": "L" }), { productId: id, actorId });
+    const photos = await db.select({ url: productImages.url, color: productImages.color }).from(productImages).where(eq(productImages.productId, id)).orderBy(asc(productImages.sortOrder));
+    expect(photos.map((p) => p.color)).toEqual(["Moss", "Ink", null]);
+  });
+
+  it("a sale while the editor is open isn't undone by saving it", async () => {
+    const id = await savePiece(db, input({ pieceNumber: "1", ...grid }), { actorId });
+    const inkM = (await variantsOf(id)).find((v) => v.color === "Ink" && v.size === "M")!;
+    await db.update(products).set({ status: "active", publishedAt: new Date() }).where(eq(products.id, id));
+    const opened = { ...grid, "c.0.was": "Sage", "c.1.was": "Ink", "s.0.was": "M", "s.1.was": "L", "seen.0.0": "2", "seen.0.1": "1", "seen.1.0": "3" };
+
+    // Someone buys one Ink/M (3 → 2) while Krishna edits the story.
+    const order = await createOrder(db);
+    await db.transaction((tx) => reserveForOrder(tx, { orderId: order.id, lines: [{ variantId: inkM.id, quantity: 1 }], mode: "commit" }));
+    await savePiece(db, input({ pieceNumber: "1", ...opened, story: "New words" }), { productId: id, actorId });
+    expect(await active(id)).toEqual(["Ink/M:2", "Sage/L:1", "Sage/M:2"]);
+
+    // She adds two Ink/M to the 3 she saw: 2 left after the sale, plus 2.
+    await savePiece(db, input({ pieceNumber: "1", ...opened, "stock.1.0": "5" }), { productId: id, actorId });
+    expect(await active(id)).toEqual(["Ink/M:4", "Sage/L:1", "Sage/M:2"]);
+    expect(await movementSum(db, inkM.id)).toBe(4);
+
+    // Taking away more than are left now is refused, not taken below zero.
+    await expectRule(savePiece(db, input({ pieceNumber: "1", ...opened, "seen.1.0": "9", "stock.1.0": "0" }), { productId: id, actorId }), "stock.1.0");
   });
 
   it("won't count stock below what's in customers' bags", async () => {

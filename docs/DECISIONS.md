@@ -2,6 +2,18 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-27 — Production fixes: refunds, stock edits, late payments
+
+**Decision:** Seven fixes from an audit of what can go wrong in production.
+
+- **A refund Razorpay didn't answer stays pending.** Only a 4xx marks it failed. A timeout or 5xx may have refunded all the same, so it keeps counting against what can be refunded (a second click can't pay the buyer twice) until Razorpay's webhook or the frequent job settles it. The job (`reconcileRefunds`) looks pending Razorpay refunds up after 10 minutes, by Razorpay's id or by our id in the refund's notes: processed or failed as Razorpay says, failed if Razorpay has no such refund. A refund we'd marked failed that Razorpay later reports processed counts after all (`failed → succeeded`), and the owners are told.
+- **The piece editor applies only the change typed.** The form carries each count as it opened (`seen.<i>.<j>`); saving adds the difference between that and what was typed, so a sale while the editor is open isn't undone. A count that would go below zero is refused.
+- **"Pay now" holds the stock again.** Opening Razorpay's window extends the order's holds for another reservation period, or takes lapsed ones again if the stock is still free. If it sold meanwhile, the order is closed (`sold_out`) instead of taking money for it. The order row stays locked while the Razorpay order is made, so two taps make one.
+- **A second payment for a paid order** (two windows, both paid) is recorded as a `payment.extra` event and flagged for a refund from Razorpay's dashboard, once, instead of failing and leaving Razorpay retrying the webhook.
+- **Renaming a colour moves its photos with it.**
+- **Queued emails carry an idempotency key** (`outbox-<row id>`): Resend sends nothing new for a repeat within 24 hours, so a retry after a timeout isn't a second email.
+- **The 15-minute job runs from Netlify** (`netlify/functions/cron-frequent.mts`, a scheduled function on the production deploy): GitHub ran it 1–6 hours apart. GitHub keeps the daily job and manual runs.
+
 ## 2026-10-23 — You might also like
 
 **Decision:** each piece page ends with "You might also like": up to 4 other pieces from its category, in the shop's order. If the category has too few, the row is topped up from the categories after it in the shop's menu order (set in the admin), wrapping round from the last to the first; pieces without a category come last. Never the piece itself, never sold-out pieces; no section when there's nothing to show. A piece's category is its first one, as for its sketch. Kept simple on purpose: hand-picked pairings ("wear it with") or suggestions from hearts and orders can come later.
@@ -156,7 +168,7 @@ Short records of choices that differ from, or add to, the revised PRD. Newest fi
 
 **How** (`src/modules/payments`):
 - Choosing "Pay now" places the order `pending_payment` with its stock **held** for the store's reservation time (15 minutes), not taken. The bag is kept until the money arrives. Starting checkout again from the same bag cancels the earlier unpaid order and drops its hold, so a buyer never holds stock against themselves.
-- A Razorpay order is created for the total **as stored on our order**; reopening the window reuses it. If Razorpay can't be reached, the order is cancelled and the hold released at once.
+- A Razorpay order is created for the total **as stored on our order**; reopening the window reuses it, and holds the stock again for another reservation period (or closes the order if it sold meanwhile; see 2026-10-27). If Razorpay can't be reached, the order is cancelled and the hold released at once.
 - Paid means: the reply's signature checks out (HMAC of `order_id|payment_id` with the key secret), **and** Razorpay's own record of the payment says captured, for exactly the stored amount in INR (an authorised payment is captured by us). Only then does the hold become a sale, the order become confirmed/paid, the email get queued and the pieces leave the bag.
 - The webhook (`/api/webhooks/razorpay`, signed over the raw body with `RAZORPAY_WEBHOOK_SECRET`) does the same, so a closed tab still ends in a paid order. Events are recorded once by Razorpay's event id with ids, amounts and status only; a delivery that failed is retried, a repeat of a processed one is skipped. Browser and webhook racing end in one sale (tested).
 - **Paid too late:** if the hold lapsed and the stock went to someone else, or the order was cancelled first, the payment is still recorded, the order is flagged `needs_resolution` ("Needs you" in the admin) and the buyer's page says Krishna will offer another colour or size, or a refund. Cancelling a paid order flags a refund the same way. Refunding from the admin is M5; until then, from Razorpay's dashboard.

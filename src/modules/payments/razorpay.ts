@@ -50,6 +50,9 @@ export type Razorpay = {
   capturePayment(paymentId: string, amountMinor: number): Promise<RazorpayPayment>;
   /** Refund part or all of a captured payment, back to how it was paid. */
   refundPayment(paymentId: string, amountMinor: number, notes: Record<string, string>): Promise<RazorpayRefund>;
+  /** The refunds made on a payment, to learn whether a refund we asked for (and heard nothing back about) exists. */
+  listRefunds(paymentId: string): Promise<RazorpayRefund[]>;
+  fetchRefund(refundId: string): Promise<RazorpayRefund>;
   /** Standard Checkout's handler signature: HMAC-SHA256 of "order_id|payment_id" with the key secret. */
   isCheckoutSignature(orderId: string, paymentId: string, signature: string): boolean;
 };
@@ -116,6 +119,9 @@ export function createRazorpay(keys: RazorpayKeys, fetchImpl: typeof fetch = fet
       call<RazorpayPayment>("POST", `/payments/${encodeURIComponent(paymentId)}/capture`, { amount: amountMinor, currency: "INR" }),
     refundPayment: (paymentId, amountMinor, notes) =>
       call<RazorpayRefund>("POST", `/payments/${encodeURIComponent(paymentId)}/refund`, { amount: amountMinor, speed: "normal", notes }),
+    listRefunds: async (paymentId) =>
+      (await call<{ items: RazorpayRefund[] }>("GET", `/payments/${encodeURIComponent(paymentId)}/refunds?count=100`)).items,
+    fetchRefund: (refundId) => call<RazorpayRefund>("GET", `/refunds/${encodeURIComponent(refundId)}`),
     isCheckoutSignature: (orderId, paymentId, signature) => sameHex(hmacHex(keys.keySecret, `${orderId}|${paymentId}`), signature),
   };
 }

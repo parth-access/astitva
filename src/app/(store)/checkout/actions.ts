@@ -173,6 +173,7 @@ export async function resumePaymentAction(orderId: string, key: string): Promise
     return { payment: await openPayment(db, rzp, orderId) };
   } catch (err) {
     if (err instanceof PaymentError) {
+      if (err.code === "sold_out") return { error: "Sorry: these pieces sold while your order waited for payment. Nothing was charged, and the order is closed." };
       return { error: err.code === "not_payable" ? "This order is no longer waiting for payment." : "The payment service is unavailable. Please try again in a minute." };
     }
     throw err;

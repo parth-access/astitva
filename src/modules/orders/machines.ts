@@ -69,7 +69,8 @@ export const codCollectionMachine = defineMachine<CodCollectionStatus>("cod_coll
 export const refundMachine = defineMachine<RefundStatus>("refund", {
   initiated: ["succeeded", "failed"],
   succeeded: [],
-  failed: [],
+  // Razorpay can still report a refund we had marked failed as processed: the money did go.
+  failed: ["succeeded"],
 });
 
 /** Statuses from which a customer or admin may still cancel the order. */

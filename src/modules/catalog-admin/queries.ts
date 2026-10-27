@@ -168,6 +168,8 @@ export function pieceFormValues(piece: PieceForEdit): Record<string, string> {
     sizes.forEach((size, j) => {
       const v = active.find((x) => x.color === c.name && x.size === size);
       out[`stock.${i}.${j}`] = v ? String(v.onHand) : "";
+      // The count as the editor opened, so a save applies only the change typed (see savePiece).
+      if (v) out[`seen.${i}.${j}`] = String(v.onHand);
     }),
   );
   return out;

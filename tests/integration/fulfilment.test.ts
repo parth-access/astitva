@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { and, eq } from "drizzle-orm";
-import { codCollections, emailOutbox, inventoryMovements, orderEvents, orders, refunds, shipments, storeSettings, users } from "../../src/db/schema";
+import { and, eq, sql } from "drizzle-orm";
+import { adminRoleAssignments, codCollections, emailOutbox, inventoryMovements, orderEvents, orders, refunds, shipments, storeSettings, users } from "../../src/db/schema";
 import { addToBag, openBag } from "../../src/modules/bag/service";
 import type { CheckoutInput } from "../../src/modules/checkout/input";
 import { placeOrder } from "../../src/modules/checkout/service";
@@ -15,7 +15,7 @@ import {
   unpackOrder,
 } from "../../src/modules/orders/fulfilment";
 import { cancelOrder, OrderRuleError } from "../../src/modules/orders/service";
-import { refundableMinor, RefundError, refundOrder } from "../../src/modules/payments/refunds";
+import { reconcileRefunds, refundableMinor, RefundError, refundOrder } from "../../src/modules/payments/refunds";
 import { confirmFromCheckout, handleWebhook, openPayment } from "../../src/modules/payments/service";
 import { fakeRazorpay } from "./fake-razorpay";
 import { createVariant, expireHolds, hasDb, makeDb, movementSum, onHand, resetData } from "./helpers";
@@ -153,12 +153,61 @@ describe.skipIf(!hasDb)("after the order: packing, shipping, returns and refunds
   it("a refund Razorpay refuses is marked failed and can be tried again", async () => {
     const fake = fakeRazorpay();
     const { orderId } = await paidOnlineOrder(fake);
-    fake.setDown(true);
+    fake.setRefundAnswer("refused");
     expect(await rule(refundOrder(db, fake.rzp, orderId, admin, { amountMinor: 349_900, reason: "x", method: "razorpay" }), RefundError)).toMatch(/refused/);
     expect((await db.select().from(refunds).where(eq(refunds.orderId, orderId)))[0]!.status).toBe("failed");
-    fake.setDown(false);
+    fake.setRefundAnswer("ok");
     await refundOrder(db, fake.rzp, orderId, admin, { amountMinor: 349_900, reason: "x", method: "razorpay" });
     expect((await orderRow(orderId)).paymentStatus).toBe("refunded");
+  });
+
+  const ageRefunds = (orderId: string) => db.execute(sql`update refunds set created_at = now() - interval '11 minutes' where order_id = ${orderId}`);
+
+  it("a refund whose answer never came stays pending, can't be repeated, and is settled from Razorpay's records", async () => {
+    const fake = fakeRazorpay({ refundAnswer: "timeout" });
+    const { orderId } = await paidOnlineOrder(fake);
+    const full = { amountMinor: 349_900, reason: "x", method: "razorpay" as const };
+    expect(await rule(refundOrder(db, fake.rzp, orderId, admin, full), RefundError)).toMatch(/didn't answer/);
+    expect((await db.select().from(refunds).where(eq(refunds.orderId, orderId)))[0]!.status).toBe("initiated");
+    // A second click would pay the buyer twice: refused, the pending refund counts.
+    fake.setRefundAnswer("ok");
+    expect(await rule(refundOrder(db, fake.rzp, orderId, admin, full), RefundError)).toMatch(/all been refunded/);
+    expect(fake.refunds).toHaveLength(1);
+
+    expect(await reconcileRefunds(db, fake.rzp)).toBe(0); // too soon to look
+    await ageRefunds(orderId);
+    expect(await reconcileRefunds(db, fake.rzp)).toBe(1);
+    const [r] = await db.select().from(refunds).where(eq(refunds.orderId, orderId));
+    expect(r).toMatchObject({ status: "succeeded", providerRefundId: fake.refunds[0]!.id });
+    expect((await orderRow(orderId)).paymentStatus).toBe("refunded");
+  });
+
+  it("a refund Razorpay never received is failed by the check, and can then be made again", async () => {
+    const fake = fakeRazorpay({ refundAnswer: "server_error" });
+    const { orderId } = await paidOnlineOrder(fake);
+    const full = { amountMinor: 349_900, reason: "x", method: "razorpay" as const };
+    expect(await rule(refundOrder(db, fake.rzp, orderId, admin, full), RefundError)).toMatch(/didn't answer/);
+    await ageRefunds(orderId);
+    expect(await reconcileRefunds(db, fake.rzp)).toBe(1);
+    expect((await db.select().from(refunds).where(eq(refunds.orderId, orderId)))[0]!.status).toBe("failed");
+    fake.setRefundAnswer("ok");
+    await refundOrder(db, fake.rzp, orderId, admin, full);
+    expect((await orderRow(orderId)).paymentStatus).toBe("refunded");
+    expect(fake.refunds).toHaveLength(1);
+  });
+
+  it("a refund marked failed that Razorpay reports processed counts after all, and the owners hear of it", async () => {
+    const fake = fakeRazorpay({ refundAnswer: "refused" });
+    await db.insert(adminRoleAssignments).values({ userId: admin, role: "owner" });
+    const { orderId } = await paidOnlineOrder(fake);
+    await rule(refundOrder(db, fake.rzp, orderId, admin, { amountMinor: 349_900, reason: "x", method: "razorpay" }), RefundError);
+    const [r] = await db.select().from(refunds).where(eq(refunds.orderId, orderId));
+    const hook = { event: "refund.processed", payload: { refund: { entity: { id: "rfnd_late", payment_id: "pay", amount: 349_900, status: "processed", notes: { refundId: r!.id } } } } };
+    await handleWebhook(db, "evt_late_refund", hook);
+    expect((await db.select().from(refunds).where(eq(refunds.orderId, orderId)))[0]!.status).toBe("succeeded");
+    expect((await orderRow(orderId)).paymentStatus).toBe("refunded");
+    const alerts = await db.select().from(emailOutbox).where(eq(emailOutbox.template, "owner_needs_you"));
+    expect(alerts.some((a) => a.dedupeKey.startsWith(`owner_needs_you:refund_revived:${r!.id}`))).toBe(true);
   });
 
   it("paid too late, refunded in full: the order is closed as cancelled", async () => {

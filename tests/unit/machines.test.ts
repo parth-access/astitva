@@ -62,8 +62,9 @@ describe("other machines", () => {
     expect(codCollectionMachine.can("collected_by_courier", "remitted")).toBe(true);
   });
 
-  it("refunds are final once resolved", () => {
+  it("refunds are final once resolved, except a failed one Razorpay later reports processed", () => {
     expect(refundMachine.can("succeeded", "failed")).toBe(false);
+    expect(refundMachine.can("failed", "succeeded")).toBe(true);
   });
 });
 

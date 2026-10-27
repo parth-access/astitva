@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { and, eq, inArray, max, sql } from "drizzle-orm";
 import type { Db, Tx } from "@/db/create";
-import { auditLogs, productCategories, productVariants, products } from "@/db/schema";
+import { auditLogs, productCategories, productImages, productVariants, products } from "@/db/schema";
 import { InsufficientStockError } from "@/modules/inventory/errors";
 import { adjustStock } from "@/modules/inventory/service";
 import { productMachine, type ProductStatus } from "@/modules/orders/machines";
@@ -97,13 +97,17 @@ export async function savePiece(db: Db, input: PieceInput, ctx: { productId?: st
       await tx.delete(productCategories).where(eq(productCategories.productId, productId));
       if (input.categoryId) await tx.insert(productCategories).values({ productId, categoryId: input.categoryId });
 
-      // Renames first, so a renamed colour or size keeps its variants.
+      // Renames first, so a renamed colour or size keeps its variants (and a colour its photos).
       for (const c of input.colours) {
         if (c.was !== null && c.was !== c.name) {
           await tx
             .update(productVariants)
             .set({ color: c.name })
             .where(and(eq(productVariants.productId, productId), eq(productVariants.color, c.was)));
+          await tx
+            .update(productImages)
+            .set({ color: c.name })
+            .where(and(eq(productImages.productId, productId), eq(productImages.color, c.was)));
         }
       }
       for (const s of input.sizes) {
@@ -140,8 +144,14 @@ export async function savePiece(db: Db, input: PieceInput, ctx: { productId?: st
           } else {
             [variant] = await tx.insert(productVariants).values({ ...values, productId, sku: newSku() }).returning();
           }
-          const delta = target - variant!.onHand;
+          // Only the change typed: what the editor showed when it opened, to what was entered. A
+          // sale while the editor was open has already lowered the count, and must not be undone.
+          const seen = byKey.has(key) ? (input.seen[i]?.[j] ?? null) : null;
+          const delta = target - (seen ?? variant!.onHand);
           if (delta !== 0) {
+            if (variant!.onHand + delta < 0) {
+              throw new PieceRuleError({ [`stock.${i}.${j}`]: `Only ${variant!.onHand} left now: some sold while you were editing. Reload and set the count again.` });
+            }
             try {
               await adjustStock(tx, {
                 variantId: variant!.id,

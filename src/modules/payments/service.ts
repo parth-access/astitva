@@ -16,10 +16,11 @@
  * arrived, the payment is still recorded, the order is flagged
  * needs_resolution and Krishna refunds it (refunds arrive in M5).
  */
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { Db, DbOrTx, Tx } from "@/db/create";
-import { cartItems, orderEvents, orderItems, orders, paymentEvents, payments } from "@/db/schema";
-import { commitOrderReservations, releaseOrderHolds } from "@/modules/inventory/service";
+import { cartItems, orderEvents, orderItems, orders, paymentEvents, payments, storeSettings } from "@/db/schema";
+import { formatINR } from "@/lib/money";
+import { commitOrderReservations, releaseOrderHolds, renewOrderHolds } from "@/modules/inventory/service";
 import { queueOrderPlacedEmails } from "@/modules/checkout/service";
 import { releaseCodeUse } from "@/modules/discounts/service";
 import { issueReceipt } from "@/modules/receipts/service";
@@ -28,7 +29,7 @@ import { orderMachine, orderPaymentMachine, paymentAttemptMachine } from "@/modu
 import type { Razorpay, RazorpayPayment, RazorpayRefund } from "./razorpay";
 import { refundUpdateFromRazorpay } from "./refunds";
 
-export type PaymentErrorCode = "not_found" | "not_payable" | "bad_signature" | "mismatch" | "not_paid" | "provider";
+export type PaymentErrorCode = "not_found" | "not_payable" | "sold_out" | "bad_signature" | "mismatch" | "not_paid" | "provider";
 
 export class PaymentError extends Error {
   constructor(
@@ -54,46 +55,64 @@ export type CheckoutSession = {
 /**
  * The Razorpay order for an unpaid order: the existing one if any (so paying
  * again after closing the window reuses it), otherwise a new one for the
- * order's total as stored. If Razorpay can't be reached the order is cancelled
- * and its stock released, so nothing stays held for a payment that can't happen.
+ * order's total as stored. Either way the order's stock is held for another
+ * reservation period first, so it's still there when the money arrives; if it
+ * sold meanwhile the order is closed (`sold_out`) and nothing can be paid.
+ *
+ * The order row stays locked throughout, so two "Pay now" taps at once make
+ * one Razorpay order, not two the buyer could both pay. If Razorpay can't be
+ * reached the order is cancelled and its stock released, so nothing stays held
+ * for a payment that can't happen.
  */
 export async function openPayment(db: Db, rzp: Razorpay, orderId: string): Promise<CheckoutSession> {
-  const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
-  if (!order) throw new PaymentError("not_found", "No such order.");
-  if (order.paymentMethod !== "online" || order.orderStatus !== "pending_payment" || order.paymentStatus !== "unpaid") {
-    throw new PaymentError("not_payable", "This order isn't waiting for an online payment.");
-  }
-  const session = (razorpayOrderId: string): CheckoutSession => ({
-    keyId: rzp.keyId,
-    testMode: rzp.testMode,
-    razorpayOrderId,
-    amountMinor: Number(order.totalMinor),
-    orderId: order.id,
-    orderNumber: order.orderNumber,
-    prefill: { name: order.contactName, email: order.contactEmail, contact: `+91${order.contactPhone}` },
+  const opened = await db.transaction(async (tx) => {
+    const [order] = await tx.select().from(orders).where(eq(orders.id, orderId)).for("update");
+    if (!order) throw new PaymentError("not_found", "No such order.");
+    if (order.paymentMethod !== "online" || order.orderStatus !== "pending_payment" || order.paymentStatus !== "unpaid") {
+      throw new PaymentError("not_payable", "This order isn't waiting for an online payment.");
+    }
+    const session = (razorpayOrderId: string): CheckoutSession => ({
+      keyId: rzp.keyId,
+      testMode: rzp.testMode,
+      razorpayOrderId,
+      amountMinor: Number(order.totalMinor),
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      prefill: { name: order.contactName, email: order.contactEmail, contact: `+91${order.contactPhone}` },
+    });
+
+    const [settings] = await tx.select({ ttl: storeSettings.reservationTtlMinutes }).from(storeSettings).where(eq(storeSettings.id, 1));
+    const lines = (await tx.select({ variantId: orderItems.variantId, quantity: orderItems.quantity }).from(orderItems).where(eq(orderItems.orderId, orderId)))
+      .flatMap((l) => (l.variantId ? [{ variantId: l.variantId, quantity: l.quantity }] : []));
+    const held = await renewOrderHolds(tx, orderId, lines, settings?.ttl ?? 15);
+    if (held.outcome === "stock_unavailable") return { kind: "sold_out" as const };
+
+    const [open] = await tx
+      .select({ providerOrderId: payments.providerOrderId })
+      .from(payments)
+      .where(and(eq(payments.orderId, orderId), eq(payments.status, "created")))
+      .orderBy(desc(payments.createdAt))
+      .limit(1);
+    if (open) return { kind: "open" as const, session: session(open.providerOrderId) };
+
+    let created;
+    try {
+      created = await rzp.createOrder({ amountMinor: Number(order.totalMinor), receipt: order.orderNumber, notes: { orderId: order.id } });
+    } catch (err) {
+      return { kind: "unreachable" as const, why: (err as Error).message };
+    }
+    if (created.amount !== Number(order.totalMinor)) throw new PaymentError("mismatch", "Razorpay recorded a different amount.");
+    await tx.insert(payments).values({ orderId, providerOrderId: created.id, amountMinor: Number(order.totalMinor) }).onConflictDoNothing();
+    return { kind: "open" as const, session: session(created.id) };
   });
 
-  const [open] = await db
-    .select({ providerOrderId: payments.providerOrderId })
-    .from(payments)
-    .where(and(eq(payments.orderId, orderId), eq(payments.status, "created")))
-    .orderBy(desc(payments.createdAt))
-    .limit(1);
-  if (open) return session(open.providerOrderId);
-
-  let created;
-  try {
-    created = await rzp.createOrder({ amountMinor: Number(order.totalMinor), receipt: order.orderNumber, notes: { orderId: order.id } });
-  } catch (err) {
-    await abandonOrder(db, orderId, "Payment could not be started");
-    throw new PaymentError("provider", `Razorpay is unavailable: ${(err as Error).message}`);
+  if (opened.kind === "open") return opened.session;
+  if (opened.kind === "sold_out") {
+    await abandonOrder(db, orderId, "Sold out before payment");
+    throw new PaymentError("sold_out", "The pieces sold while this order waited for payment.");
   }
-  if (created.amount !== Number(order.totalMinor)) throw new PaymentError("mismatch", "Razorpay recorded a different amount.");
-  await db
-    .insert(payments)
-    .values({ orderId, providerOrderId: created.id, amountMinor: Number(order.totalMinor) })
-    .onConflictDoNothing();
-  return session(created.id);
+  await abandonOrder(db, orderId, "Payment could not be started");
+  throw new PaymentError("provider", `Razorpay is unavailable: ${opened.why}`);
 }
 
 /** Cancel an unpaid order and drop its holds. A payment that still arrives later is flagged for a refund. */
@@ -152,8 +171,14 @@ export async function recordCapture(db: Db, payment: RazorpayPayment, source: "b
     const ref = { orderId: order!.id, orderNumber: order!.orderNumber };
 
     if (attempt.status === "captured") {
-      return { outcome: order!.needsResolution ? "needs_resolution" : "already_paid", ...ref } as ConfirmOutcome;
+      // The same payment again (browser and webhook both report it): done already.
+      if (attempt.providerPaymentId === payment.id) {
+        return { outcome: order!.needsResolution ? "needs_resolution" : "already_paid", ...ref } as ConfirmOutcome;
+      }
+      return extraPayment(tx, order!, payment, source);
     }
+    // The order was already paid through another attempt (two windows, both paid).
+    if (order!.paymentStatus !== "unpaid") return extraPayment(tx, order!, payment, source);
     paymentAttemptMachine.assertTransition(attempt.status, "captured");
     await tx
       .update(payments)
@@ -190,6 +215,30 @@ export async function recordCapture(db: Db, payment: RazorpayPayment, source: "b
     await emptyBagOf(tx, order!.id, order!.idempotencyScope);
     return { outcome: "paid", ...ref };
   });
+}
+
+/**
+ * Money for an order that was already paid. It's recorded (once per payment)
+ * and flagged for Krishna to refund from Razorpay's dashboard, rather than
+ * failing, which would leave Razorpay retrying the webhook and the money unseen.
+ */
+async function extraPayment(tx: Tx, order: typeof orders.$inferSelect, payment: RazorpayPayment, source: "browser" | "webhook"): Promise<ConfirmOutcome> {
+  const ref = { orderId: order.id, orderNumber: order.orderNumber };
+  const [seen] = await tx
+    .select({ id: orderEvents.id })
+    .from(orderEvents)
+    .where(and(eq(orderEvents.orderId, order.id), eq(orderEvents.eventType, "payment.extra"), sql`${orderEvents.metadata}->>'razorpayPaymentId' = ${payment.id}`));
+  if (!seen) {
+    await tx.insert(orderEvents).values({
+      orderId: order.id,
+      eventType: "payment.extra",
+      actorType: source === "webhook" ? "system" : "customer",
+      metadata: { razorpayPaymentId: payment.id, amountMinor: payment.amount, source },
+    });
+    const note = `Paid twice: Razorpay payment ${payment.id} (${formatINR(payment.amount)}) came after the order was already paid. Refund it from Razorpay's dashboard.`;
+    await flag(tx, order.id, order.resolutionNote ? `${order.resolutionNote}\n${note}` : note);
+  }
+  return { outcome: "needs_resolution", ...ref };
 }
 
 async function flag(tx: Tx, orderId: string, note: string) {

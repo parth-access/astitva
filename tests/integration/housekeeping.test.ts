@@ -129,6 +129,21 @@ describe.skipIf(!hasDb)("emails, alerts, scheduled jobs and limits", () => {
     expect(sent.sort()).toEqual(["asha@example.com", "krishna@astitva.test", "parth@astitva.test"]);
   });
 
+  it("a retry carries the same idempotency key, so a send that timed out isn't sent twice", async () => {
+    await order("cod", null);
+    const keys: string[] = [];
+    const timesOut = async (e: Email) => {
+      keys.push(e.idempotencyKey!);
+      throw new Error("The operation was aborted due to timeout");
+    };
+    await processOutbox(db, timesOut, ctx);
+    await db.execute(sql`update email_outbox set next_attempt_at = now() where status = 'pending'`);
+    await processOutbox(db, timesOut, ctx);
+    const rows = await outbox();
+    expect(keys).toHaveLength(4);
+    for (const r of rows) expect(keys.filter((k) => k === `outbox-${r.id}`)).toHaveLength(2);
+  });
+
   it("error alerts reach the owners at most once an hour per kind", async () => {
     await alertError(db, "Razorpay webhook", "boom");
     await alertError(db, "Razorpay webhook", "boom again");

@@ -39,6 +39,7 @@ const EVENT_LABEL: Record<string, string> = {
   "order.awaiting_payment": "Checkout started, waiting for payment",
   "order.superseded": "Replaced by a new checkout from the same bag",
   "payment.captured": "Payment received",
+  "payment.extra": "Paid a second time (refund it from Razorpay)",
   "order.needs_resolution": "Needs you",
   "order.packed": "Packed",
   "order.unpacked": "Unpacked",

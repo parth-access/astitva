@@ -85,7 +85,8 @@ export async function processOutbox(db: Db, send: SendEmail, ctx: RenderContext,
         result.gaveUp++;
         continue;
       }
-      await send({ to: row.toAddress, ...email });
+      // Keyed by the row: a retry after a send we never heard back from isn't a second email.
+      await send({ to: row.toAddress, ...email, idempotencyKey: `outbox-${row.id}` });
       await db.update(emailOutbox).set({ status: "sent", sentAt: new Date(), attempts: row.attempts + 1, lastError: null }).where(eq(emailOutbox.id, row.id));
       result.sent++;
     } catch (err) {

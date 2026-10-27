@@ -13,13 +13,13 @@
  * refunded, then refunded. A fully refunded order that never went ahead (paid
  * too late) is cancelled and its flag cleared.
  */
-import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, lt, ne, sql } from "drizzle-orm";
 import type { Db, Tx } from "@/db/create";
 import { auditLogs, orderEvents, orders, payments, refunds } from "@/db/schema";
 import { formatINR } from "@/lib/money";
-import { queueEmail } from "@/modules/email/outbox";
+import { alertOwners, queueEmail } from "@/modules/email/outbox";
 import { orderMachine, orderPaymentMachine, refundMachine } from "@/modules/orders/machines";
-import type { Razorpay } from "./razorpay";
+import { RazorpayError, type Razorpay, type RazorpayRefund } from "./razorpay";
 
 export type RefundMethod = "razorpay" | "manual_upi" | "manual_bank";
 
@@ -38,7 +38,7 @@ async function balance(tx: Tx, order: Order) {
     .select({ id: payments.id, providerPaymentId: payments.providerPaymentId, amount: payments.amountMinor })
     .from(payments)
     .where(and(eq(payments.orderId, order.id), eq(payments.status, "captured")))
-    .orderBy(desc(payments.capturedAt))
+    .orderBy(asc(payments.capturedAt))
     .limit(1);
   // A COD order counts as received once the courier has remitted the cash (payment status "paid").
   const received = captured ? Number(captured.amount) : order.paymentStatus === "unpaid" ? 0 : Number(order.totalMinor);
@@ -110,8 +110,18 @@ export async function refundOrder(
   try {
     result = await rzp!.refundPayment(pending.providerPaymentId!, input.amountMinor, { orderId, refundId: pending.refundId });
   } catch (err) {
-    await markRefundFailed(db, pending.refundId, (err as Error).message);
-    throw new RefundError(`Razorpay refused the refund: ${(err as Error).message}`);
+    // Only a clear "no" (4xx) means no money moved. A timeout or a 5xx may have
+    // refunded all the same, so the refund stays pending (and counts against
+    // what can be refunded) until Razorpay says what happened: its webhook, or
+    // the scheduled check (reconcileRefunds). Marking it failed here would let
+    // a second click pay the buyer twice.
+    if (isRefusal(err)) {
+      await markRefundFailed(db, pending.refundId, (err as Error).message);
+      throw new RefundError(`Razorpay refused the refund: ${(err as Error).message}`);
+    }
+    throw new RefundError(
+      "Razorpay didn't answer in time, so the refund may still have gone through. It shows as pending and updates by itself within the hour. Don't refund again; check Razorpay's dashboard if you need to know now.",
+    );
   }
   await db.update(refunds).set({ providerRefundId: result.id }).where(eq(refunds.id, pending.refundId));
   if (result.status === "processed") {
@@ -133,11 +143,11 @@ async function settle(tx: Tx, refundId: string, actorId: string | null) {
   const [refund] = await tx.select().from(refunds).where(eq(refunds.id, refundId)).for("update");
   if (!refund) return;
   const [order] = await tx.select().from(orders).where(eq(orders.id, refund.orderId)).for("update");
-  if (refund.status === "initiated") {
+  if (refund.status === "initiated" || refund.status === "failed") {
     refundMachine.assertTransition(refund.status, "succeeded");
     await tx.update(refunds).set({ status: "succeeded" }).where(eq(refunds.id, refundId));
-  } else if (refund.status !== "succeeded") {
-    return;
+    // We had given up on it, so it may have been refunded again since: worth a look.
+    if (refund.status === "failed") await alertOwners(tx, "owner_needs_you", `refund_revived:${refundId}`, { orderId: refund.orderId });
   }
 
   const [{ done }] = (await tx
@@ -205,4 +215,49 @@ export async function refundUpdateFromRazorpay(db: Db, entity: { id: string; sta
   if (entity.status === "processed") await db.transaction((tx) => settle(tx, row.id, null));
   else if (entity.status === "failed") await markRefundFailed(db, row.id, "Razorpay reported the refund failed");
   return true;
+}
+
+/** Razorpay said no (a 4xx): nothing was refunded. Anything else (a timeout, a 5xx) is unknown. */
+function isRefusal(err: unknown): boolean {
+  return err instanceof RazorpayError && err.status !== undefined && err.status >= 400 && err.status < 500;
+}
+
+/** A refund we heard nothing back about is looked up after this long; not found, it never happened. */
+export const RECONCILE_AFTER_MINUTES = 10;
+
+/**
+ * Scheduled: Razorpay refunds still pending. One whose request got no answer
+ * is looked for among the payment's refunds (by our id in its notes); one
+ * Razorpay has but whose webhook never came is fetched. Either is then
+ * settled or failed. Returns how many changed.
+ */
+export async function reconcileRefunds(db: Db, rzp: Razorpay): Promise<number> {
+  const stuck = await db
+    .select({ id: refunds.id, providerRefundId: refunds.providerRefundId, paymentId: payments.providerPaymentId })
+    .from(refunds)
+    .innerJoin(payments, eq(payments.id, refunds.paymentId))
+    .where(
+      and(
+        eq(refunds.method, "razorpay"),
+        eq(refunds.status, "initiated"),
+        lt(refunds.createdAt, sql`now() - make_interval(mins => ${RECONCILE_AFTER_MINUTES})`),
+      ),
+    )
+    .limit(20);
+  let changed = 0;
+  for (const r of stuck) {
+    let found: RazorpayRefund | undefined;
+    if (r.providerRefundId) found = await rzp.fetchRefund(r.providerRefundId);
+    else if (r.paymentId) found = (await rzp.listRefunds(r.paymentId)).find((x) => !Array.isArray(x.notes) && x.notes?.refundId === r.id);
+    if (!found) {
+      await markRefundFailed(db, r.id, "Razorpay has no such refund: the request never reached it");
+      changed++;
+    } else if (found.status !== "pending") {
+      await refundUpdateFromRazorpay(db, { ...found, notes: { refundId: r.id } });
+      changed++;
+    } else if (!r.providerRefundId) {
+      await db.update(refunds).set({ providerRefundId: found.id }).where(and(eq(refunds.id, r.id), isNull(refunds.providerRefundId)));
+    }
+  }
+  return changed;
 }

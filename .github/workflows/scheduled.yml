@@ -1,6 +1,7 @@
 name: Scheduled jobs
 
-# Calls the site's housekeeping (src/app/api/cron/[job]/route.ts).
+# Calls the site's housekeeping (src/app/api/cron/[job]/route.ts): the daily job, and either job by hand.
+# The 15-minute job runs from Netlify (netlify/functions/cron-frequent.mts): GitHub ran it hours apart.
 # Needs: SITE_URL (e.g. https://astitva.store; a repository variable or a secret) and secret CRON_SECRET
 # (the same value as the site's CRON_SECRET). Until both exist, runs skip quietly.
 #
@@ -9,7 +10,6 @@ name: Scheduled jobs
 
 on:
   schedule:
-    - cron: "*/15 * * * *" # frequent: emails, abandoned checkouts, lapsed holds
     - cron: "40 20 * * *" # daily, 02:10 India time: expired bags, old counters; keeps Supabase awake
   workflow_dispatch:
     inputs:
@@ -28,7 +28,7 @@ jobs:
     env:
       SITE_URL: ${{ vars.SITE_URL || secrets.SITE_URL }}
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
-      JOB: ${{ github.event.inputs.job || (github.event.schedule == '40 20 * * *' && 'daily' || 'frequent') }}
+      JOB: ${{ github.event.inputs.job || 'daily' }}
     steps:
       - name: Run ${{ env.JOB }}
         run: |

@@ -8,7 +8,18 @@
  */
 export type Attachment = { filename: string; content: Uint8Array };
 
-export type Email = { to: string; subject: string; text: string; html?: string; attachments?: Attachment[] };
+export type Email = {
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+  attachments?: Attachment[];
+  /**
+   * The same key within 24 hours sends nothing new: Resend answers with the
+   * first send. A retry after a timeout (sent, but we never heard) can't send twice.
+   */
+  idempotencyKey?: string;
+};
 
 export type SendEmail = (email: Email) => Promise<void>;
 
@@ -25,7 +36,11 @@ export async function sendEmail(email: Email, env: Partial<Record<string, string
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
-    headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
+    headers: {
+      authorization: `Bearer ${key}`,
+      "content-type": "application/json",
+      ...(email.idempotencyKey ? { "idempotency-key": email.idempotencyKey } : {}),
+    },
     body: JSON.stringify({
       from,
       to: [email.to],

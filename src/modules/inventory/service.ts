@@ -292,6 +292,47 @@ export async function commitOrderReservations(tx: Tx, orderId: string): Promise<
   return { outcome: "committed", revived };
 }
 
+/**
+ * Before an unpaid online order is paid ("Pay now", or Razorpay's window opening):
+ * its holds run for another `ttlMinutes`, so the stock is still there when the
+ * money arrives. Holds that already lapsed are taken again if the stock is
+ * still free; if someone else has it, nothing is held and `stock_unavailable`
+ * is returned, so the caller closes the order instead of taking money for it.
+ */
+export async function renewOrderHolds(
+  tx: Tx,
+  orderId: string,
+  lines: readonly ReservationLine[],
+  ttlMinutes: number,
+): Promise<{ outcome: "held" } | { outcome: "stock_unavailable"; shortages: Shortage[] }> {
+  const live = await tx
+    .select({ id: inventoryReservations.id, lapsed: sql<boolean>`${inventoryReservations.expiresAt} <= now()` })
+    .from(inventoryReservations)
+    .where(and(eq(inventoryReservations.orderId, orderId), eq(inventoryReservations.status, "active")));
+  if (live.length > 0 && live.every((r) => !r.lapsed)) {
+    await tx
+      .update(inventoryReservations)
+      .set({ expiresAt: sql`now() + make_interval(mins => ${ttlMinutes})` })
+      .where(and(eq(inventoryReservations.orderId, orderId), eq(inventoryReservations.status, "active")));
+    return { outcome: "held" };
+  }
+  // Lapsed (or released): close them, then hold afresh if the stock is free.
+  await tx
+    .update(inventoryReservations)
+    .set({ status: "expired" })
+    .where(and(eq(inventoryReservations.orderId, orderId), eq(inventoryReservations.status, "active")));
+  try {
+    await reserveForOrder(tx, { orderId, lines, mode: "hold", ttlMinutes });
+  } catch (err) {
+    if (err instanceof InsufficientStockError) return { outcome: "stock_unavailable", shortages: err.shortages };
+    if (err instanceof VariantUnavailableError) {
+      return { outcome: "stock_unavailable", shortages: err.variantIds.map((variantId) => ({ variantId, requested: 0, available: 0 })) };
+    }
+    throw err;
+  }
+  return { outcome: "held" };
+}
+
 /** Drop an unpaid order's holds (payment failed or abandoned). Idempotent; returns rows released. */
 export async function releaseOrderHolds(tx: Tx, orderId: string): Promise<number> {
   const released = await tx

@@ -17,6 +17,7 @@ true satisfies (typeof CONDITIONS)[number] extends (typeof itemCondition.enumVal
  *   c.<i>.name / c.<i>.hex / c.<i>.was   colours (was = the name before an edit, so a rename keeps its stock)
  *   s.<j>.name / s.<j>.was / s.<j>.<cm>  sizes, with garment measurements per size
  *   stock.<i>.<j>                         how many of colour i in size j; blank = that combination isn't offered
+ *   seen.<i>.<j>                          the count when the editor opened (hidden), so sales meanwhile aren't undone
  * Price, condition and the private fields apply to the whole style.
  * Errors come back keyed by field name so the form shows each in place.
  */
@@ -86,6 +87,7 @@ const pieceSchema = z
     colours: z.array(colourSchema).min(1, "Add at least one colour."),
     sizes: z.array(sizeSchema).min(1, "Add at least one size."),
     stock: z.array(z.array(stockCell)),
+    seen: z.array(z.array(stockCell)),
   })
   .superRefine((d, ctx) => {
     if (d.compareAtMinor !== null && d.compareAtMinor <= d.priceMinor) {
@@ -105,6 +107,8 @@ export type PieceInput = Omit<Parsed, "slug" | "colours" | "sizes"> & {
   sizes: SizeInput[];
   /** stock[colour][size]: units in hand, or null where the combination isn't offered. */
   stock: (number | null)[][];
+  /** seen[colour][size]: what the editor showed when it opened (null for a new combination). */
+  seen: (number | null)[][];
 };
 
 export type FieldErrors = Record<string, string>;
@@ -151,10 +155,11 @@ export function parsePieceForm(form: FormData): ParseResult {
   const colourRows = rowsOf(values, "c");
   const sizeRows = rowsOf(values, "s");
   const raw = {
-    ...Object.fromEntries(Object.entries(values).filter(([k]) => !/^(c|s|stock)\./.test(k))),
+    ...Object.fromEntries(Object.entries(values).filter(([k]) => !/^(c|s|stock|seen)\./.test(k))),
     colours: colourRows.map((i) => group(values, "c", i)),
     sizes: sizeRows.map((j) => group(values, "s", j)),
     stock: colourRows.map((i) => sizeRows.map((j) => values[`stock.${i}.${j}`])),
+    seen: colourRows.map((i) => sizeRows.map((j) => values[`seen.${i}.${j}`])),
   };
 
   const parsed = pieceSchema.safeParse(raw);

@@ -52,6 +52,8 @@ export function VariantBuilder({
   const [stock, setStock] = useState<Record<string, string>>(() =>
     Object.fromEntries(Object.entries(values).filter(([k]) => k.startsWith("stock."))),
   );
+  // The counts as the editor opened: sent back with the form, so a save applies only the change typed.
+  const [seen] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(values).filter(([k]) => k.startsWith("seen."))));
   const [nextId, setNextId] = useState(() => Math.max(0, ...rowsFrom(values, "c"), ...rowsFrom(values, "s")) + 1);
 
   const cell = (c: Colour, s: Size) => stock[`stock.${c.id}.${s.id}`] ?? "";
@@ -241,6 +243,7 @@ export function VariantBuilder({
                     const value = cell(c, s);
                     return (
                       <td key={s.id} className="px-1 py-1">
+                        {seen[`seen.${c.id}.${s.id}`] !== undefined ? <input type="hidden" name={`seen.${c.id}.${s.id}`} value={seen[`seen.${c.id}.${s.id}`]} /> : null}
                         <input
                           name={name}
                           value={value}
