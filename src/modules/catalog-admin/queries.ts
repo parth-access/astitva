@@ -87,7 +87,7 @@ export async function getPieceForEdit(id: string) {
       .limit(1),
     db.select().from(productVariants).where(eq(productVariants.productId, id)).orderBy(asc(productVariants.createdAt)),
     db
-      .select({ id: productImages.id, url: productImages.url, originalUrl: productImages.originalUrl, edit: productImages.edit, altText: productImages.altText, color: productImages.color })
+      .select({ id: productImages.id, url: productImages.url, originalUrl: productImages.originalUrl, edit: productImages.edit, altText: productImages.altText, color: productImages.color, angle: productImages.angle })
       .from(productImages)
       .where(eq(productImages.productId, id))
       .orderBy(asc(productImages.sortOrder), asc(productImages.createdAt)),

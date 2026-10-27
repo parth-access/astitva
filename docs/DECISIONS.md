@@ -2,6 +2,10 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-27 — Turning a piece round from its photos
+
+**Decision:** Without a turning video, a piece can still be turned round from still photos. In the admin, each photo has "Turn: front / side / back / other side" (`product_images.angle`, migration 0018); within a colour (or the every-colour photos) each angle belongs to one photo, and moving a photo to another colour clears its angle. Once a colour has its front, side and back, the piece page offers "See it from every side": dragging fades from one view to the next and lets go on the nearest, with arrow keys and Front / Side / Back / Other side buttons too, and it goes round once by itself when it opens (not with reduced motion). Without a photo of the other side, the side photo is shown mirrored. A turning video, when there is one, wins: it turns more smoothly. In-between angles are not invented (no AI frames): the buyer sees only real photos of the piece.
+
 ## 2026-10-27 — Production fixes: refunds, stock edits, late payments
 
 **Decision:** Seven fixes from an audit of what can go wrong in production.

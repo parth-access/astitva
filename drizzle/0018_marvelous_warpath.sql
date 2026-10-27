@@ -1,0 +1,2 @@
+ALTER TABLE "product_images" ADD COLUMN "angle" varchar(12);--> statement-breakpoint
+ALTER TABLE "product_images" ADD CONSTRAINT "product_images_angle" CHECK ("product_images"."angle" is null or "product_images"."angle" in ('front', 'side', 'back', 'other_side'));

@@ -6,10 +6,11 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db/client";
 import { photoEditSchema } from "@/lib/photo-edit";
+import { PHOTO_ANGLES } from "@/lib/photo-turn";
 import { InvalidTransitionError } from "@/lib/state-machine";
 import type { PanelPhoto } from "@/components/admin/photos-panel";
 import { formValues, parsePieceForm, type FieldErrors } from "@/modules/catalog-admin/input";
-import { addPhoto, movePhoto, removePhoto, setPhotoAlt, setPhotoColour, setPhotoEdit } from "@/modules/catalog-admin/photos";
+import { addPhoto, movePhoto, removePhoto, setPhotoAlt, setPhotoAngle, setPhotoColour, setPhotoEdit } from "@/modules/catalog-admin/photos";
 import { PieceRuleError, savePiece, setPieceStatus } from "@/modules/catalog-admin/service";
 import { setSpinVideo } from "@/modules/catalog-admin/spin";
 import { notifyRestockedSoon } from "@/modules/alerts/soon";
@@ -101,7 +102,7 @@ export async function attachPhotoAction(
     throw err;
   }
   updateTag(CATALOG_TAG);
-  return { ok: true, photo: { id: row.id, url: row.url, originalUrl: null, edit: null, altText: row.altText, color: row.color } };
+  return { ok: true, photo: { id: row.id, url: row.url, originalUrl: null, edit: null, altText: row.altText, color: row.color, angle: null } };
 }
 
 const photoChange = z.discriminatedUnion("kind", [
@@ -110,6 +111,7 @@ const photoChange = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("remove"), photoId: z.uuid() }),
   z.object({ kind: z.literal("colour"), photoId: z.uuid(), colour: z.string().max(48).nullable() }),
   z.object({ kind: z.literal("edit"), photoId: z.uuid(), edit: photoEditSchema.nullable() }),
+  z.object({ kind: z.literal("angle"), photoId: z.uuid(), angle: z.enum(PHOTO_ANGLES).nullable() }),
 ]);
 
 export async function changePhotoAction(productId: string, change: z.infer<typeof photoChange>): Promise<PhotoResult> {
@@ -121,6 +123,7 @@ export async function changePhotoAction(productId: string, change: z.infer<typeo
     if (c.data.kind === "move") await movePhoto(db, productId, c.data.photoId, c.data.direction);
     if (c.data.kind === "colour") await setPhotoColour(db, productId, c.data.photoId, c.data.colour);
     if (c.data.kind === "edit") await setPhotoEdit(db, productId, c.data.photoId, c.data.edit, user.id);
+    if (c.data.kind === "angle") await setPhotoAngle(db, productId, c.data.photoId, c.data.angle);
     if (c.data.kind === "remove") {
       const url = await removePhoto(db, productId, c.data.photoId, user.id);
       const publicId = publicIdFromUrl(url);

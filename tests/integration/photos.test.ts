@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { asc, eq } from "drizzle-orm";
 import { auditLogs, productImages, products, users } from "../../src/db/schema";
-import { addPhoto, movePhoto, removePhoto, setPhotoAlt, setPhotoEdit } from "../../src/modules/catalog-admin/photos";
+import { addPhoto, movePhoto, removePhoto, setPhotoAlt, setPhotoAngle, setPhotoColour, setPhotoEdit } from "../../src/modules/catalog-admin/photos";
 import { PieceRuleError } from "../../src/modules/catalog-admin/service";
 import { hasDb, makeDb, resetData } from "./helpers";
 
@@ -115,5 +115,36 @@ describe.skipIf(!hasDb)("piece photos", () => {
     const actions = (await db.select({ action: auditLogs.action }).from(auditLogs)).map((r) => r.action);
     expect(actions).toContain("piece.photo_edited");
     expect(actions).toContain("piece.photo_edit_undone");
+  });
+
+  it("marks each angle on one photo per colour, and a photo moved to another colour leaves its angle behind", async () => {
+    const sage1 = await addPhoto(db, productId, photo(1), actorId, "Sage");
+    const sage2 = await addPhoto(db, productId, photo(2), actorId, "Sage");
+    const ink = await addPhoto(db, productId, photo(3), actorId, "Ink");
+    const every = await addPhoto(db, productId, photo(4), actorId, null);
+    const angles = async () =>
+      Object.fromEntries(
+        (await db.select({ url: productImages.url, angle: productImages.angle }).from(productImages).where(eq(productImages.productId, productId))).map((r) => [
+          r.url.match(/p\d+/)![0],
+          r.angle,
+        ]),
+      );
+
+    await setPhotoAngle(db, productId, sage1.id, "front");
+    await setPhotoAngle(db, productId, ink.id, "front");
+    await setPhotoAngle(db, productId, every.id, "front");
+    expect(await angles()).toEqual({ p1: "front", p2: null, p3: "front", p4: "front" });
+
+    // A second Sage front takes it from the first; other colours keep theirs.
+    await setPhotoAngle(db, productId, sage2.id, "front");
+    expect(await angles()).toEqual({ p1: null, p2: "front", p3: "front", p4: "front" });
+
+    await setPhotoAngle(db, productId, sage2.id, null);
+    await setPhotoAngle(db, productId, sage1.id, "back");
+    await setPhotoColour(db, productId, sage1.id, "Ink");
+    expect(await angles()).toEqual({ p1: null, p2: null, p3: "front", p4: "front" });
+
+    const other = await db.insert(products).values({ name: "Other", slug: "other" }).returning();
+    await expect(setPhotoAngle(db, other[0]!.id, ink.id, "side")).rejects.toBeInstanceOf(PieceRuleError);
   });
 });

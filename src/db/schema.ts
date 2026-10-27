@@ -32,6 +32,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import type { PhotoEdit } from "@/lib/photo-edit";
+import type { PhotoAngle } from "@/lib/photo-turn";
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 const updatedAt = () =>
@@ -453,13 +454,18 @@ export const productImages = pgTable(
     edit: jsonb("edit").$type<PhotoEdit>(),
     /** The colour this photo shows (matches product_variants.color); null for photos of every colour. */
     color: varchar("color", { length: 48 }),
+    /** Which way the piece faces in it (front, side, back, other side), for the turn on the piece page; null for any other photo. */
+    angle: varchar("angle", { length: 12 }).$type<PhotoAngle>(),
     altText: varchar("alt_text", { length: 240 }).notNull().default(""),
     width: integer("width"),
     height: integer("height"),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: createdAt(),
   },
-  (t) => [index("product_images_product_idx").on(t.productId, t.sortOrder)],
+  (t) => [
+    index("product_images_product_idx").on(t.productId, t.sortOrder),
+    check("product_images_angle", sql`${t.angle} is null or ${t.angle} in ('front', 'side', 'back', 'other_side')`),
+  ],
 ).enableRLS();
 
 /* ------------------------------------------------------------------ */

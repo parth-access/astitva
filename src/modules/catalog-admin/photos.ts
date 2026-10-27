@@ -2,6 +2,7 @@ import { and, asc, eq, isNull, max } from "drizzle-orm";
 import type { Db } from "@/db/create";
 import { auditLogs, productImages, products } from "@/db/schema";
 import { editedPhotoUrl, type PhotoEdit } from "@/lib/photo-edit";
+import type { PhotoAngle } from "@/lib/photo-turn";
 import type { VerifiedPhoto } from "@/modules/media/cloudinary";
 import { PieceRuleError } from "./service";
 
@@ -60,8 +61,40 @@ export async function setPhotoAlt(db: Db, productId: string, photoId: string, al
 
 /** Ties a photo to one colour (shown when that colour is chosen), or to every colour (null). */
 export async function setPhotoColour(db: Db, productId: string, photoId: string, colour: string | null) {
-  await ownPhoto(db, productId, photoId);
-  await db.update(productImages).set({ color: colour?.trim() || null }).where(eq(productImages.id, photoId));
+  const row = await ownPhoto(db, productId, photoId);
+  const color = colour?.trim() || null;
+  if (color === row.color) return;
+  // Its angle was part of the old colour's turn; the new colour may already have one.
+  await db.update(productImages).set({ color, angle: null }).where(eq(productImages.id, photoId));
+}
+
+/**
+ * Marks which way the piece faces in a photo (front, side, back, other side),
+ * or clears it (null). Among the photos of one colour (or of every colour)
+ * each angle belongs to one photo, so marking another takes it from the first.
+ */
+export async function setPhotoAngle(db: Db, productId: string, photoId: string, angle: PhotoAngle | null) {
+  await db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({ color: productImages.color })
+      .from(productImages)
+      .where(and(eq(productImages.id, photoId), eq(productImages.productId, productId)))
+      .for("update");
+    if (!row) throw new PieceRuleError({ form: "That photo isn't on this piece any more." });
+    if (angle) {
+      await tx
+        .update(productImages)
+        .set({ angle: null })
+        .where(
+          and(
+            eq(productImages.productId, productId),
+            eq(productImages.angle, angle),
+            row.color === null ? isNull(productImages.color) : eq(productImages.color, row.color),
+          ),
+        );
+    }
+    await tx.update(productImages).set({ angle }).where(eq(productImages.id, photoId));
+  });
 }
 
 /**

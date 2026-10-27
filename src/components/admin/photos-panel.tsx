@@ -5,11 +5,21 @@ import { useState, useTransition } from "react";
 import { attachPhotoAction, changePhotoAction, signPhotoUploadAction } from "@/app/admin/(panel)/pieces/actions";
 import { cloudinaryUrl } from "@/lib/cloudinary-url";
 import type { PhotoEdit } from "@/lib/photo-edit";
+import { ANGLE_LABEL, PHOTO_ANGLES, turnFrames, type PhotoAngle } from "@/lib/photo-turn";
 import { PhotoEditor } from "./photo-editor";
 import { cardClass, FormError } from "./ui";
 import { IMAGE_ACCEPT, uploadToCloudinary } from "./upload";
 
-export type PanelPhoto = { id: string; url: string; originalUrl: string | null; edit: PhotoEdit | null; altText: string; color: string | null };
+export type PanelPhoto = {
+  id: string;
+  url: string;
+  originalUrl: string | null;
+  edit: PhotoEdit | null;
+  altText: string;
+  color: string | null;
+  /** Which way the piece faces, for the turn on the piece page. */
+  angle: PhotoAngle | null;
+};
 type Colour = { name: string; hex: string | null };
 /** Photos of one colour, or of every colour (name null). `gone`: a colour the piece no longer has. */
 type Group = { name: string | null; hex: string | null; gone?: boolean; photos: PanelPhoto[] };
@@ -21,7 +31,8 @@ type Group = { name: string | null; hex: string | null; gone?: boolean; photos: 
  * own. Upload into a section (straight to Cloudinary) and the photos belong
  * to that colour; the editor then opens for each new photo in turn to crop,
  * turn and mirror it. Describe, reorder, move to another colour, remove.
- * The very first photo is the piece's cover.
+ * Marking a colour's front, side and back photos lets buyers turn it round on
+ * the piece page. The very first photo is the piece's cover.
  */
 export function PhotosPanel({
   productId,
@@ -163,7 +174,10 @@ export function PhotosPanel({
                     {g.photos.length === 0 ? "no photos yet" : g.photos.length === 1 ? "1 photo" : `${g.photos.length} photos`}
                   </span>
                   {g.gone ? <span className="text-xs text-burgundy">no longer a colour of this piece: move or remove these</span> : null}
+                  {!g.gone && g.photos.length ? <TurnStatus photos={g.photos} /> : null}
                 </div>
+              ) : g.photos.length ? (
+                <TurnStatus photos={g.photos} />
               ) : (
                 <span />
               )}
@@ -236,6 +250,22 @@ export function PhotosPanel({
                           }}
                         />
                       </label>
+                      <label className="block">
+                        <span className="sr-only">Which way the piece faces in {label}</span>
+                        <select
+                          value={p.angle ?? ""}
+                          disabled={busy}
+                          onChange={(e) => change({ kind: "angle", photoId: p.id, angle: (e.target.value || null) as PhotoAngle | null })}
+                          className="block w-full border border-taupe bg-ivory px-2 py-1.5 text-sm"
+                        >
+                          <option value="">Not part of the turn</option>
+                          {PHOTO_ANGLES.map((a) => (
+                            <option key={a} value={a}>
+                              Turn: {ANGLE_LABEL[a].toLowerCase()}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                       {byColour ? (
                         <label className="block">
                           <span className="sr-only">Which colour {label} shows</span>
@@ -292,4 +322,16 @@ export function PhotosPanel({
       })}
     </section>
   );
+}
+
+/** Whether these photos make a turn on the piece page, and if not, which angles are still to mark. */
+function TurnStatus({ photos }: { photos: PanelPhoto[] }) {
+  const marked = photos.map((p) => ({ url: p.url, alt: p.altText, angle: p.angle }));
+  if (turnFrames(marked)) {
+    const mirrored = !photos.some((p) => p.angle === "other_side");
+    return <span className="text-xs text-olive">Turns round on the site{mirrored ? " (the side photo, mirrored, stands in for the other side)" : ""}</span>;
+  }
+  const missing = (["front", "side", "back"] as const).filter((a) => !photos.some((p) => p.angle === a));
+  if (missing.length === 3) return null;
+  return <span className="text-xs text-espresso-soft">To turn round, mark its {missing.map((a) => ANGLE_LABEL[a].toLowerCase()).join(" and ")}</span>;
 }

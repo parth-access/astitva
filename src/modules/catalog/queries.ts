@@ -289,6 +289,7 @@ export async function getProductBySlug(slug: string) {
         url: productImages.url,
         alt: productImages.altText,
         color: productImages.color,
+        angle: productImages.angle,
         width: productImages.width,
         height: productImages.height,
       })
