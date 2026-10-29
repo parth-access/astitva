@@ -18,6 +18,11 @@ export function siteUrl(): string {
   return (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 }
 
+/** "astitva.store". */
+function host(): string {
+  return new URL(siteUrl()).host.replace(/^www\./, "");
+}
+
 export function absolute(path: string): string {
   return path.startsWith("http") ? path : `${siteUrl()}${path.startsWith("/") ? path : `/${path}`}`;
 }
@@ -67,10 +72,13 @@ export function organizationLd(opts: { whatsapp: string | null; email: string | 
   ];
   return {
     "@context": "https://schema.org",
-    "@type": "Organization",
+    // The most specific kind of organization a shop that sells online is.
+    "@type": "OnlineStore",
     "@id": `${siteUrl()}/#organization`,
     name: BRAND,
+    alternateName: [`${BRAND}: ${TAGLINE}`, host()],
     slogan: TAGLINE,
+    description: "Womenswear by Astitva: a few considered styles, each in several colours, sold online and delivered across India.",
     url: siteUrl(),
     logo: absolute("/icon.png"),
     ...(contactPoint.length ? { contactPoint } : {}),
@@ -84,7 +92,9 @@ export function websiteLd(): Ld {
     "@context": "https://schema.org",
     "@type": "WebSite",
     "@id": `${siteUrl()}/#website`,
+    // The name search shows for the site: "Astitva", with the address as a fallback.
     name: BRAND,
+    alternateName: [`${BRAND}: ${TAGLINE}`, host()],
     url: siteUrl(),
     inLanguage: "en-IN",
     publisher: { "@id": `${siteUrl()}/#organization` },
@@ -126,6 +136,16 @@ export type LdPiece = {
     condition: string | null;
     available: number;
   }[];
+  /** Delivery and returns as the page states them, for merchant listings. */
+  terms?: {
+    shippingFlatMinor: number;
+    freeShippingFromMinor: number | null;
+    handlingDays: readonly [number, number];
+    transitDays: readonly [number, number];
+    returnDays: number;
+    /** Only once the returns policy is final: until then its fees aren't a promise. */
+    freeReturns: boolean | null;
+  };
 };
 
 const CONDITION: Record<string, string> = {
@@ -150,6 +170,8 @@ export function productLd(p: LdPiece): Ld {
     const list = own.length ? [...own, ...shared] : shared.length ? shared : p.images.map((i) => i.url);
     return list.length ? list : [absolute(`/pieces/${p.slug}/share.png`)];
   };
+  const days = ([min, max]: readonly [number, number]) => ({ "@type": "QuantitativeValue", minValue: min, maxValue: max, unitCode: "DAY" });
+  const t = p.terms;
   const offer = (v: LdPiece["variants"][number]) => ({
     "@type": "Offer",
     url: v.color ? `${url}?colour=${encodeURIComponent(v.color)}` : url,
@@ -158,6 +180,29 @@ export function productLd(p: LdPiece): Ld {
     availability: v.available > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
     itemCondition: CONDITION[v.condition ?? "new"] ?? "https://schema.org/NewCondition",
     seller: { "@id": `${siteUrl()}/#organization` },
+    ...(t
+      ? {
+          shippingDetails: {
+            "@type": "OfferShippingDetails",
+            // This piece alone: free when it reaches the free-delivery amount by itself.
+            shippingRate: {
+              "@type": "MonetaryAmount",
+              value: price(t.freeShippingFromMinor !== null && v.priceMinor >= t.freeShippingFromMinor ? 0 : t.shippingFlatMinor),
+              currency: "INR",
+            },
+            shippingDestination: { "@type": "DefinedRegion", addressCountry: "IN" },
+            deliveryTime: { "@type": "ShippingDeliveryTime", handlingTime: days(t.handlingDays), transitTime: days(t.transitDays) },
+          },
+          hasMerchantReturnPolicy: {
+            "@type": "MerchantReturnPolicy",
+            applicableCountry: "IN",
+            returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+            merchantReturnDays: t.returnDays,
+            returnMethod: "https://schema.org/ReturnByMail",
+            ...(t.freeReturns === null ? {} : { returnFees: t.freeReturns ? "https://schema.org/FreeReturn" : "https://schema.org/ReturnShippingFees" }),
+          },
+        }
+      : {}),
   });
   const base = {
     brand: { "@type": "Brand", name: BRAND },

@@ -2,6 +2,16 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-10-29 — Search: brand and long-tail clothing searches
+
+**Decision:** Aim at what code can win: anyone searching "astitva" finds the site, and each page matches what the shop actually sells ("women's dresses online", "linen wrap dress"). A top place for "buy clothes" depends on links, reviews and time, not on the code.
+
+**How:**
+- **Titles:** the home page reads "Astitva — Women's clothing online | ‹lookbook title›", and its description names the categories that have pieces. The shop is "Shop women's clothing online" and a category "Women's dresses online". Its heading now names the brand too ("Astitva:" for screen readers and search, not shown), and a piece's h1 includes its garment ("Neem, linen wrap dress"), with the same look as before.
+- **Share cards:** a page's own `openGraph` replaces the layout's, the site's card included (metadata merges shallowly), so category pages had lost it. `pageMeta()` in `src/lib/seo.ts` now sets `openGraph` only for pages with their own images (pieces: the share card, then the photo), and adds the site name and locale. Other pages keep the site's card, and Next fills in their share title and description.
+- **Structured data:** the brand is an `OnlineStore` with a description; the brand and site have alternate names ("Astitva: Your true form", the domain), so search shows "Astitva" as the site name. No SearchAction: the site has no search. Each offer now gives delivery (cost for that piece alone, 2–4 days to dispatch, 3–7 in transit, India) and returns (7 days, by courier); return fees go in only once the returns policy is final. The numbers come from `POLICY_DAYS` in `src/content/policies.ts`, the same ones the pages say in words. A product's category is now its name, not its slug.
+- **robots.txt** also keeps out `/account` and `/orders` (the bare page as well as each order).
+
 ## 2026-10-27 — Turning a piece round from its photos
 
 **Decision:** Without a turning video, a piece can still be turned round from still photos. In the admin, each photo has "Turn: front / side / back / other side" (`product_images.angle`, migration 0018); within a colour (or the every-colour photos) each angle belongs to one photo, and moving a photo to another colour clears its angle. Once a colour has its front, side and back, the piece page offers "See it from every side": dragging fades from one view to the next and lets go on the nearest, with arrow keys and Front / Side / Back / Other side buttons too, and it goes round once by itself when it opens (not with reduced motion). Without a photo of the other side, the side photo is shown mirrored. A turning video, when there is one, wins: it turns more smoothly. In-between angles are not invented (no AI frames): the buyer sees only real photos of the piece.

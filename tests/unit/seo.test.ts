@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- reading JSON-LD shapes in tests */
 import { describe, expect, it } from "vitest";
 import { parseSettingsForm } from "../../src/modules/catalog-admin/settings";
-import { breadcrumbLd, faqLd, itemListLd, ldJson, organizationLd, productLd, type LdPiece } from "../../src/lib/seo";
+import { breadcrumbLd, faqLd, itemListLd, ldJson, organizationLd, pageMeta, productLd, websiteLd, type LdPiece } from "../../src/lib/seo";
 
 const neem: LdPiece = {
   slug: "neem-linen-wrap-dress",
@@ -43,6 +43,20 @@ describe("structured data", () => {
     expect(ld.offers.itemCondition).toBe("https://schema.org/NewCondition");
   });
 
+  it("states delivery and returns on each offer, free delivery only where the piece reaches it", () => {
+    const terms = { shippingFlatMinor: 9_900, freeShippingFromMinor: 349_950, handlingDays: [2, 4], transitDays: [3, 7], returnDays: 7, freeReturns: null } as const;
+    const [sage, ink] = (productLd({ ...neem, terms }) as any).hasVariant;
+    expect(sage.offers.shippingDetails.shippingRate).toEqual({ "@type": "MonetaryAmount", value: "99.00", currency: "INR" });
+    expect(ink.offers.shippingDetails.shippingRate.value).toBe("0.00");
+    expect(sage.offers.shippingDetails.deliveryTime.handlingTime).toMatchObject({ minValue: 2, maxValue: 4, unitCode: "DAY" });
+    expect(sage.offers.hasMerchantReturnPolicy).toMatchObject({ applicableCountry: "IN", merchantReturnDays: 7 });
+    // Return fees only once the returns policy is final.
+    expect("returnFees" in sage.offers.hasMerchantReturnPolicy).toBe(false);
+    const final = (productLd({ ...neem, terms: { ...terms, freeReturns: true } }) as any).hasVariant[0];
+    expect(final.offers.hasMerchantReturnPolicy.returnFees).toBe("https://schema.org/FreeReturn");
+    expect("shippingDetails" in (productLd(neem) as any).hasVariant[0].offers).toBe(false);
+  });
+
   it("numbers the breadcrumb trail", () => {
     const ld = breadcrumbLd([
       { name: "Astitva", path: "/" },
@@ -63,6 +77,23 @@ describe("brand, FAQ and category data", () => {
     const ld = organizationLd({ whatsapp: null, email: null, profiles: ["https://www.instagram.com/astitva"] }) as any;
     expect(ld.sameAs).toEqual(["https://www.instagram.com/astitva"]);
     expect("sameAs" in organizationLd({ whatsapp: null, email: null })).toBe(false);
+  });
+
+  it("names the site Astitva, with its address as an alternate name", () => {
+    const site = websiteLd() as any;
+    expect(site.name).toBe("Astitva");
+    expect(site.alternateName).toContain(new URL(site.url).host.replace(/^www\./, ""));
+    expect((organizationLd({ whatsapp: null, email: null }) as any)["@type"]).toBe("OnlineStore");
+  });
+
+  it("keeps the site's card unless a page has its own, and then the site name and locale too", () => {
+    const meta = pageMeta({ title: "About", description: "The story.", path: "/about" });
+    expect(meta.title).toBe("About");
+    expect(meta.alternates?.canonical).toBe("/about");
+    expect("openGraph" in meta).toBe(false);
+    const piece = pageMeta({ title: "Neem", description: "A dress.", path: "/pieces/neem", images: [{ url: "/pieces/neem/share.png" }] });
+    expect(piece.openGraph).toMatchObject({ siteName: "Astitva", locale: "en_IN", title: "Neem | Astitva", url: "/pieces/neem" });
+    expect(pageMeta({ absoluteTitle: "Astitva — Home", description: "", path: "/" }).title).toEqual({ absolute: "Astitva — Home" });
   });
 
   it("describes a FAQ page question by question", () => {

@@ -12,10 +12,17 @@
  */
 
 /** The numbers the policies promise, also shown on each piece page: change them here and both follow. */
+export const POLICY_DAYS = {
+  dispatch: [2, 4],
+  delivery: [3, 7],
+  returnWindow: 7,
+} as const;
+
+/** The same, in words. */
 export const POLICY_TERMS = {
-  dispatch: "2–4 working days",
-  delivery: "3–7 working days",
-  returnWindow: "7 days",
+  dispatch: `${POLICY_DAYS.dispatch[0]}–${POLICY_DAYS.dispatch[1]} working days`,
+  delivery: `${POLICY_DAYS.delivery[0]}–${POLICY_DAYS.delivery[1]} working days`,
+  returnWindow: `${POLICY_DAYS.returnWindow} days`,
 };
 
 /** A paragraph, or a list (rendered as bullets). */

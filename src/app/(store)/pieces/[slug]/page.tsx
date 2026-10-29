@@ -15,7 +15,7 @@ import { HeartButton } from "@/components/storefront/saved/saved-context";
 import { ShopCard } from "@/components/storefront/shop-card";
 import { Price } from "@/components/storefront/price";
 import { PACKED_BY_HAND, showPromise } from "@/content/brand";
-import { POLICY_TERMS } from "@/content/policies";
+import { getPolicy, POLICY_DAYS, POLICY_TERMS } from "@/content/policies";
 import { db } from "@/db/client";
 import type { Measurements } from "@/db/schema";
 import { formatPieceNumber } from "@/lib/format";
@@ -240,7 +240,7 @@ async function Neighbours({ pieceNumber }: { pieceNumber: number }) {
 
 async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">) {
   const { slug } = await params;
-  const [product, store, categories] = await Promise.all([getProductBySlug(slug), getStorefront(), listCategories()]);
+  const [product, store, categories, checkout] = await Promise.all([getProductBySlug(slug), getStorefront(), listCategories(), getCheckoutSettings()]);
   if (!product || product.variants.length === 0) notFound();
   const category = categories.find((c) => c.slug === product.categorySlug) ?? null;
 
@@ -269,9 +269,18 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
             pieceNumber: product.pieceNumber,
             description: describe(product).text,
             material: product.material,
-            category: product.categorySlug,
+            category: category?.name ?? null,
             images: product.images.map((i) => ({ url: i.url, color: i.color })),
             variants: product.variants.map((v) => ({ sku: v.sku, size: v.size, color: v.color, priceMinor: v.priceMinor, condition: v.condition, available: v.onHand })),
+            // The same terms the page states under the price and in "Delivery & returns".
+            terms: {
+              shippingFlatMinor: checkout.shippingFlatMinor,
+              freeShippingFromMinor: checkout.freeShippingThresholdMinor,
+              handlingDays: POLICY_DAYS.dispatch,
+              transitDays: POLICY_DAYS.delivery,
+              returnDays: POLICY_DAYS.returnWindow,
+              freeReturns: getPolicy("returns")?.status === "final" ? true : null,
+            },
           }),
         ]
       : []),
