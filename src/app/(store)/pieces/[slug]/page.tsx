@@ -15,6 +15,7 @@ import { HeartButton } from "@/components/storefront/saved/saved-context";
 import { ShopCard } from "@/components/storefront/shop-card";
 import { Price } from "@/components/storefront/price";
 import { PACKED_BY_HAND, showPromise } from "@/content/brand";
+import { POLICY_TERMS } from "@/content/policies";
 import { db } from "@/db/client";
 import type { Measurements } from "@/db/schema";
 import { formatPieceNumber } from "@/lib/format";
@@ -24,6 +25,7 @@ import { breadcrumbLd, productLd } from "@/lib/seo";
 import { JsonLd } from "@/components/brand/json-ld";
 import { OptionsSkeleton, PieceSkeleton } from "@/components/lookbook/skeletons";
 import { getAdjacentPieces, getProductBySlug, getStorefront, listCategories, listPieces, listRelatedPieces, type ProductDetail } from "@/modules/catalog/queries";
+import { getCheckoutSettings } from "@/modules/checkout/queries";
 import { getAvailability } from "@/modules/inventory/service";
 
 export async function generateStaticParams() {
@@ -107,7 +109,7 @@ async function LiveBuyPanel({ product, orderingOpen }: { product: ProductDetail;
   );
 }
 
-function MeasurementsTable({ variants }: { variants: ProductDetail["variants"] }) {
+function MeasurementsTable({ variants, heading = true }: { variants: ProductDetail["variants"]; heading?: boolean }) {
   // Measurements belong to a size; every colour of that size shares them.
   const bySize = new Map<string, ProductDetail["variants"][number]>();
   for (const v of variants) if (v.measurements && Object.keys(v.measurements).length > 0 && !bySize.has(v.size ?? "")) bySize.set(v.size ?? "", v);
@@ -116,9 +118,9 @@ function MeasurementsTable({ variants }: { variants: ProductDetail["variants"] }
   const columns = MEASUREMENT_LABEL.filter(([key]) => withMeasurements.some((v) => v.measurements?.[key] != null));
   return (
     <div>
-      <h2 className="text-3xl">Measurements</h2>
-      <p className="caption mt-2">Taken from the garment itself, in centimetres.</p>
-      <div className="mt-6 overflow-x-auto">
+      {heading ? <h2 className="text-3xl">Measurements</h2> : null}
+      <p className={`caption ${heading ? "mt-2" : ""}`}>Taken from the garment itself, in centimetres.</p>
+      <div className="mt-4 overflow-x-auto">
         <table className="w-full text-left text-sm tabular-nums">
           <thead className="text-espresso-soft">
             <tr className="border-b border-taupe/50">
@@ -144,6 +146,42 @@ function MeasurementsTable({ variants }: { variants: ProductDetail["variants"] }
         Measured flat and doubled where relevant. <Link href="/size-guide" className="link">How to measure yourself</Link>
       </p>
     </div>
+  );
+}
+
+/** Whether any size has measurements to show. */
+function hasMeasurements(variants: ProductDetail["variants"]) {
+  return variants.some((v) => v.measurements && Object.values(v.measurements).some((n) => n != null));
+}
+
+/**
+ * What a buyer wants to know before choosing a size: when it leaves, what
+ * delivery costs and how they can pay. From the store settings, so it never
+ * promises what checkout won't do.
+ */
+async function DeliveryFacts() {
+  const s = await getCheckoutSettings();
+  const delivery =
+    s.shippingFlatMinor === 0
+      ? "Free delivery across India"
+      : s.freeShippingThresholdMinor !== null
+        ? `Free delivery on orders of ${formatINR(s.freeShippingThresholdMinor)} or more`
+        : `Delivery ${formatINR(s.shippingFlatMinor)} anywhere in India`;
+  const facts = [
+    `Leaves us within ${POLICY_TERMS.dispatch}`,
+    delivery,
+    s.codEnabled ? "Pay online, or cash on delivery" : "Pay online: UPI, cards or net banking",
+    `Return or exchange within ${POLICY_TERMS.returnWindow}`,
+  ];
+  return (
+    <ul className="mt-8 grid gap-2.5 border-y border-taupe/40 py-5 text-sm sm:grid-cols-2 sm:gap-x-6 md:grid-cols-1 lg:grid-cols-2">
+      {facts.map((f) => (
+        <li key={f} className="flex items-start gap-2.5">
+          <span aria-hidden="true" className="mt-[0.45rem] size-1.5 shrink-0 rounded-full bg-olive" />
+          {f}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -251,9 +289,8 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
             items: [gaItem({ slug: product.slug, name: title, category: product.categorySlug, priceMinor: lowest.priceMinor })],
           }}
         />
-        <article className="mx-auto grid max-w-6xl gap-10 px-4 pb-28 pt-6 sm:px-8 md:grid-cols-12 md:gap-8 md:pb-0 md:pt-10">
-          {/* On phones the arch is narrowed so the piece's name shows without scrolling. */}
-          <div className="mx-auto w-[84%] md:col-span-7 md:w-full">
+        <article className="mx-auto grid max-w-6xl gap-8 px-4 pb-28 pt-6 sm:px-8 md:grid-cols-12 md:gap-8 md:pb-0 md:pt-10">
+          <div className="-mx-4 sm:-mx-8 md:col-span-7 md:mx-0">
             <PieceGallery
               slug={product.slug}
               title={title}
@@ -267,70 +304,135 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
             />
           </div>
 
-          <div className="md:sticky md:top-8 md:col-span-4 md:col-start-9 md:self-start">
-            <Link href="/#the-pieces" transitionTypes={["nav-back"]} className="caption link text-lg no-underline hover:underline">
-              {store.title ? `${store.title}, the lookbook` : "The lookbook"}
-            </Link>
+          <div className="md:sticky md:top-8 md:col-span-5 md:col-start-8 md:self-start lg:col-span-4 lg:col-start-9">
+            <nav aria-label="Where you are" className="text-xs text-espresso-soft">
+              <ol className="flex flex-wrap items-center gap-x-2">
+                <li>
+                  <Link href="/shop" transitionTypes={["nav-back"]} className="link-draw">Shop</Link>
+                </li>
+                {category ? (
+                  <li className="flex items-center gap-x-2">
+                    <span aria-hidden="true">/</span>
+                    <Link href={`/shop/${category.slug}`} transitionTypes={["nav-back"]} className="link-draw">{category.name}</Link>
+                  </li>
+                ) : null}
+                <li className="flex items-center gap-x-2">
+                  <span aria-hidden="true">/</span>
+                  <span aria-current="page">{title}</span>
+                </li>
+              </ol>
+            </nav>
 
-            {product.pieceNumber ? (
-              <p className="mt-5 font-display text-2xl tabular-nums text-espresso-soft md:mt-8">{formatPieceNumber(product.pieceNumber)}</p>
-            ) : null}
+            {product.pieceNumber ? <p className="mt-5 font-display text-2xl tabular-nums text-espresso-soft md:mt-8">{formatPieceNumber(product.pieceNumber)}</p> : null}
             <h1 className="mt-1 text-6xl italic leading-none md:text-7xl">{title}</h1>
-            {product.pieceName ? <p className="mt-4 text-sm text-espresso-soft">{product.name}</p> : null}
+            {product.pieceName ? <p className="mt-3 text-sm text-espresso-soft">{product.name}</p> : null}
 
-            <div className="mt-6 flex flex-wrap items-baseline gap-x-4">
+            <div className="mt-5 flex flex-wrap items-baseline gap-x-3">
               <Price className="text-xl" priceMinor={lowest.priceMinor} compareAtMinor={lowest.compareAtMinor} from={new Set(prices).size > 1} />
+              <span className="text-xs text-espresso-soft">Inclusive of all taxes</span>
             </div>
-            <p className="mt-1 text-xs text-espresso-soft">Inclusive of all taxes</p>
 
-            {product.story ? <p className="caption mt-8 text-xl">{product.story}</p> : null}
+            {product.story ? <p className="caption mt-6 text-xl leading-snug">{product.story}</p> : null}
 
             <Suspense fallback={<OptionsSkeleton />}>
               <LiveBuyPanel product={product} orderingOpen={store.orderingOpen} />
             </Suspense>
 
-            <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2">
+            <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2">
               <AskAboutPiece piece={product} withSelection className="inline-block text-sm" />
               <HeartButton productId={product.id} name={title} variant="inline" />
             </div>
 
-            <dl className="mt-10 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2.5 border-t border-taupe/30 pt-6 text-sm">
-              {category && (
-                <>
-                  <dt className="text-espresso-soft">In</dt>
-                  <dd>
-                    <Link href={`/shop/${category.slug}`} className="link">
-                      {category.name}
-                    </Link>
-                  </dd>
-                </>
-              )}
-              {condition && (
-                <>
-                  <dt className="text-espresso-soft">Condition</dt>
-                  <dd>{CONDITION_LABEL[condition]}</dd>
-                </>
-              )}
-              {product.material && (
-                <>
-                  <dt className="text-espresso-soft">Fabric</dt>
-                  <dd>{product.material}</dd>
-                </>
-              )}
-              {product.fit && (
-                <>
-                  <dt className="text-espresso-soft">Fit</dt>
-                  <dd>{product.fit}</dd>
-                </>
-              )}
-              {product.careInstructions && (
-                <>
-                  <dt className="text-espresso-soft">Care</dt>
-                  <dd>{product.careInstructions}</dd>
-                </>
-              )}
-            </dl>
-            {product.description ? <p className="mt-6 whitespace-pre-line text-sm leading-relaxed">{product.description}</p> : null}
+            <DeliveryFacts />
+
+            <div className="mt-10">
+              <details className="fold" open>
+                <summary>About this piece</summary>
+                <div className="fold-body">
+                  {product.description ? <p className="whitespace-pre-line text-sm leading-relaxed">{product.description}</p> : null}
+                  <dl className={`grid grid-cols-[auto_1fr] gap-x-6 gap-y-2.5 text-sm ${product.description ? "mt-5" : ""}`}>
+                    {product.pieceNumber ? (
+                      <>
+                        <dt className="text-espresso-soft">Number</dt>
+                        <dd className="tabular-nums">{formatPieceNumber(product.pieceNumber)}</dd>
+                      </>
+                    ) : null}
+                    {category && (
+                      <>
+                        <dt className="text-espresso-soft">In</dt>
+                        <dd>
+                          <Link href={`/shop/${category.slug}`} className="link">
+                            {category.name}
+                          </Link>
+                        </dd>
+                      </>
+                    )}
+                    {condition && (
+                      <>
+                        <dt className="text-espresso-soft">Condition</dt>
+                        <dd>{CONDITION_LABEL[condition]}</dd>
+                      </>
+                    )}
+                    {colours.filter((c) => c.name).length > 1 ? (
+                      <>
+                        <dt className="text-espresso-soft">Colours</dt>
+                        <dd>{listWords(colours.flatMap((c) => (c.name ? [c.name] : [])))}</dd>
+                      </>
+                    ) : null}
+                  </dl>
+                </div>
+              </details>
+
+              {product.fit || hasMeasurements(product.variants) ? (
+                <details className="fold">
+                  <summary>Size &amp; fit</summary>
+                  <div className="fold-body space-y-4 text-sm">
+                    {product.fit ? <p>{product.fit}</p> : null}
+                    <MeasurementsTable variants={product.variants} heading={false} />
+                  </div>
+                </details>
+              ) : null}
+
+              {product.material || product.careInstructions ? (
+                <details className="fold">
+                  <summary>Fabric &amp; care</summary>
+                  <dl className="fold-body grid grid-cols-[auto_1fr] gap-x-6 gap-y-2.5 text-sm">
+                    {product.material ? (
+                      <>
+                        <dt className="text-espresso-soft">Fabric</dt>
+                        <dd>{product.material}</dd>
+                      </>
+                    ) : null}
+                    {product.careInstructions ? (
+                      <>
+                        <dt className="text-espresso-soft">Care</dt>
+                        <dd>{product.careInstructions}</dd>
+                      </>
+                    ) : null}
+                  </dl>
+                </details>
+              ) : null}
+
+              <details className="fold">
+                <summary>Delivery &amp; returns</summary>
+                <div className="fold-body space-y-3 text-sm leading-relaxed">
+                  <p>
+                    We pack and hand it to the courier within {POLICY_TERMS.dispatch}; most orders then arrive in {POLICY_TERMS.delivery}, anywhere in India.
+                  </p>
+                  {showPromise(PACKED_BY_HAND) ? (
+                    <p>
+                      {PACKED_BY_HAND.body}
+                      {product.pieceNumber ? ` Its card will read ${formatPieceNumber(product.pieceNumber)}, ${title}.` : ""}
+                    </p>
+                  ) : null}
+                  <p>You can ask to return or exchange it within {POLICY_TERMS.returnWindow} of delivery.</p>
+                  <p className="text-espresso-soft">
+                    The details are on our <Link href="/policies/shipping" className="link">shipping</Link> and{" "}
+                    <Link href="/policies/returns" className="link">returns</Link> pages.
+                  </p>
+                </div>
+              </details>
+            </div>
           </div>
         </article>
 
@@ -341,27 +443,6 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
             <p className="mt-6 font-accent text-2xl italic">Team Astitva</p>
           </section>
         ) : null}
-
-        <div className="mx-auto mt-28 grid max-w-6xl gap-16 px-4 sm:px-8 md:mt-40 md:grid-cols-12">
-          <div className="md:col-span-6">
-            <MeasurementsTable variants={product.variants} />
-          </div>
-          <div className="md:col-span-4 md:col-start-9">
-            {showPromise(PACKED_BY_HAND) ? (
-              <div>
-                <h2 className="text-3xl">{PACKED_BY_HAND.title}</h2>
-                <p className="mt-4 leading-relaxed">
-                  {PACKED_BY_HAND.body}
-                  {product.pieceNumber ? ` Its card will read ${formatPieceNumber(product.pieceNumber)}, ${title}.` : ""}
-                </p>
-              </div>
-            ) : null}
-            <p className="mt-8 text-sm text-espresso-soft">
-              Delivery and returns are explained on our <Link href="/policies/shipping" className="link">shipping</Link> and{" "}
-              <Link href="/policies/returns" className="link">returns</Link> pages.
-            </p>
-          </div>
-        </div>
 
         <YouMightAlsoLike productId={product.id} categorySlug={product.categorySlug} />
 

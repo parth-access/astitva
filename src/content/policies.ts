@@ -11,6 +11,13 @@
  * the admin's settings (policies/[slug]/page.tsx).
  */
 
+/** The numbers the policies promise, also shown on each piece page: change them here and both follow. */
+export const POLICY_TERMS = {
+  dispatch: "2–4 working days",
+  delivery: "3–7 working days",
+  returnWindow: "7 days",
+};
+
 /** A paragraph, or a list (rendered as bullets). */
 export type PolicyBlock = string | string[];
 export type PolicySection = { heading: string; body: PolicyBlock[] };
@@ -41,14 +48,14 @@ export const POLICY_PAGES: PolicyPage[] = [
       {
         heading: "When it leaves us",
         body: [
-          "Orders are packed and handed to the courier within 2–4 working days (Monday to Saturday, except public holidays).",
+          `Orders are packed and handed to the courier within ${POLICY_TERMS.dispatch} (Monday to Saturday, except public holidays).`,
           "During a sale or a new launch it can take a little longer. If your order will be later than this, we'll message you.",
         ],
       },
       {
         heading: "How long delivery takes",
         body: [
-          "Once shipped, most orders arrive in 3–7 working days. Smaller towns and remote areas can take up to 10.",
+          `Once shipped, most orders arrive in ${POLICY_TERMS.delivery}. Smaller towns and remote areas can take up to 10.`,
           "These are the courier's estimates, not promises: weather, strikes and festival rush can slow them down.",
         ],
       },
@@ -87,7 +94,7 @@ export const POLICY_PAGES: PolicyPage[] = [
       {
         heading: "What can be returned or exchanged",
         body: [
-          "You can ask to return or exchange a piece within 7 days of delivery, as long as it is:",
+          `You can ask to return or exchange a piece within ${POLICY_TERMS.returnWindow} of delivery, as long as it is:`,
           ["unworn, unwashed and unaltered", "with all its tags still attached", "in its original packaging, with anything that came with it"],
           "We check every piece when it comes back. If it has been worn, washed, damaged or perfumed, we can't accept it and will send it back to you.",
         ],
