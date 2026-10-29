@@ -35,6 +35,7 @@ describe("structured data", () => {
     expect(ink.offers).toMatchObject({ price: "3499.50", availability: "https://schema.org/OutOfStock" });
     expect(ink.image).toEqual(["https://res.cloudinary.com/x/image/upload/v1/all.jpg"]);
     expect(ld.brand).toEqual({ "@type": "Brand", name: "Astitva" });
+    expect(sage.description).toBe(neem.description);
   });
 
   it("uses a plain Product for a single variant, and the share card when there's no photo", () => {

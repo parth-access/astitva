@@ -244,6 +244,8 @@ export function productLd(p: LdPiece): Ld {
     hasVariant: p.variants.map((v) => ({
       "@type": "Product",
       name: [title, v.color, v.size].filter(Boolean).join(" · "),
+      // Merchant listings read each variant on its own, so it carries the description too.
+      description: p.description,
       sku: v.sku,
       image: imageFor(v.color),
       ...(v.color ? { color: v.color } : {}),
