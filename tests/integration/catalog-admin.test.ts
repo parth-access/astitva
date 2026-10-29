@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { and, asc, eq } from "drizzle-orm";
-import { auditLogs, inventoryMovements, productImages, productVariants, products, users } from "../../src/db/schema";
+import { auditLogs, inventoryMovements, productImages, productVariants, products, storeSettings, users } from "../../src/db/schema";
+import { parseSettingsForm, saveSettings } from "../../src/modules/catalog-admin/settings";
 import { parsePieceForm, type PieceInput } from "../../src/modules/catalog-admin/input";
 import { nextPieceNumber, PieceRuleError, savePiece, setPieceStatus } from "../../src/modules/catalog-admin/service";
 import { createOrder, hasDb, makeDb, movementSum, resetData } from "./helpers";
@@ -158,5 +159,22 @@ describe.skipIf(!hasDb)("piece editor writes", () => {
     const [p] = await db.select().from(products).where(and(eq(products.id, id)));
     expect(p).toMatchObject({ status: "active", story: "Warm brown." });
     await expect(setPieceStatus(db, id, "draft", actorId)).rejects.toThrow(/cannot move/);
+  });
+
+  it("keeps only published pieces as the Contents page's picks, in order and once each", async () => {
+    const live = await savePiece(db, input({ pieceNumber: "1", ...grid }), { actorId });
+    await setPieceStatus(db, live, "active", actorId);
+    const other = await savePiece(db, input({ pieceNumber: "2", pieceName: "Saanjh", ...grid }), { actorId });
+    await setPieceStatus(db, other, "active", actorId);
+    const draft = await savePiece(db, input({ pieceNumber: "3", pieceName: "Kahwa", ...grid }), { actorId });
+    const f = new FormData();
+    for (const [k, v] of Object.entries({ note: "", supportWhatsapp: "", shippingFlatMinor: "0", codFeeMinor: "0", codMaxOrderMinor: "5000", contentsPick0: other, contentsPick1: draft, contentsPick2: other })) f.append(k, v);
+    const parsed = parseSettingsForm(f);
+    if (!parsed.ok) throw new Error(JSON.stringify(parsed.errors));
+    expect(parsed.data.contentsPicks).toEqual([other, draft]);
+    await saveSettings(db, parsed.data, actorId);
+    const [row] = await db.select({ picks: storeSettings.contentsPicks }).from(storeSettings);
+    // The draft can't be shown on the site, so its place is left to chance.
+    expect(row!.picks).toEqual([other]);
   });
 });

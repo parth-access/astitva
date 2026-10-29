@@ -371,10 +371,11 @@ export async function getStorefront() {
       subtitle: storeSettings.lookbookSubtitle,
       note: storeSettings.note,
       noteSignature: storeSettings.noteSignature,
+      contentsPicks: storeSettings.contentsPicks,
     })
     .from(storeSettings)
     .where(eq(storeSettings.id, 1));
-  return row ?? { orderingOpen: false, title: null, subtitle: null, note: "", noteSignature: null };
+  return row ?? { orderingOpen: false, title: null, subtitle: null, note: "", noteSignature: null, contentsPicks: [] };
 }
 
 export type Storefront = Awaited<ReturnType<typeof getStorefront>>;

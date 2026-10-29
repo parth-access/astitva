@@ -1,0 +1,2 @@
+ALTER TABLE "store_settings" ADD COLUMN "contents_picks" uuid[] DEFAULT '{}'::uuid[] NOT NULL;--> statement-breakpoint
+ALTER TABLE "store_settings" ADD CONSTRAINT "store_settings_contents_picks_max" CHECK (cardinality("store_settings"."contents_picks") <= 3);

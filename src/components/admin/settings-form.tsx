@@ -5,11 +5,11 @@ import { useActionState, useState } from "react";
 import type { FormState } from "@/app/admin/(panel)/pieces/actions";
 import { saveSettingsAction } from "@/app/admin/(panel)/settings/actions";
 import { Letter } from "@/components/brand/letter";
-import { Field, FormError, saveBarClass, Section, SubmitButton, TextArea } from "./ui";
+import { Field, FormError, saveBarClass, Section, Select, SubmitButton, TextArea } from "./ui";
 
 const empty: FormState = { errors: {} };
 
-export function SettingsForm({ initial }: { initial: Record<string, string> }) {
+export function SettingsForm({ initial, pieces }: { initial: Record<string, string>; pieces: { id: string; label: string }[] }) {
   const [state, action, pending] = useActionState(saveSettingsAction, empty);
   const values = state.values ?? initial;
   const v = (k: string) => values[k] ?? "";
@@ -108,6 +108,24 @@ export function SettingsForm({ initial }: { initial: Record<string, string> }) {
           maxLength={200}
           error={e("lookbookSubtitle")}
         />
+      </Section>
+
+      <Section
+        title="The Contents page"
+        intro="The home page's Contents page shows three pieces; the shop below it shows every one. Choose them here, in order. A place left on “Random” gets a different piece every few minutes."
+      >
+        <div className="grid gap-5 sm:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <Select key={i} label={`Place ${i + 1}`} name={`contentsPick${i}`} defaultValue={v(`contentsPick${i}`)} error={i === 0 ? e("contentsPicks") : undefined}>
+              <option value="">Random</option>
+              {pieces.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </Select>
+          ))}
+        </div>
       </Section>
 
       <Section title="A note from Krishna" intro="Shown on the home page. A blank line starts a new paragraph. A draft until she confirms it.">

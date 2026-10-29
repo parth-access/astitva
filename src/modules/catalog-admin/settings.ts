@@ -1,7 +1,8 @@
-import { eq } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "@/db/create";
-import { auditLogs, storeSettings } from "@/db/schema";
+import { auditLogs, products, storeSettings } from "@/db/schema";
+import { CONTENTS_PLACES } from "@/modules/catalog/contents";
 import { rupeesToPaise } from "@/lib/money";
 import { formValues, type FieldErrors } from "./input";
 
@@ -48,13 +49,16 @@ const settingsSchema = z.object({
   codEnabled: z.boolean(),
   codFeeMinor: rupees("Cash-on-delivery fee"),
   codMaxOrderMinor: rupees("Cash-on-delivery limit").refine((v) => v > 0, "Above ₹0, or switch cash on delivery off."),
+  // Places on the home page's Contents page; a blank place is filled at random. The same piece twice counts once.
+  contentsPicks: z.array(z.uuid()).transform((ids) => [...new Set(ids)].slice(0, CONTENTS_PLACES)),
 });
 
 export type SettingsInput = z.infer<typeof settingsSchema>;
 
 export function parseSettingsForm(form: FormData): { ok: true; data: SettingsInput } | { ok: false; errors: FieldErrors } {
   const values = formValues(form);
-  const parsed = settingsSchema.safeParse({ ...values, orderingOpen: values.orderingOpen === "on", codEnabled: values.codEnabled === "on" });
+  const picks = Array.from({ length: CONTENTS_PLACES }, (_, i) => values[`contentsPick${i}`] ?? "").filter(Boolean);
+  const parsed = settingsSchema.safeParse({ ...values, orderingOpen: values.orderingOpen === "on", codEnabled: values.codEnabled === "on", contentsPicks: picks });
   if (parsed.success) return { ok: true, data: parsed.data };
   const errors: FieldErrors = {};
   // By field: a bad profile link reports on the links box, not its line.
@@ -64,6 +68,14 @@ export function parseSettingsForm(form: FormData): { ok: true; data: SettingsInp
 
 export async function saveSettings(db: Db, input: SettingsInput, actorId: string) {
   await db.transaction(async (tx) => {
+    // Only published pieces can be chosen for the Contents page: anything else is dropped, and its place is filled at random.
+    if (input.contentsPicks.length) {
+      const live = await tx
+        .select({ id: products.id })
+        .from(products)
+        .where(and(inArray(products.id, input.contentsPicks), eq(products.status, "active")));
+      input = { ...input, contentsPicks: input.contentsPicks.filter((id) => live.some((p) => p.id === id)) };
+    }
     await tx.insert(storeSettings).values({ id: 1, ...input }).onConflictDoUpdate({ target: storeSettings.id, set: input });
     await tx.insert(auditLogs).values({
       actorId,
@@ -77,6 +89,7 @@ export async function saveSettings(db: Db, input: SettingsInput, actorId: string
         codMaxOrderMinor: input.codMaxOrderMinor,
         shippingFlatMinor: input.shippingFlatMinor,
         freeShippingThresholdMinor: input.freeShippingThresholdMinor,
+        contentsPicks: input.contentsPicks,
       },
     });
   });
@@ -85,4 +98,13 @@ export async function saveSettings(db: Db, input: SettingsInput, actorId: string
 export async function settingsRow(db: Db) {
   const [s] = await db.select().from(storeSettings).where(eq(storeSettings.id, 1));
   return s ?? null;
+}
+
+/** Published pieces in house order, to choose the Contents page's from. */
+export async function publishedPieces(db: Db) {
+  return db
+    .select({ id: products.id, pieceNumber: products.pieceNumber, pieceName: products.pieceName, name: products.name })
+    .from(products)
+    .where(eq(products.status, "active"))
+    .orderBy(sql`${products.pieceNumber} asc nulls last`, asc(products.name));
 }

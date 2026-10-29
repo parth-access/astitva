@@ -109,7 +109,8 @@ export function LookbookCover({ store, pieces }: { store: Storefront; pieces: Lo
   );
 }
 
-export function LookbookContents({ store, pieces, folio = "iii" }: { store: Storefront; pieces: LookbookPiece[]; folio?: string }) {
+/** Three pieces from the lookbook (chosen in the admin, or at random), and the way to every one below. */
+export function LookbookContents({ store, pieces, total, folio = "iii" }: { store: Storefront; pieces: LookbookPiece[]; total: number; folio?: string }) {
   return (
     <section id="pieces" aria-labelledby="contents-heading" className="leaf relative scroll-mt-0">
       <div className="mx-auto grid max-w-7xl gap-10 px-6 py-20 md:grid-cols-12 md:px-12 md:py-28">
@@ -120,7 +121,7 @@ export function LookbookContents({ store, pieces, folio = "iii" }: { store: Stor
             Contents
           </h2>
           <p className="mt-6 max-w-xs text-sm leading-relaxed text-espresso-soft">
-            Every style has its number. Open one for its colours, sizes and how we&apos;d wear it.
+            {total > pieces.length ? "Three to begin with. " : ""}Every style has its number. Open one for its colours, sizes and how we&apos;d wear it.
           </p>
         </div>
         <ol className="md:col-span-7 md:col-start-6">
@@ -140,6 +141,13 @@ export function LookbookContents({ store, pieces, folio = "iii" }: { store: Stor
               </li>
             );
           })}
+          {total > pieces.length ? (
+            <li className="mt-8 text-right">
+              <a href="#the-pieces" className="link text-sm">
+                See all {total} styles ↓
+              </a>
+            </li>
+          ) : null}
         </ol>
       </div>
       <Folio side="right">{folio}</Folio>

@@ -7,6 +7,7 @@ import { HomeCategories, HomePieces } from "@/components/lookbook/home-sections"
 import { LookbookSkeleton } from "@/components/lookbook/skeletons";
 import { JsonLd } from "@/components/brand/json-ld";
 import { organizationLd, websiteLd } from "@/lib/seo";
+import { chooseContents } from "@/modules/catalog/contents";
 import { getConcierge, getStorefront, listCategories, listLookbookPieces, listPieces } from "@/modules/catalog/queries";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -23,8 +24,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /**
  * The home page opens as the lookbook (a cover spread, Krishna's note, a
- * contents page), then turns into the shop: every piece at once, then the
- * categories. Its title and note are store settings.
+ * contents page of three pieces), then turns into the shop: every piece at
+ * once, then the categories. Its title, note and the three pieces are store
+ * settings; a place left empty gets a random piece, drawn again each time
+ * this cached page is rebuilt (every few minutes).
  * Design notes: docs/DESIGN.md.
  */
 async function Home() {
@@ -39,7 +42,7 @@ async function Home() {
       <JsonLd data={[organizationLd({ whatsapp: concierge.whatsapp, email: concierge.email, profiles: concierge.profileLinks }), websiteLd()]} />
       <LookbookCover store={store} pieces={pieces} />
       <LookbookNote store={store} />
-      <LookbookContents store={store} pieces={pieces} folio={hasNote ? "iv" : "iii"} />
+      <LookbookContents store={store} pieces={chooseContents(pieces, store.contentsPicks)} total={pieces.length} folio={hasNote ? "iv" : "iii"} />
       {/* The shop scrolls normally and covers the last leaf. */}
       <HomePieces pieces={cards} />
       <HomeCategories categories={categories} pieces={cards} />

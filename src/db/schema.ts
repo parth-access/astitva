@@ -500,10 +500,13 @@ export const storeSettings = pgTable(
     /** Krishna's note on the home page. Blank lines separate paragraphs. */
     note: text("note").notNull().default(""),
     noteSignature: varchar("note_signature", { length: 60 }),
+    /** The pieces on the home page's Contents page, in order (up to 3). Empty places are filled at random. */
+    contentsPicks: uuid("contents_picks").array().notNull().default(sql`'{}'::uuid[]`),
     updatedAt: updatedAt(),
   },
   (t) => [
     check("store_settings_singleton", sql`${t.id} = 1`),
+    check("store_settings_contents_picks_max", sql`cardinality(${t.contentsPicks}) <= 3`),
     check("store_settings_whatsapp_digits", sql`${t.supportWhatsapp} is null or ${t.supportWhatsapp} ~ '^[0-9]{10,15}$'`),
     check("store_settings_ttl_range", sql`${t.reservationTtlMinutes} between 5 and 60`),
     check(
