@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo";
 import { TextPage } from "@/components/storefront/text-page";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMeta({
   title: "Size guide",
   description: "How to measure yourself, and how to read the garment measurements on every Astitva piece.",
-  alternates: { canonical: "/size-guide" },
-};
+  path: "/size-guide",
+});
 
 export default function SizeGuidePage() {
   return (

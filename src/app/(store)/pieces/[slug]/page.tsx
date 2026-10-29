@@ -21,7 +21,8 @@ import type { Measurements } from "@/db/schema";
 import { formatPieceNumber } from "@/lib/format";
 import { formatINR } from "@/lib/money";
 import { gaItem, gaRupees } from "@/lib/analytics";
-import { breadcrumbLd, productLd } from "@/lib/seo";
+import { cloudinaryUrl } from "@/lib/cloudinary-url";
+import { breadcrumbLd, pageMeta, productLd } from "@/lib/seo";
 import { JsonLd } from "@/components/brand/json-ld";
 import { OptionsSkeleton, PieceSkeleton } from "@/components/lookbook/skeletons";
 import { getAdjacentPieces, getProductBySlug, getStorefront, listCategories, listPieces, listRelatedPieces, type ProductDetail } from "@/modules/catalog/queries";
@@ -60,17 +61,17 @@ export async function generateMetadata({ params }: PageProps<"/pieces/[slug]">):
   // e.g. "Neem linen wrap dress in Sage, Ivory, Rust and Ink"; the brand is added by the template.
   const named = product.pieceName ? `${product.pieceName} ${product.name.toLowerCase()}` : product.name;
   const title = product.seoTitle ?? (colours.length > 1 && named.length < 40 ? `${named} in ${listWords(colours)}` : named);
-  return {
+  const photo = product.images[0];
+  return pageMeta({
     title,
     description: text,
-    alternates: { canonical: pieceHref(product.slug) },
-    openGraph: {
-      title: `${title} | Astitva`,
-      description: text,
-      url: pieceHref(product.slug),
-      images: [{ url: `${pieceHref(product.slug)}/share.png`, width: 1200, height: 630, alt: `${title}, by Astitva` }],
-    },
-  };
+    path: pieceHref(product.slug),
+    // The share card first (what WhatsApp and Instagram show), then the photo itself for search.
+    images: [
+      { url: `${pieceHref(product.slug)}/share.png`, width: 1200, height: 630, alt: `${title}, by Astitva` },
+      ...(photo ? [{ url: cloudinaryUrl(photo.url, { width: 1200 }), alt: photo.alt || `${title}, by Astitva` }] : []),
+    ],
+  });
 }
 
 const CONDITION_LABEL: Record<string, string> = {
@@ -324,8 +325,16 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
             </nav>
 
             {product.pieceNumber ? <p className="mt-5 font-display text-2xl tabular-nums text-espresso-soft md:mt-8">{formatPieceNumber(product.pieceNumber)}</p> : null}
-            <h1 className="mt-1 text-6xl italic leading-none md:text-7xl">{title}</h1>
-            {product.pieceName ? <p className="mt-3 text-sm text-espresso-soft">{product.name}</p> : null}
+            {/* The garment is part of the heading ("Neem, linen wrap dress"): it's what people search for. */}
+            <h1 className="mt-1">
+              <span className="block text-6xl italic leading-none md:text-7xl">{title}</span>
+              {product.pieceName ? (
+                <span className="mt-3 block font-sans text-sm font-normal not-italic leading-normal tracking-normal text-espresso-soft">
+                  <span className="sr-only">, </span>
+                  {product.name}
+                </span>
+              ) : null}
+            </h1>
 
             <div className="mt-5 flex flex-wrap items-baseline gap-x-3">
               <Price className="text-xl" priceMinor={lowest.priceMinor} compareAtMinor={lowest.compareAtMinor} from={new Set(prices).size > 1} />

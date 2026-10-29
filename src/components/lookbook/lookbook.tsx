@@ -72,6 +72,8 @@ export function LookbookCover({ store, pieces }: { store: Storefront; pieces: Lo
               data-length={(store.title ?? "Astitva").length > 10 ? "long" : "short"}
               style={{ ["--delay" as string]: "450ms" }}
             >
+              {/* The page's heading names the brand too, for search and screen readers; the cover shows only the season. */}
+              {store.title ? <span className="sr-only">Astitva: </span> : null}
               {store.title ?? "Astitva"}
             </h1>
             {store.subtitle ? (

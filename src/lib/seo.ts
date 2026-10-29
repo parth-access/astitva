@@ -7,6 +7,7 @@
  * Only facts the site already shows are described; nothing is claimed here
  * that isn't on the page.
  */
+import type { Metadata } from "next";
 import { formatPieceNumber } from "./format";
 
 export const BRAND = "Astitva";
@@ -20,6 +21,37 @@ export function siteUrl(): string {
 export function absolute(path: string): string {
   return path.startsWith("http") ? path : `${siteUrl()}${path.startsWith("/") ? path : `/${path}`}`;
 }
+
+/**
+ * A page's title, description, canonical address and share card.
+ * `title` is the page's own; the layout's template adds the brand.
+ * `absoluteTitle` is the whole title, brand included.
+ *
+ * Without `images` the page sets no openGraph: Next then fills the share
+ * title and description from the page's and keeps the site's card
+ * (app/opengraph-image). A page's own openGraph replaces the layout's whole,
+ * card included (metadata merges shallowly), so with `images` it is built
+ * here with the site name and locale.
+ */
+export function pageMeta(opts: {
+  title?: string;
+  absoluteTitle?: string;
+  description: string;
+  path: string;
+  images?: NonNullable<NonNullable<Metadata["openGraph"]>["images"]>;
+}): Metadata {
+  return {
+    title: opts.absoluteTitle ? { absolute: opts.absoluteTitle } : opts.title,
+    description: opts.description,
+    alternates: { canonical: opts.path },
+    ...(opts.images
+      ? { openGraph: { ...OPEN_GRAPH, title: opts.absoluteTitle ?? `${opts.title} | ${BRAND}`, description: opts.description, url: opts.path, images: opts.images } }
+      : {}),
+  };
+}
+
+/** What every page's share card says about the site. */
+export const OPEN_GRAPH = { siteName: BRAND, type: "website", locale: "en_IN" } as const;
 
 /** Paise to the decimal string schema.org expects ("3499.00"). */
 function price(paise: number): string {

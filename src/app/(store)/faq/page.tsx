@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { isValidElement, type ReactNode } from "react";
 import { JsonLd } from "@/components/brand/json-ld";
-import { faqLd } from "@/lib/seo";
+import { faqLd, pageMeta } from "@/lib/seo";
 import { ACROSS } from "@/lib/transition-types";
 
-export const metadata: Metadata = {
-  title: "Questions",
-  description: "Answers about Astitva's pieces, sizes, ordering, payment, delivery and returns.",
-  alternates: { canonical: "/faq" },
-};
+export const metadata: Metadata = pageMeta({
+  title: "Questions: sizes, delivery, payment and returns",
+  description: "Answers about Astitva's pieces, sizes, ordering, payment (UPI, cards, cash on delivery), delivery across India and returns.",
+  path: "/faq",
+});
 
 const L = ({ href, children }: { href: string; children: ReactNode }) => (
   <Link className="link text-espresso" href={href} transitionTypes={ACROSS}>

@@ -6,7 +6,7 @@ import { pieceHref } from "@/components/brand/piece-caption";
 import { GridSkeleton } from "@/components/lookbook/skeletons";
 import { Catalogue, shopHref, sortFrom } from "@/components/storefront/shop-catalogue";
 import { formatINR } from "@/lib/money";
-import { breadcrumbLd, itemListLd } from "@/lib/seo";
+import { breadcrumbLd, itemListLd, pageMeta } from "@/lib/seo";
 import { listCategories, listPieces } from "@/modules/catalog/queries";
 
 export async function generateStaticParams() {
@@ -26,11 +26,12 @@ function listWords(words: string[]) {
 export async function generateMetadata({ params }: PageProps<"/shop/[category]">): Promise<Metadata> {
   const category = await categoryFor((await params).category);
   if (!category) return { title: "Not found", robots: { index: false } };
-  const title = `Women's ${category.name.toLowerCase()}`;
+  // What people search for: "women's co-ord sets online".
+  const title = `Women's ${category.name.toLowerCase()} online`;
   const canonical = shopHref(category.slug);
   if (category.styles === 0) {
     // Nothing to show yet: kept out of search until it has pieces.
-    return { title, description: `Astitva ${category.name.toLowerCase()} are on their way.`, alternates: { canonical }, robots: { index: false, follow: true } };
+    return { ...pageMeta({ title, description: `Astitva ${category.name.toLowerCase()} are on their way.`, path: canonical }), robots: { index: false, follow: true } };
   }
   const pieces = await listPieces({ categorySlug: category.slug });
   const names = pieces.slice(0, 4).map((p) => p.pieceName ?? p.name);
@@ -40,16 +41,12 @@ export async function generateMetadata({ params }: PageProps<"/shop/[category]">
     `${pieces.length === 1 ? "One style" : `${pieces.length} styles`} of ${category.name.toLowerCase()} by Astitva${names.length ? `: ${listWords(pieces.length > names.length ? [...names, "more"] : names)}` : ""}.`,
     colours.length > 1 ? `In ${listWords(colours.slice(0, 6))}.` : null,
     Number.isFinite(lowest) ? `From ${formatINR(lowest)}, prices include tax.` : null,
+    "Delivered across India.",
   ]
     .filter(Boolean)
     .join(" ")
     .slice(0, 300);
-  return {
-    title,
-    description,
-    alternates: { canonical },
-    openGraph: { title: `${title} | Astitva`, description, url: canonical },
-  };
+  return pageMeta({ title, description, path: canonical });
 }
 
 async function CategoryView({ params, searchParams }: PageProps<"/shop/[category]">) {

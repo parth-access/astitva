@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo";
 import Link from "next/link";
 import { whatsappLink } from "@/lib/format";
 import { formatMobile } from "@/lib/india";
 import { ACROSS } from "@/lib/transition-types";
 import { getConcierge } from "@/modules/catalog/queries";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMeta({
   title: "Contact",
   description: "Ask Astitva about a piece, its fit or an order, on WhatsApp or by email.",
-  alternates: { canonical: "/contact" },
-};
+  path: "/contact",
+});
 
 /** "919812345678" → "+91 98123 45678"; other countries as given. */
 function showWhatsapp(n: string) {

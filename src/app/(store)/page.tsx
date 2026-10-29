@@ -6,20 +6,22 @@ import { LookbookContents, LookbookCover, LookbookNote } from "@/components/look
 import { HomeCategories, HomePieces } from "@/components/lookbook/home-sections";
 import { LookbookSkeleton } from "@/components/lookbook/skeletons";
 import { JsonLd } from "@/components/brand/json-ld";
-import { organizationLd, websiteLd } from "@/lib/seo";
+import { organizationLd, pageMeta, websiteLd } from "@/lib/seo";
 import { chooseContents } from "@/modules/catalog/contents";
 import { getConcierge, getStorefront, listCategories, listLookbookPieces, listPieces } from "@/modules/catalog/queries";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const store = await getStorefront();
+  const [store, categories] = await Promise.all([getStorefront(), listCategories()]);
   // The subtitle usually says what the season is; the rest says what the site is.
   const lead = store.subtitle ? `${store.subtitle} ` : "A few considered styles, each in the colours we couldn't choose between. ";
-  return {
-    // The brand first: this is the page people find by searching for it.
-    title: { absolute: store.title ? `Astitva — ${store.title}` : "Astitva — Your true form" },
-    description: `${lead}Womenswear by Astitva: turn the pages of the lookbook and shop each style.`.slice(0, 300),
-    alternates: { canonical: "/" },
-  };
+  const kinds = categories.filter((c) => c.styles > 0).map((c) => c.name.toLowerCase());
+  const sells = kinds.length ? `Shop ${kinds.length > 1 ? `${kinds.slice(0, -1).join(", ")} and ${kinds[kinds.length - 1]}` : kinds[0]} online, delivered across India.` : "Shop online, delivered across India.";
+  return pageMeta({
+    // The brand first, then what it sells: this is the page people find by searching for it.
+    absoluteTitle: `Astitva — Women's clothing online | ${store.title ?? "Your true form"}`,
+    description: `${lead}Womenswear by Astitva. ${sells}`.slice(0, 300),
+    path: "/",
+  });
 }
 
 /**

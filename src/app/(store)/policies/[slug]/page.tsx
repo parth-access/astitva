@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPolicy, POLICY_PAGES, type PolicyBlock } from "@/content/policies";
 import { whatsappLink } from "@/lib/format";
+import { pageMeta } from "@/lib/seo";
 import { ACROSS } from "@/lib/transition-types";
 import { getConcierge } from "@/modules/catalog/queries";
 
@@ -14,9 +15,7 @@ export async function generateMetadata({ params }: PageProps<"/policies/[slug]">
   const policy = getPolicy((await params).slug);
   if (!policy) return { title: "Not found", robots: { index: false } };
   return {
-    title: policy.title,
-    description: policy.summary,
-    alternates: { canonical: `/policies/${policy.slug}` },
+    ...pageMeta({ title: policy.title, description: policy.summary, path: `/policies/${policy.slug}` }),
     // A draft isn't a promise yet: keep it out of search until Krishna confirms it.
     ...(policy.status === "draft" ? { robots: { index: false, follow: true } } : {}),
   };
