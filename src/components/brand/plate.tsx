@@ -4,7 +4,7 @@ import { isCloudinaryUrl } from "@/lib/cloudinary-url";
 import { formatPieceNumber } from "@/lib/format";
 import { inkOn, normaliseTone } from "@/lib/tone";
 import { garmentKind, SketchPlate } from "@/components/lookbook/sketch-plate";
-import { CloudImage } from "./cloud-image";
+import { FadingPhoto } from "./fading-photo";
 
 type Props = {
   /** Shared-element name so the plate morphs into the piece page hero. Must be unique on the page. */
@@ -82,7 +82,8 @@ export function Plate({
       {src ? (
         // Photos on Cloudinary are resized there; local art (the mascot) goes through next/image.
         isCloudinaryUrl(src) ? (
-          <CloudImage src={src} alt={alt} fill sizes={sizes} priority={priority} className={imageClass} />
+          // A new photo (another colour) fades in over the last instead of leaving the arch bare while it loads.
+          <FadingPhoto src={src} alt={alt} sizes={sizes} priority={priority} className={imageClass} />
         ) : (
           <Image src={src} alt={alt} fill sizes={sizes} priority={priority} className={imageClass} />
         )

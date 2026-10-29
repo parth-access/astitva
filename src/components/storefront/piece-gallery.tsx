@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { preloadPhoto } from "@/components/brand/fading-photo";
 import { pieceTransitionName, Plate } from "@/components/brand/plate";
 import { useSelection } from "./piece-selection";
 import { turnFrames, type PhotoAngle } from "@/lib/photo-turn";
 import { SpinViewer } from "./spin-viewer";
 import { TurnViewer } from "./turn-viewer";
+
+const HERO_SIZES = "(min-width: 768px) 56vw, 92vw";
 
 export type GalleryImage = { url: string; alt: string; color: string | null; angle: PhotoAngle | null };
 
@@ -51,6 +54,18 @@ export function PieceGallery({
   const frames = spinVideo ? null : (turnFrames(own) ?? turnFrames(shared));
   const canTurn = Boolean(spinVideo || frames);
 
+  // Once the page has settled, fetch every other colour's main photo, so choosing one shows it at once.
+  useEffect(() => {
+    const heroes = colours.map((c) => (images.find((i) => i.color === c.name) ?? images.find((i) => i.color === null))?.url);
+    const run = () => heroes.forEach((url) => preloadPhoto(url, HERO_SIZES));
+    if ("requestIdleCallback" in window) {
+      const id = requestIdleCallback(run, { timeout: 3000 });
+      return () => cancelIdleCallback(id);
+    }
+    const id = setTimeout(run, 1500);
+    return () => clearTimeout(id);
+  }, [colours, images]);
+
   return (
     <>
       {spinVideo && turning ? (
@@ -62,7 +77,8 @@ export function PieceGallery({
           <TurnViewer key={colour ?? ""} frames={frames} label={label} tone={chosen?.hex ?? tone} />
         </div>
       ) : (
-        <div key={hero ? hero.url : "sketch"} className={hero ? "fade-in" : undefined}>
+        // Photo to photo crossfades inside the plate (the old one stays until the new has loaded); only the sketch remounts.
+        <div key={hero ? "photo" : "sketch"} className={hero ? undefined : "fade-in"}>
           <Plate
             transitionName={pieceTransitionName(slug)}
             src={hero?.url ?? null}
@@ -72,7 +88,7 @@ export function PieceGallery({
             pieceName={pieceName}
             category={category}
             sketchNote
-            sizes="(min-width: 768px) 56vw, 92vw"
+            sizes={HERO_SIZES}
             priority
           />
         </div>

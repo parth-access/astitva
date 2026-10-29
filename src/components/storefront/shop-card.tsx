@@ -3,10 +3,13 @@
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { pieceHref } from "@/components/brand/piece-caption";
+import { preloadPhoto } from "@/components/brand/fading-photo";
 import { pieceTransitionName, Plate } from "@/components/brand/plate";
 import type { PieceCard, PieceColour } from "@/modules/catalog/queries";
 import { HeartButton } from "./saved/saved-context";
 import { SwatchPicker } from "./swatch-picker";
+
+const CARD_SIZES = "(min-width: 1024px) 30vw, 46vw";
 
 /** The style's first colour that has stock, else its first colour. */
 export function defaultColour(colours: PieceColour[]) {
@@ -24,12 +27,18 @@ export function ShopCard({ piece, priority, caption }: { piece: PieceCard; prior
   const photo = shown?.imageUrl ?? piece.imageUrl;
   const href = `${pieceHref(piece.slug)}${colour ? `?colour=${encodeURIComponent(colour)}` : ""}`;
   const title = piece.pieceName ?? piece.name;
+  // A finger or pointer on a swatch starts its photo downloading, so choosing it shows at once.
+  const previewColour = (name: string | null | undefined) => {
+    if (name !== undefined) preloadPhoto(piece.colours.find((c) => c.name === name)?.imageUrl, CARD_SIZES);
+    setPreview(name);
+  };
 
   return (
     <div className="group relative">
       <Link href={href} transitionTypes={["nav-forward"]} aria-label={`${title}, ${piece.name}${colour ? `, in ${colour}` : ""}`} className="block">
         <div className="transition-transform duration-500 ease-[cubic-bezier(0.22,0.61,0.36,1)] group-hover:-translate-y-1">
-          <div key={photo ?? "sketch"} className={photo ? "fade-in" : undefined}>
+          {/* Photo to photo crossfades inside the plate; only a change to or from the sketch remounts. */}
+          <div key={photo ? "photo" : "sketch"} className={photo ? "fade-in" : undefined}>
             <Plate
               transitionName={pieceTransitionName(piece.slug)}
               src={photo}
@@ -39,7 +48,7 @@ export function ShopCard({ piece, priority, caption }: { piece: PieceCard; prior
               pieceName={piece.pieceName}
               category={piece.categorySlug}
               muted={piece.onHand <= 0}
-              sizes="(min-width: 1024px) 30vw, 46vw"
+              sizes={CARD_SIZES}
               priority={priority}
             />
           </div>
@@ -49,7 +58,7 @@ export function ShopCard({ piece, priority, caption }: { piece: PieceCard; prior
       <HeartButton productId={piece.id} name={title} className="absolute right-2 top-2 z-10" />
       {piece.colours.filter((c) => c.name).length > 1 ? (
         <div className="mt-4">
-          <SwatchPicker colours={piece.colours} value={colour} onChange={setColour} onPreview={setPreview} size="sm" legend={`Colours of ${title}`} showName={false} />
+          <SwatchPicker colours={piece.colours} value={colour} onChange={setColour} onPreview={previewColour} size="sm" legend={`Colours of ${title}`} showName={false} />
         </div>
       ) : null}
       <div className="mt-4">{caption}</div>

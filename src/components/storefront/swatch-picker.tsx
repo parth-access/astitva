@@ -53,6 +53,8 @@ export function SwatchPicker({
             className="swatch-option"
             title={`${c.name}${c.available <= 0 ? " (sold out)" : ""}`}
             onMouseEnter={() => onPreview?.(c.name)}
+            // Touch has no hover: the finger landing is the earliest sign of what's wanted.
+            onPointerDown={() => onPreview?.(c.name)}
           >
             <input
               type="radio"
