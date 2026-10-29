@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Db } from "@/db/create";
 import { auditLogs, products, storeSettings } from "@/db/schema";
 import { CONTENTS_PLACES } from "@/modules/catalog/contents";
+import { whatsappNumber } from "@/lib/india";
 import { rupeesToPaise } from "@/lib/money";
 import { formValues, type FieldErrors } from "./input";
 
@@ -33,7 +34,7 @@ const settingsSchema = z.object({
   orderingOpen: z.boolean(),
   supportWhatsapp: z.preprocess(
     (v) => (typeof v === "string" ? v.replace(/[\s+()-]/g, "") || null : v),
-    z.string().regex(/^[0-9]{10,15}$/, "Digits with the country code, e.g. 919812345678.").nullable(),
+    z.string().regex(/^[0-9]{10,15}$/, "Digits with the country code, e.g. 919812345678.").nullable().transform(whatsappNumber),
   ),
   conciergeName: text(40),
   supportEmail: z.preprocess(blank, z.email("An email address.").nullable()),

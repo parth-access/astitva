@@ -11,6 +11,7 @@ import {
   storeSettings,
 } from "@/db/schema";
 import type { Measurements } from "@/db/schema";
+import { whatsappNumber } from "@/lib/india";
 import { compareSizes } from "@/lib/sizes";
 import { pickRelated } from "./related";
 
@@ -355,7 +356,8 @@ export async function getConcierge() {
     .select({ whatsapp: storeSettings.supportWhatsapp, name: storeSettings.conciergeName, email: storeSettings.supportEmail, profileLinks: storeSettings.profileLinks })
     .from(storeSettings)
     .where(eq(storeSettings.id, 1));
-  return row ?? { whatsapp: null, name: null, email: null, profileLinks: [] };
+  // A number saved without its country code: "9812345678" → "919812345678".
+  return row ? { ...row, whatsapp: whatsappNumber(row.whatsapp) } : { whatsapp: null, name: null, email: null, profileLinks: [] };
 }
 
 /** The home page lookbook's words, and whether customers can order yet. */

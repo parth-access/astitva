@@ -12,7 +12,7 @@ import { orderItems, orders, productImages, productVariants, products, refunds, 
 import { PACKED_BY_HAND, showPromise } from "@/content/brand";
 import type { Email } from "@/lib/email";
 import { formatLongDate, formatPieceNumber, whatsappLink } from "@/lib/format";
-import { formatMobile } from "@/lib/india";
+import { formatMobile, whatsappNumber } from "@/lib/india";
 import { formatINR, paiseToRupeesText } from "@/lib/money";
 import { orderLinkKey, orderPath, receiptPath } from "@/modules/orders/links";
 import { renderReceiptPdf } from "@/modules/receipts/pdf";
@@ -61,7 +61,7 @@ async function loadSettings(db: DbOrTx) {
     .select({ who: storeSettings.conciergeName, whatsapp: storeSettings.supportWhatsapp })
     .from(storeSettings)
     .where(eq(storeSettings.id, 1));
-  return { who: s?.who ?? null, whatsapp: s?.whatsapp ?? null };
+  return { who: s?.who ?? null, whatsapp: whatsappNumber(s?.whatsapp ?? null) };
 }
 
 async function loadOrder(db: DbOrTx, orderId: string) {

@@ -49,6 +49,17 @@ export function normaliseMobile(input: string): string | null {
   return /^[6-9]\d{9}$/.test(digits) ? digits : null;
 }
 
+/**
+ * A WhatsApp number as wa.me wants it: digits with the country code. An Indian
+ * mobile given as its 10 digits gets 91 in front ("9812345678" alone would
+ * reach no one); anything else is left as it is.
+ */
+export function whatsappNumber(digits: string): string;
+export function whatsappNumber(digits: string | null): string | null;
+export function whatsappNumber(digits: string | null): string | null {
+  return digits && /^[6-9]\d{9}$/.test(digits) ? `91${digits}` : digits;
+}
+
 /** "+91 98123 45678". */
 export function formatMobile(digits: string): string {
   return /^\d{10}$/.test(digits) ? `+91 ${digits.slice(0, 5)} ${digits.slice(5)}` : digits;

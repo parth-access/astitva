@@ -13,6 +13,7 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import type { DbOrTx } from "@/db/create";
 import { codCollections, orderItems, orders, receipts, refunds, storeSettings, type ReceiptSnapshot } from "@/db/schema";
 import { formatLongDate } from "@/lib/format";
+import { whatsappNumber } from "@/lib/india";
 import { formatINR } from "@/lib/money";
 
 export type ReceiptPayment = { paidWith: string | null; providerPaymentId: string; paidAt: Date };
@@ -121,7 +122,7 @@ export async function getReceipt(db: DbOrTx, orderId: string): Promise<ReceiptVi
     order: r.snapshot,
     status,
     refunds: back.map((b) => ({ amountMinor: Number(b.amountMinor), status: b.status as "initiated" | "succeeded", at: b.at })),
-    shop: { email: shop?.email ?? null, whatsapp: shop?.whatsapp ?? null },
+    shop: { email: shop?.email ?? null, whatsapp: whatsappNumber(shop?.whatsapp ?? null) },
   };
 }
 

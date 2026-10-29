@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- reading JSON-LD shapes in tests */
 import { describe, expect, it } from "vitest";
+import { whatsappNumber } from "../../src/lib/india";
 import { parseSettingsForm } from "../../src/modules/catalog-admin/settings";
 import { breadcrumbLd, faqLd, itemListLd, ldJson, organizationLd, pageMeta, productLd, websiteLd, type LdPiece } from "../../src/lib/seo";
 
@@ -120,5 +121,16 @@ describe("brand, FAQ and category data", () => {
     expect(!bad.ok && bad.errors.profileLinks).toMatch(/https/);
     const none = parseSettingsForm(form(""));
     expect(none.ok && none.data.profileLinks).toEqual([]);
+  });
+
+  it("adds India's country code to a WhatsApp number given as a 10-digit mobile", () => {
+    expect(whatsappNumber("9315524561")).toBe("919315524561");
+    expect(whatsappNumber("919315524561")).toBe("919315524561");
+    expect(whatsappNumber("447700900123")).toBe("447700900123");
+    expect(whatsappNumber(null)).toBeNull();
+    const f = new FormData();
+    for (const [k, v] of Object.entries({ note: "", supportWhatsapp: "93155 24561", shippingFlatMinor: "0", codFeeMinor: "0", codMaxOrderMinor: "5000", profileLinks: "" })) f.append(k, v);
+    const parsed = parseSettingsForm(f);
+    expect(parsed.ok && parsed.data.supportWhatsapp).toBe("919315524561");
   });
 });
