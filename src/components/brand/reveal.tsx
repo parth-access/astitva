@@ -1,6 +1,6 @@
 import { Suspense, ViewTransition, type ReactNode } from "react";
 
-/** A loading boundary whose skeleton sinks away as the content rises into place. */
+/** A loading boundary whose skeleton fades away as the content fades in in its place. */
 export function Reveal({ fallback, children }: { fallback: ReactNode; children: ReactNode }) {
   return (
     <Suspense

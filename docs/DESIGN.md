@@ -21,7 +21,7 @@ Astitva is a fashion label whose store opens like a printed lookbook: a cover, a
 
 ## The first-visit intro
 
-On a visitor's first visit to any storefront page (including straight from Instagram), the mascot is sketched in fine sepia lines, then the painting arrives: the hat settles onto her head and a glint runs along the brim, her face and earring appear (the earring swings once), and her hair washes in from under the brim. Then she lifts away and the page shows; on the homepage the cover arch rises with her already inside it.
+On a visitor's first visit to any storefront page (including straight from Instagram), the mascot is sketched in fine sepia lines, then the painting arrives: the hat settles onto her head and a glint runs along the brim, her face and earring appear (the earring swings once), and her hair washes in from under the brim. Then she lifts away and the page shows; on the homepage the cover arch fades in with her already inside it. Nothing on the site rises into place: on a phone that reads as the page loading from the bottom up, so things fade in where they stand.
 
 - About 2.2 seconds from first paint. Any tap, click, scroll or key skips it.
 - Plays once per browser (`localStorage["astitva:intro"]`). Add `?intro` to any URL to replay it for review.

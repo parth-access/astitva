@@ -215,26 +215,26 @@
 
 /* ------------------------------------------------------------------ */
 /* Motion. One orchestrated moment per page:                           */
-/*  - the cover arch rises open on first load;                         */
+/*  - the cover arch fades in on first load;                           */
 /*  - a plate morphs into the piece page when you open it.             */
 /* ------------------------------------------------------------------ */
 
+/* Everything fades in where it stands: nothing rises from below, which on
+   a phone reads as the page loading from the bottom up. */
 @keyframes arch-rise {
   from {
-    clip-path: inset(100% 0 0 0 round 999px 999px 0 0);
+    opacity: 0;
   }
   to {
-    clip-path: inset(0 0 0 0 round 999px 999px 0 0);
+    opacity: 1;
   }
 }
 @keyframes settle {
   from {
     opacity: 0;
-    transform: translateY(14px);
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 .cover-rise {
@@ -261,20 +261,20 @@
 ::view-transition-new(.nav-across) {
   animation: 240ms var(--ease-unhurried) 140ms both page-fade, 420ms var(--ease-unhurried) both page-slide;
 }
-/* Deeper slides in from the right, back from the left; across only rises a little. */
+/* Deeper slides in from the right, back from the left; across only fades. */
 ::view-transition-old(.nav-forward) { --slide: -48px 0; }
 ::view-transition-new(.nav-forward) { --slide: 48px 0; }
 ::view-transition-old(.nav-back) { --slide: 48px 0; }
 ::view-transition-new(.nav-back) { --slide: -48px 0; }
-::view-transition-old(.nav-across) { --slide: 0 -8px; }
-::view-transition-new(.nav-across) { --slide: 0 12px; }
+::view-transition-old(.nav-across) { --slide: 0 0; }
+::view-transition-new(.nav-across) { --slide: 0 0; }
 
-/* A skeleton sinks away; the content rises into its place. */
+/* A skeleton fades away; the content fades in in its place. */
 ::view-transition-old(.skeleton-out) {
   animation: 150ms ease-out both page-fade reverse;
 }
 ::view-transition-new(.content-in) {
-  animation: 260ms var(--ease-unhurried) 120ms both page-fade, 420ms var(--ease-unhurried) both content-rise;
+  animation: 260ms var(--ease-unhurried) 120ms both page-fade;
 }
 
 /* The header (and the admin's navigation) stay put while the page under them moves. */
@@ -308,14 +308,6 @@
 @keyframes page-slide {
   from {
     translate: var(--slide);
-  }
-  to {
-    translate: 0 0;
-  }
-}
-@keyframes content-rise {
-  from {
-    translate: 0 10px;
   }
   to {
     translate: 0 0;
