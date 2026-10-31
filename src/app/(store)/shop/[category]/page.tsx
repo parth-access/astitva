@@ -8,9 +8,10 @@ import { Catalogue, shopHref, sortFrom } from "@/components/storefront/shop-cata
 import { formatINR } from "@/lib/money";
 import { breadcrumbLd, itemListLd, pageMeta } from "@/lib/seo";
 import { listCategories, listPieces } from "@/modules/catalog/queries";
+import { atLeastOne } from "@/lib/static-params";
 
 export async function generateStaticParams() {
-  return (await listCategories()).map((c) => ({ category: c.slug }));
+  return atLeastOne("category", (await listCategories()).map((c) => c.slug));
 }
 
 async function categoryFor(slug: string) {

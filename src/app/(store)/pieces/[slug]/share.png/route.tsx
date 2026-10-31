@@ -3,9 +3,10 @@ import { formatINR } from "@/lib/money";
 import { brandCard, pieceCard } from "@/lib/og";
 import { compareSizes } from "@/lib/sizes";
 import { getProductBySlug, getStorefront, listPieces } from "@/modules/catalog/queries";
+import { atLeastOne } from "@/lib/static-params";
 
 export async function generateStaticParams() {
-  return (await listPieces({ limit: 500 })).map((p) => ({ slug: p.slug }));
+  return atLeastOne("slug", (await listPieces({ limit: 500 })).map((p) => p.slug));
 }
 
 /**

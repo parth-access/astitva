@@ -28,10 +28,11 @@ import { OptionsSkeleton, PieceSkeleton } from "@/components/lookbook/skeletons"
 import { getAdjacentPieces, getProductBySlug, getStorefront, listCategories, listPieces, listRelatedPieces, type ProductDetail } from "@/modules/catalog/queries";
 import { getCheckoutSettings } from "@/modules/checkout/queries";
 import { getAvailability } from "@/modules/inventory/service";
+import { atLeastOne } from "@/lib/static-params";
 
 export async function generateStaticParams() {
   const pieces = await listPieces({ limit: 500 });
-  return pieces.map((p) => ({ slug: p.slug }));
+  return atLeastOne("slug", pieces.map((p) => p.slug));
 }
 
 /** "Sage, Ivory, Rust and Ink". */
