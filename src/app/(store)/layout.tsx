@@ -3,11 +3,10 @@ import { Intro } from "@/components/brand/intro";
 import { Analytics } from "@/components/storefront/analytics";
 import { BagProvider } from "@/components/storefront/bag/bag-context";
 import { BagDrawer } from "@/components/storefront/bag/bag-drawer";
-import { BagSeed } from "@/components/storefront/bag/bag-seed";
 import { SavedProvider } from "@/components/storefront/saved/saved-context";
-import { SavedSeed } from "@/components/storefront/saved/saved-seed";
 import { SiteFooter } from "@/components/storefront/site-footer";
 import { SiteHeader } from "@/components/storefront/site-header";
+import { VisitorSeed } from "@/components/storefront/visitor-seed";
 import { getStorefront } from "@/modules/catalog/queries";
 import { getCheckoutSettings } from "@/modules/checkout/queries";
 
@@ -34,13 +33,9 @@ export default async function StoreLayout({ children }: LayoutProps<"/">) {
         </main>
         <SiteFooter />
         <BagDrawer />
-        {/* The bag depends on the visitor's cookie, so it streams in after the page. */}
+        {/* The bag and hearts depend on the visitor's cookies, so the browser asks for them after the page. */}
         <Suspense fallback={null}>
-          <BagSeed enabled={orderingOpen} />
-        </Suspense>
-        {/* So are the hearts, which depend on the session. */}
-        <Suspense fallback={null}>
-          <SavedSeed />
+          <VisitorSeed />
         </Suspense>
       </SavedProvider>
     </BagProvider>

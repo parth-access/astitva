@@ -3,12 +3,10 @@ import { Reveal } from "@/components/brand/reveal";
 import { PageTransition } from "@/components/brand/transitions";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
-import { Suspense } from "react";
 import { AskAboutPiece } from "@/components/brand/concierge";
 import { PieceCaption, pieceHref } from "@/components/brand/piece-caption";
 import { Track } from "@/components/storefront/analytics";
-import { BuyPanel } from "@/components/storefront/buy-panel";
+import { LiveBuyPanel } from "@/components/storefront/live-buy-panel";
 import { PieceGallery } from "@/components/storefront/piece-gallery";
 import { PieceSelection } from "@/components/storefront/piece-selection";
 import { HeartButton } from "@/components/storefront/saved/saved-context";
@@ -16,7 +14,6 @@ import { ShopCard } from "@/components/storefront/shop-card";
 import { Price } from "@/components/storefront/price";
 import { PACKED_BY_HAND, showPromise } from "@/content/brand";
 import { getPolicy, POLICY_DAYS, POLICY_TERMS } from "@/content/policies";
-import { db } from "@/db/client";
 import type { Measurements } from "@/db/schema";
 import { formatPieceNumber } from "@/lib/format";
 import { formatINR } from "@/lib/money";
@@ -27,7 +24,6 @@ import { JsonLd } from "@/components/brand/json-ld";
 import { OptionsSkeleton, PieceSkeleton } from "@/components/lookbook/skeletons";
 import { getAdjacentPieces, getProductBySlug, getStorefront, listCategories, listPieces, listRelatedPieces, type ProductDetail } from "@/modules/catalog/queries";
 import { getCheckoutSettings } from "@/modules/checkout/queries";
-import { getAvailability } from "@/modules/inventory/service";
 import { atLeastOne } from "@/lib/static-params";
 
 export async function generateStaticParams() {
@@ -90,26 +86,6 @@ const MEASUREMENT_LABEL: [keyof Measurements, string][] = [
   ["sleeveCm", "Sleeve"],
   ["lengthCm", "Length"],
 ];
-
-/** Live stock: never cached, streamed in after the piece's content. */
-async function LiveBuyPanel({ product, orderingOpen }: { product: ProductDetail; orderingOpen: boolean }) {
-  await connection();
-  const available = await getAvailability(db, product.variants.map((v) => v.id));
-  return (
-    <BuyPanel
-      orderingOpen={orderingOpen}
-      sizeGuide={<MeasurementsTable variants={product.variants} />}
-      variants={product.variants.map((v) => ({
-        id: v.id,
-        size: v.size,
-        color: v.color,
-        priceMinor: v.priceMinor,
-        compareAtMinor: v.compareAtMinor,
-        available: available.get(v.id) ?? 0,
-      }))}
-    />
-  );
-}
 
 function MeasurementsTable({ variants, heading = true }: { variants: ProductDetail["variants"]; heading?: boolean }) {
   // Measurements belong to a size; every colour of that size shares them.
@@ -355,9 +331,20 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
 
             {product.story ? <p className="caption mt-6 text-xl leading-snug">{product.story}</p> : null}
 
-            <Suspense fallback={<OptionsSkeleton />}>
-              <LiveBuyPanel product={product} orderingOpen={store.orderingOpen} />
-            </Suspense>
+            {/* Live stock: never cached, read by the browser after the page has loaded. */}
+            <LiveBuyPanel
+              productId={product.id}
+              orderingOpen={store.orderingOpen}
+              fallback={<OptionsSkeleton />}
+              sizeGuide={<MeasurementsTable variants={product.variants} />}
+              variants={product.variants.map((v) => ({
+                id: v.id,
+                size: v.size,
+                color: v.color,
+                priceMinor: v.priceMinor,
+                compareAtMinor: v.compareAtMinor,
+              }))}
+            />
 
             <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2">
               <AskAboutPiece piece={product} withSelection className="inline-block text-sm" />

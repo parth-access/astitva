@@ -6,7 +6,7 @@ import { setSavedAction } from "@/app/(store)/saved/actions";
 
 /**
  * The styles a signed-in customer has hearted, shared by every heart on the
- * page. Seeded by the server (SavedSeed); each tap goes through a server
+ * page. Seeded by the server (VisitorSeed); each tap goes through a server
  * action, which answers with the whole list. Signed out, a tap goes to sign in
  * and comes back.
  */
@@ -62,12 +62,6 @@ export function SavedProvider({ children }: { children: ReactNode }) {
   return <Ctx value={value}>{children}</Ctx>;
 }
 
-/** Hands the server's list to the provider. */
-export function SeedSaved({ ids }: { ids: string[] }) {
-  const { seed } = useSaved();
-  useEffect(() => seed(ids), [ids, seed]);
-  return null;
-}
 
 /**
  * A heart for one style. `variant="card"` sits over a plate in the grid;

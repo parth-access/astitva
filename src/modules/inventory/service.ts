@@ -145,6 +145,15 @@ export async function getAvailability(db: DbOrTx, variantIds: string[]): Promise
   return new Map(variants.map((v) => [v.id, Math.max(0, v.onHand - (held.get(v.id) ?? 0))]));
 }
 
+/** What can be bought right now of each of a piece's offered variants, by variant id. */
+export async function getPieceAvailability(db: DbOrTx, productId: string): Promise<Record<string, number>> {
+  const variants = await db
+    .select({ id: productVariants.id })
+    .from(productVariants)
+    .where(and(eq(productVariants.productId, productId), eq(productVariants.isActive, true)));
+  return Object.fromEntries(await getAvailability(db, variants.map((v) => v.id)));
+}
+
 /* ------------------------------------------------------------------ */
 /* Checkout                                                            */
 /* ------------------------------------------------------------------ */

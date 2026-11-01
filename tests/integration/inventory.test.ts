@@ -5,6 +5,7 @@ import { InsufficientStockError, VariantUnavailableError } from "../../src/modul
 import {
   adjustStock,
   commitOrderReservations,
+  getPieceAvailability,
   getAvailability,
   markLapsedReservations,
   releaseOrderHolds,
@@ -58,6 +59,15 @@ describe.skipIf(!hasDb)("inventory engine (real Postgres)", () => {
     const v = await createVariant(db, { onHand: 3 });
     const { won } = await race(v.id, 50);
     expect(won).toBe(3);
+  });
+
+  it("tells a piece's live stock, less what's on hold, and only for variants on offer", async () => {
+    const v = await createVariant(db, { onHand: 3 });
+    const order = await createOrder(db);
+    await db.transaction((tx) => reserveForOrder(tx, { orderId: order.id, lines: [{ variantId: v.id, quantity: 1 }], mode: "hold" }));
+    expect(await getPieceAvailability(db, v.productId)).toEqual({ [v.id]: 2 });
+    await db.update(productVariants).set({ isActive: false }).where(eq(productVariants.id, v.id));
+    expect(await getPieceAvailability(db, v.productId)).toEqual({});
   });
 
   it("50 buyers taken at once racing for 2 units: stock never goes negative", async () => {

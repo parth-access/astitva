@@ -5,6 +5,7 @@ import { useState } from "react";
 import { confirmPaymentAction, resumePaymentAction } from "@/app/(store)/checkout/actions";
 import { formatINR } from "@/lib/money";
 import { openRazorpay } from "./razorpay-window";
+import { refreshVisitor } from "./visitor-seed";
 
 /** On the order page of an unpaid online order: open Razorpay's window again. */
 export function PayNow({ orderId, linkKey, totalMinor }: { orderId: string; linkKey: string; totalMinor: number }) {
@@ -28,7 +29,10 @@ export function PayNow({ orderId, linkKey, totalMinor }: { orderId: string; link
       }
       setBusy("confirming");
       const confirmed = await confirmPaymentAction(result.reply);
-      if ("path" in confirmed) router.replace(confirmed.path);
+      if ("path" in confirmed) {
+        router.replace(confirmed.path);
+        refreshVisitor();
+      }
       else setMessage(confirmed.error);
     } catch {
       setMessage("The payment window couldn't open. Check your connection and try again.");

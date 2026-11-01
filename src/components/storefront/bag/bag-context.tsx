@@ -31,7 +31,7 @@ type BagApi = {
   notice: string | null;
   /** Counts additions, so the header count can bounce once per add. */
   bump: number;
-  /** Bag as rendered by the server (first load, refresh). */
+  /** The bag as the server has it (first load, refresh). */
   seed: (bag: Bag) => void;
 };
 
@@ -163,8 +163,3 @@ export function BagProvider({ enabled, pricing, children }: { enabled: boolean; 
 }
 
 /** Hands the server-rendered bag to the provider. */
-export function SeedBag({ bag }: { bag: Bag }) {
-  const { seed } = useBag();
-  useEffect(() => seed(bag), [bag, seed]);
-  return null;
-}

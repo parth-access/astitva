@@ -2,6 +2,15 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-11-02 — Pages served from the CDN
+
+**Why:** every shop page ran server code on every visit (partial prerendering answers `no-store`), about 400–490ms before the first byte even on an open connection, against about 100ms for a file Netlify already holds. Netlify's functions run in Ohio by default and the database is in Tokyo.
+
+- **Bag and hearts:** `VisitorSeed` asks `/api/visitor` after the page loads, instead of streaming them into the page. It asks again only around `/account`, `/checkout` and `/orders`, or on `refreshVisitor()`.
+- **Live stock:** `LiveBuyPanel` asks `/api/stock?piece=`, instead of `connection()` on the piece's page. The server still checks stock on adding and paying.
+- **Result:** home, piece, FAQ, about, contact, size guide and policy pages are static (`s-maxage`) and need no code to serve. `/shop` and categories still run per request because sorting reads `searchParams`; checkout, order and account pages must.
+- **Not code:** moving functions to Tokyo is a Netlify setting (Pro plan, then a redeploy). The bare domain goes through Netlify's load balancer (`75.2.60.5`), which their docs say misses the CDN's routing; `www` as the primary domain would avoid it.
+
 ## 2026-11-02 — The activity log
 
 **Decision:** `/admin/activity` shows everything that happened in the shop, and Today shows what's happening now. Any admin can see both.

@@ -12,6 +12,7 @@ import type { OrderTotals } from "@/modules/checkout/pricing";
 import type { CheckoutSession } from "@/modules/payments/service";
 import { useBag } from "./bag/bag-context";
 import { openRazorpay } from "./razorpay-window";
+import { refreshVisitor } from "./visitor-seed";
 
 const empty: CheckoutState = { errors: {} };
 
@@ -92,7 +93,9 @@ export function CheckoutForm({
 
   // Something sold while they were here: show the bag as it now stands.
   useEffect(() => {
-    if (state.bagChanged) router.refresh();
+    if (!state.bagChanged) return;
+    router.refresh();
+    refreshVisitor();
   }, [state, router]);
 
   // The bag was changed in the drawer, on this page: price it again. A code

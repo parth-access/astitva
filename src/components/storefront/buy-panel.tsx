@@ -17,8 +17,7 @@ export type BuyVariant = {
 };
 
 /**
- * Colour, size, live availability and the buy button. Rendered with fresh
- * stock on every request. Only the colours and sizes that exist are offered;
+ * Colour, size, live availability and the buy button. Only the colours and sizes that exist are offered;
  * sold-out ones stay visible, marked. Adding sends a dot of the colour to the
  * bag in the masthead, then opens the bag.
  */
