@@ -101,9 +101,9 @@ describe("brand, FAQ and category data", () => {
   });
 
   it("describes a FAQ page question by question", () => {
-    const ld = faqLd([{ question: "How can I pay?", answer: "By UPI, card or cash on delivery." }]) as any;
+    const ld = faqLd([{ question: "How can I pay?", answer: "By UPI or card." }]) as any;
     expect(ld["@type"]).toBe("FAQPage");
-    expect(ld.mainEntity[0]).toEqual({ "@type": "Question", name: "How can I pay?", acceptedAnswer: { "@type": "Answer", text: "By UPI, card or cash on delivery." } });
+    expect(ld.mainEntity[0]).toEqual({ "@type": "Question", name: "How can I pay?", acceptedAnswer: { "@type": "Answer", text: "By UPI or card." } });
   });
 
   it("lists a category's pieces in order, at absolute addresses", () => {

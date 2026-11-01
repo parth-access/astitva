@@ -117,7 +117,7 @@ export async function placeOrderAction(_prev: CheckoutState, form: FormData): Pr
     return { errors: {}, values, payment: { ...(await openPayment(db, rzp, placed.orderId)), orderPath: path } };
   } catch (err) {
     if (err instanceof PaymentError) {
-      return { errors: {}, values, message: "We couldn't reach the payment service, so nothing was charged and your pieces are back in your bag. Please try again in a minute, or choose cash on delivery." };
+      return { errors: {}, values, message: "We couldn't reach the payment service, so nothing was charged and your pieces are back in your bag. Please try again in a minute." };
     }
     throw err;
   }
