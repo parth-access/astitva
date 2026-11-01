@@ -726,7 +726,7 @@ export const orderEvents = pgTable(
     metadata: jsonb("metadata").$type<Record<string, unknown>>(),
     createdAt: createdAt(),
   },
-  (t) => [index("order_events_order_idx").on(t.orderId, t.createdAt)],
+  (t) => [index("order_events_order_idx").on(t.orderId, t.createdAt), index("order_events_created_idx").on(t.createdAt)],
 ).enableRLS();
 
 /* ------------------------------------------------------------------ */
@@ -777,6 +777,7 @@ export const inventoryMovements = pgTable(
   },
   (t) => [
     index("inventory_movements_variant_idx").on(t.variantId, t.createdAt),
+    index("inventory_movements_created_idx").on(t.createdAt),
     check("inventory_movements_delta_nonzero", sql`${t.quantityDelta} <> 0`),
     check("inventory_movements_on_hand_after_nonneg", sql`${t.onHandAfter} >= 0`),
   ],
@@ -828,7 +829,7 @@ export const paymentEvents = pgTable(
     processingError: text("processing_error"),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex("payment_events_provider_event_uq").on(t.provider, t.providerEventId)],
+  (t) => [uniqueIndex("payment_events_provider_event_uq").on(t.provider, t.providerEventId), index("payment_events_created_idx").on(t.createdAt)],
 ).enableRLS();
 
 export const codCollections = pgTable(
@@ -966,7 +967,7 @@ export const auditLogs = pgTable(
     metadata: jsonb("metadata").$type<Record<string, unknown>>(),
     createdAt: createdAt(),
   },
-  (t) => [index("audit_logs_resource_idx").on(t.resourceType, t.resourceId, t.createdAt)],
+  (t) => [index("audit_logs_resource_idx").on(t.resourceType, t.resourceId, t.createdAt), index("audit_logs_created_idx").on(t.createdAt)],
 ).enableRLS();
 
 /**
@@ -1018,5 +1019,5 @@ export const emailOutbox = pgTable(
     sentAt: timestamp("sent_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
-  (t) => [index("email_outbox_due_idx").on(t.nextAttemptAt).where(sql`${t.status} = 'pending'`)],
+  (t) => [index("email_outbox_created_idx").on(t.createdAt), index("email_outbox_due_idx").on(t.nextAttemptAt).where(sql`${t.status} = 'pending'`)],
 ).enableRLS();

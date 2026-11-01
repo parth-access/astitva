@@ -1,7 +1,10 @@
 "use server";
 
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
+import { cartItems } from "@/db/schema";
+import { logActivity } from "@/modules/activity/log";
 import { currentBag, openCurrentBag } from "@/modules/bag/current";
 import { addToBag, BagError, EMPTY_BAG, readBag, removeLine, setLineQuantity, type Bag } from "@/modules/bag/service";
 import { getStorefront } from "@/modules/catalog/queries";
@@ -29,6 +32,14 @@ async function guard(): Promise<string | null> {
   return null;
 }
 
+const logBag = (action: string, variantId: string, quantity?: number) =>
+  logActivity(db, { action, resourceType: "variant", resourceId: variantId, metadata: quantity ? { quantity } : {} });
+
+async function variantOfLine(bagId: string, lineId: string) {
+  const [line] = await db.select({ variantId: cartItems.variantId, cartId: cartItems.cartId }).from(cartItems).where(eq(cartItems.id, lineId));
+  return line?.cartId === bagId ? line.variantId : null;
+}
+
 export async function addToBagAction(variantId: string, quantity = 1): Promise<BagResult> {
   if (!id.safeParse(variantId).success) return { bag: EMPTY_BAG, error: "That piece isn't available." };
   const closed = await guard();
@@ -39,7 +50,9 @@ export async function addToBagAction(variantId: string, quantity = 1): Promise<B
   }
   const bag = await openCurrentBag();
   try {
-    await addToBag(db, bag.id, variantId, Math.max(1, Math.min(10, Math.trunc(quantity))));
+    const added = Math.max(1, Math.min(10, Math.trunc(quantity)));
+    await addToBag(db, bag.id, variantId, added);
+    await logBag("bag.added", variantId, added);
     return { bag: await readBag(db, bag.id) };
   } catch (err) {
     return { bag: await readBag(db, bag.id), error: message(err) };
@@ -52,7 +65,10 @@ export async function setBagQuantityAction(lineId: string, quantity: number): Pr
   const closed = await guard();
   if (closed) return { bag: await readBag(db, bag.id), error: closed };
   try {
-    await setLineQuantity(db, bag.id, lineId, Math.max(0, Math.trunc(quantity)));
+    const wanted = Math.max(0, Math.trunc(quantity));
+    const variantId = await variantOfLine(bag.id, lineId);
+    await setLineQuantity(db, bag.id, lineId, wanted);
+    if (variantId) await logBag(wanted ? "bag.quantity" : "bag.removed", variantId, wanted);
     return { bag: await readBag(db, bag.id) };
   } catch (err) {
     return { bag: await readBag(db, bag.id), error: message(err) };
@@ -62,7 +78,9 @@ export async function setBagQuantityAction(lineId: string, quantity: number): Pr
 export async function removeFromBagAction(lineId: string): Promise<BagResult> {
   const bag = await currentBag();
   if (!bag || !id.safeParse(lineId).success) return { bag: EMPTY_BAG };
+  const variantId = await variantOfLine(bag.id, lineId);
   await removeLine(db, bag.id, lineId);
+  if (variantId) await logBag("bag.removed", variantId);
   return { bag: await readBag(db, bag.id) };
 }
 

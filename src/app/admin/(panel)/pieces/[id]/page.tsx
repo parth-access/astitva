@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { ActivityList } from "@/components/admin/activity-list";
 import { PieceEditor } from "@/components/admin/piece-editor";
 import { StatusPanel } from "@/components/admin/piece-panels";
 import { PhotosPanel } from "@/components/admin/photos-panel";
 import { SpinPanel } from "@/components/admin/spin-panel";
-import { Notice, PageHeader } from "@/components/admin/ui";
+import { Card, Notice, PageHeader } from "@/components/admin/ui";
 import { formatPieceNumber } from "@/lib/format";
 import { db } from "@/db/client";
+import { listActivity } from "@/modules/activity/feed";
 import { waitingByVariant } from "@/modules/alerts/service";
 import { requireAdmin } from "@/modules/auth/auth";
 import { getEditorOptions, getPieceForEdit, getPublishProblems, pieceFormValues, pieceGrid } from "@/modules/catalog-admin/queries";
@@ -20,7 +22,7 @@ export default async function EditPiecePage({ params, searchParams }: PageProps<
   const { id } = await params;
   const { created, saved } = await searchParams;
   if (!UUID.test(id)) notFound();
-  const [piece, options, problems] = await Promise.all([getPieceForEdit(id), getEditorOptions(), getPublishProblems(id)]);
+  const [piece, options, problems, { rows: history }] = await Promise.all([getPieceForEdit(id), getEditorOptions(), getPublishProblems(id), listActivity(db, { productId: id, limit: 100 })]);
   if (!piece) notFound();
   const { product, photos } = piece;
   const { colours } = pieceGrid(piece);
@@ -70,6 +72,11 @@ export default async function EditPiecePage({ params, searchParams }: PageProps<
             options={options}
             locked={product.publishedAt !== null}
           />
+          {history.length ? (
+            <Card title="History">
+              <ActivityList rows={history} linkTo={false} />
+            </Card>
+          ) : null}
         </div>
       </div>
     </div>

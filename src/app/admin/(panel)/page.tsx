@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ActivityList } from "@/components/admin/activity-list";
+import { AutoRefresh } from "@/components/admin/auto-refresh";
 import { OrderStatusBadge } from "@/components/admin/order-status";
 import { Card, Chip, FormError, PageHeader, Stat } from "@/components/admin/ui";
 import { db } from "@/db/client";
 import { formatINR } from "@/lib/money";
 import { FORWARD } from "@/lib/transition-types";
+import { listActivity } from "@/modules/activity/feed";
+import { getLiveNow } from "@/modules/activity/now";
 import { requireAdmin } from "@/modules/auth/auth";
 import { listLowStock } from "@/modules/catalog-admin/queries";
 import { failedEmailCount } from "@/modules/email/outbox";
@@ -22,16 +26,29 @@ function greeting(now: Date) {
   return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
 
-/** Krishna's first screen: what's waiting on her, then how things are going. */
+const clock = new Intl.DateTimeFormat("en-IN", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" });
+
+function Fact({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
+  return (
+    <div>
+      <dt className="text-xs text-espresso-soft">{label}</dt>
+      <dd className="font-display text-2xl tabular-nums">{value}</dd>
+      {hint ? <dd className="text-xs text-espresso-soft">{hint}</dd> : null}
+    </div>
+  );
+}
+
+/** Krishna's first screen: what's waiting on her, what's going on now, what just happened, and how things are going. */
 export default async function TodayPage() {
   const { user } = await requireAdmin();
   const now = new Date();
-  const [o, failedEmails, recent, low] = await Promise.all([getOverview(db), failedEmailCount(db), listOrders(db, "open"), listLowStock(6)]);
+  const [o, failedEmails, recent, low, live, latest] = await Promise.all([getOverview(db), failedEmailCount(db), listOrders(db, "open"), listLowStock(6), getLiveNow(db), listActivity(db, { limit: 8 })]);
   const waiting = o.needsYou + o.toPack + o.toShip;
   const firstName = user.name.split(/\s+/)[0];
 
   return (
     <div className="space-y-8">
+      <AutoRefresh />
       <PageHeader
         kicker={day.format(now)}
         title={`${greeting(now)}, ${firstName}`}
@@ -56,7 +73,53 @@ export default async function TodayPage() {
         <Stat label="On the way" value={o.onTheWay} hint="With the courier" href="/admin/orders?show=open" />
       </section>
 
-      <section aria-label="Money" className="grid gap-3 sm:grid-cols-3 sm:gap-4">
+      {live.jobLate ? <FormError message={`The scheduled jobs last ran at ${when.format(live.lastJobAt!)}. Emails and unpaid checkouts wait until they run again.`} /> : null}
+
+      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+        <Card title="Happening now">
+          <dl className="grid grid-cols-2 gap-4">
+            <Fact label="Checking out" value={live.checkouts.length} hint="Not paid yet" />
+            <Fact label="Pieces on hold" value={live.unitsOnHold} hint="While they pay" />
+            <Fact label="Bags in use" value={live.bags.bags} hint={live.bags.bags ? `${live.bags.units} ${live.bags.units === 1 ? "piece" : "pieces"}, ${formatINR(live.bags.minor)}` : "In the last hour"} />
+            <Fact label="Waiting for a piece" value={live.alertsWaiting} hint="Back-in-stock alerts" />
+          </dl>
+          {live.checkouts.length ? (
+            <ul className="-mx-2 mt-5 border-t border-sand pt-3">
+              {live.checkouts.map((c) => (
+                <li key={c.id}>
+                  <Link href={`/admin/orders/${c.id}`} transitionTypes={FORWARD} className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-sand/40">
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm">{c.contactName}</span>
+                      <span className="block text-xs text-espresso-soft tabular-nums">
+                        {c.orderNumber} · {c.holdEndsAt ? `held until ${clock.format(c.holdEndsAt)}` : "hold ended"}
+                      </span>
+                    </span>
+                    <span className="text-sm tabular-nums">{formatINR(c.totalMinor)}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <p className="mt-4 text-xs text-espresso-soft">
+            {live.emailsWaiting ? `${live.emailsWaiting} ${live.emailsWaiting === 1 ? "email" : "emails"} waiting to send. ` : ""}
+            {live.lastJobAt ? `Scheduled jobs last ran at ${clock.format(live.lastJobAt)}. ` : "No scheduled job has run yet. "}
+            Updates by itself.
+          </p>
+        </Card>
+
+        <Card
+          title="Just happened"
+          action={
+            <Link href="/admin/activity" transitionTypes={FORWARD} className="link text-sm">
+              All activity
+            </Link>
+          }
+        >
+          {latest.rows.length ? <ActivityList rows={latest.rows} /> : <p className="text-sm text-espresso-soft">Nothing yet. It shows here as soon as it happens.</p>}
+        </Card>
+      </div>
+
+      <section aria-label="Money" className="grid gap-3 sm:grid-cols-2 sm:gap-4">
         <Stat label="Last 7 days" value={formatINR(o.week.minor)} hint={`${o.week.orders} ${o.week.orders === 1 ? "order" : "orders"}`} />
         <Stat label="Last 30 days" value={formatINR(o.month.minor)} hint={`${o.month.orders} ${o.month.orders === 1 ? "order" : "orders"}, before refunds`} />
       </section>

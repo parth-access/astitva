@@ -52,20 +52,26 @@ export async function addPhoto(db: Db, productId: string, photo: VerifiedPhoto, 
   });
 }
 
-export async function setPhotoAlt(db: Db, productId: string, photoId: string, altText: string) {
+export async function setPhotoAlt(db: Db, productId: string, photoId: string, altText: string, actorId: string) {
   await ownPhoto(db, productId, photoId);
   const alt = altText.trim();
   if (alt.length > ALT_MAX) throw new PieceRuleError({ form: `Keep the description under ${ALT_MAX} characters.` });
-  await db.update(productImages).set({ altText: alt }).where(eq(productImages.id, photoId));
+  await db.transaction(async (tx) => {
+    await tx.update(productImages).set({ altText: alt }).where(eq(productImages.id, photoId));
+    await tx.insert(auditLogs).values({ actorId, action: "piece.photo_described", resourceType: "product", resourceId: productId, metadata: { photoId } });
+  });
 }
 
 /** Ties a photo to one colour (shown when that colour is chosen), or to every colour (null). */
-export async function setPhotoColour(db: Db, productId: string, photoId: string, colour: string | null) {
+export async function setPhotoColour(db: Db, productId: string, photoId: string, colour: string | null, actorId: string) {
   const row = await ownPhoto(db, productId, photoId);
   const color = colour?.trim() || null;
   if (color === row.color) return;
   // Its angle was part of the old colour's turn; the new colour may already have one.
-  await db.update(productImages).set({ color, angle: null }).where(eq(productImages.id, photoId));
+  await db.transaction(async (tx) => {
+    await tx.update(productImages).set({ color, angle: null }).where(eq(productImages.id, photoId));
+    await tx.insert(auditLogs).values({ actorId, action: "piece.photo_colour", resourceType: "product", resourceId: productId, metadata: { photoId, colour: color } });
+  });
 }
 
 /**
@@ -73,7 +79,7 @@ export async function setPhotoColour(db: Db, productId: string, photoId: string,
  * or clears it (null). Among the photos of one colour (or of every colour)
  * each angle belongs to one photo, so marking another takes it from the first.
  */
-export async function setPhotoAngle(db: Db, productId: string, photoId: string, angle: PhotoAngle | null) {
+export async function setPhotoAngle(db: Db, productId: string, photoId: string, angle: PhotoAngle | null, actorId: string) {
   await db.transaction(async (tx) => {
     const [row] = await tx
       .select({ color: productImages.color })
@@ -94,6 +100,7 @@ export async function setPhotoAngle(db: Db, productId: string, photoId: string, 
         );
     }
     await tx.update(productImages).set({ angle }).where(eq(productImages.id, photoId));
+    await tx.insert(auditLogs).values({ actorId, action: "piece.photo_angle", resourceType: "product", resourceId: productId, metadata: { photoId, angle } });
   });
 }
 
@@ -125,7 +132,7 @@ export async function setPhotoEdit(db: Db, productId: string, photoId: string, e
  * the one shown when that colour is chosen. The very first photo overall is
  * the piece's cover.
  */
-export async function movePhoto(db: Db, productId: string, photoId: string, direction: "earlier" | "later" | "first") {
+export async function movePhoto(db: Db, productId: string, photoId: string, direction: "earlier" | "later" | "first", actorId: string) {
   await db.transaction(async (tx) => {
     const photos = await tx
       .select({ id: productImages.id, color: productImages.color })
@@ -148,6 +155,7 @@ export async function movePhoto(db: Db, productId: string, photoId: string, dire
     for (const [i, p] of photos.entries()) {
       await tx.update(productImages).set({ sortOrder: i }).where(eq(productImages.id, p.id));
     }
+    await tx.insert(auditLogs).values({ actorId, action: "piece.photo_moved", resourceType: "product", resourceId: productId, metadata: { photoId, direction } });
   });
 }
 

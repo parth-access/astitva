@@ -90,6 +90,7 @@ src/
   lib/                money (integer paise), state machines, sizes, env
   modules/
     account/          customer accounts: orders, addresses, details, saved pieces
+    activity/         the admin's activity log and "happening now"
     alerts/           back-in-stock alerts
     auth/             sign-in (Better Auth): the admin's (password + 2FA, requireAdmin()) and customers' (password, email code or Google, getCustomer()), kept apart by session kind
     bag/              the bag: a guest's against a cookie, a customer's with their account

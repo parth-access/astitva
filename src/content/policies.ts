@@ -214,6 +214,7 @@ export const POLICY_PAGES: PolicyPage[] = [
             "to keep your account, saved addresses and saved pieces",
             "to prevent fraud and abuse, for example limits on sign-in attempts and on orders per number",
             "to keep the records tax law requires (invoices and receipts)",
+            "to keep an internal record of what happened on each order and account (placed, paid, emailed, signed in), so we can help when something goes wrong. Only our team sees it, and it holds no card details or IP addresses",
           ],
           "We don't send marketing messages unless you've asked for them, and we never sell or rent your details.",
         ],

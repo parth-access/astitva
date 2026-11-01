@@ -7,10 +7,11 @@
  *                            answered, back-in-stock alerts, send/retry emails
  *   daily:                   clear expired bags, old limit counters and used alerts; the call itself keeps Supabase awake
  */
-import { and, eq, lt, sql } from "drizzle-orm";
+import { and, eq, like, lt, or, sql } from "drizzle-orm";
 import type { Db } from "@/db/create";
-import { carts, orders } from "@/db/schema";
+import { auditLogs, carts, orders } from "@/db/schema";
 import type { SendEmail } from "@/lib/email";
+import { logActivity } from "@/modules/activity/log";
 import { processOutbox } from "@/modules/email/outbox";
 import type { RenderContext } from "@/modules/email/templates";
 import { markLapsedReservations } from "@/modules/inventory/service";
@@ -44,9 +45,41 @@ export async function clearExpiredBags(db: Db): Promise<number> {
   return rows.length;
 }
 
+/** The log's own housekeeping: runs that did nothing go after a week, bag changes after a month. */
+export async function clearOldActivity(db: Db): Promise<number> {
+  const rows = await db
+    .delete(auditLogs)
+    .where(
+      or(
+        and(eq(auditLogs.action, "job.ran"), sql`coalesce(${auditLogs.metadata}->>'busy', '') <> 'true'`, lt(auditLogs.createdAt, sql`now() - interval '7 days'`)),
+        and(like(auditLogs.action, "bag.%"), lt(auditLogs.createdAt, sql`now() - interval '30 days'`)),
+      ),
+    )
+    .returning({ id: auditLogs.id });
+  return rows.length;
+}
+
 export type JobName = "frequent" | "daily";
 
+/** Did this run change anything? Anything above zero, at any depth. */
+function didWork(result: unknown): boolean {
+  if (typeof result === "number") return result > 0;
+  return !!result && typeof result === "object" && Object.values(result).some(didWork);
+}
+
+/** Runs a job and writes down how it went, so the admin can see the jobs are running. */
 export async function runJob(db: Db, job: JobName, mail: { send: SendEmail; ctx: RenderContext }, rzp: Razorpay | null = null) {
+  try {
+    const result = await doJob(db, job, mail, rzp);
+    await logActivity(db, { action: "job.ran", resourceType: "job", resourceId: job, metadata: { job, busy: didWork(result), result } });
+    return result;
+  } catch (err) {
+    await logActivity(db, { action: "job.failed", resourceType: "job", resourceId: job, metadata: { job, error: (err as Error).message.slice(0, 300) } });
+    throw err;
+  }
+}
+
+async function doJob(db: Db, job: JobName, mail: { send: SendEmail; ctx: RenderContext }, rzp: Razorpay | null = null) {
   if (job === "frequent") {
     const abandoned = await closeAbandonedCheckouts(db);
     const lapsedHolds = await markLapsedReservations(db);
@@ -59,5 +92,6 @@ export async function runJob(db: Db, job: JobName, mail: { send: SendEmail; ctx:
   const bags = await clearExpiredBags(db);
   const limits = await clearOldLimits(db);
   const alerts = await clearOldAlerts(db);
+  await clearOldActivity(db);
   return { bags, limits, alerts };
 }

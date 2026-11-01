@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq, like } from "drizzle-orm";
 import { base32 } from "@better-auth/utils/base32";
 import { createOTP } from "@better-auth/utils/otp";
-import { adminRoleAssignments, authVerifications, users } from "../../src/db/schema";
+import { adminRoleAssignments, auditLogs, authVerifications, users } from "../../src/db/schema";
 import { provisionAdmin } from "../../src/modules/auth/admins";
 import { createAuth } from "../../src/modules/auth/config";
 import { hasDb, makeDb, resetData } from "./helpers";
@@ -103,16 +103,33 @@ describe.skipIf(!hasDb)("admin sign-in", () => {
     expect((await call("/get-session")).json.user.twoFactorEnabled).toBe(true);
 
     // A new device: the password alone gives no session.
+    await db.delete(auditLogs);
+    const logged = async () => (await db.select().from(auditLogs).orderBy(auditLogs.createdAt)).map((r) => r.action);
     const phone = browser();
     const signIn = await phone("/sign-in/email", { email: "krishna@example.com", password: PASSWORD });
     expect(signIn.json.twoFactorRedirect).toBe(true);
     expect((await phone("/get-session")).json).toBeNull();
+    // The password alone isn't a sign-in, so the log doesn't call it one.
+    expect(await logged()).toEqual([]);
 
     expect((await phone("/two-factor/verify-totp", { code: "000000" })).status).toBe(401);
     expect((await phone("/get-session")).json).toBeNull();
 
     expect((await phone("/two-factor/verify-totp", { code: await totpFromUri(uri) })).status).toBe(200);
     expect((await phone("/get-session")).json.user.email).toBe("krishna@example.com");
+    expect(await logged()).toEqual(["admin.code_failed", "admin.signed_in"]);
+
+    expect((await phone("/sign-out", {})).status).toBe(200);
+    expect(await logged()).toEqual(["admin.code_failed", "admin.signed_in", "admin.signed_out"]);
+  });
+
+  it("logs failed sign-ins and who signed out, never a password", async () => {
+    await db.delete(auditLogs);
+    const call = browser();
+    expect((await call("/sign-in/email", { email: "krishna@example.com", password: "not the password at all" })).status).toBe(401);
+    const [failed] = await db.select().from(auditLogs);
+    expect(failed).toMatchObject({ action: "admin.sign_in_failed", actorId: null, metadata: { email: "krishna@example.com" } });
+    expect(JSON.stringify(failed)).not.toContain("not the password");
   });
 
   it("rate-limits password guessing", async () => {

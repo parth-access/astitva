@@ -2,6 +2,18 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-11-02 — The activity log
+
+**Decision:** `/admin/activity` shows everything that happened in the shop, and Today shows what's happening now. Any admin can see both.
+
+- **One feed, no second log:** `src/modules/activity/feed.ts` reads a `union all` of where things were already recorded (audit log, order events, stock movements, emails, Razorpay's webhooks, new accounts, alerts, saved pieces), so it can't drift from what happened. Wording lives in `describe.ts`. Order and piece pages show the same feed as their History.
+- **Newly logged (`logActivity`, in the audit log):** admin sign-ins, failed sign-ins and codes, sign-outs, password reset requests; customers' sign-ins; bag changes (the piece and quantity, not who); photo description, colour, angle and order; scheduled job runs and failures. It never fails what it records. No IP addresses, passwords or codes. The privacy policy says we keep it.
+- **An admin sign-in is logged after the 6-digit code,** from a plugin after `twoFactor`: Better Auth makes and deletes a session on the password step, which a session hook would count as a sign-in.
+- **Trimmed daily:** job runs that did nothing after a week (they're hidden from the feed anyway, but say when jobs last ran), bag changes after a month.
+- **Live:** Today and the first page of Activity refresh every 30 seconds while on screen. A warning shows if the frequent job hasn't run in 45 minutes.
+
+**Deploying this:** migration 0022 only adds indexes; the log works without it.
+
 ## 2026-11-02 — No cash on delivery
 
 **Decision:** Astitva takes online payment only. Cash on delivery is gone from the checkout, the shop's words, emails, receipts, policies and the admin. Every order waits `pending_payment` with its stock held until Razorpay confirms it.

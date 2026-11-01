@@ -1,5 +1,6 @@
-import { betterAuth } from "better-auth";
+import { betterAuth, type BetterAuthPlugin } from "better-auth";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
+import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { twoFactor } from "better-auth/plugins";
 import type { DbOrTx } from "@/db/create";
@@ -12,6 +13,7 @@ import {
   users,
 } from "@/db/schema";
 import { sendEmail } from "@/lib/email";
+import { logActivity } from "@/modules/activity/log";
 import { renderPasswordReset } from "@/modules/email/templates";
 import { IP_HEADERS, PASSWORD_MIN_LENGTH } from "./constants";
 import { isAdminUser, refuseNonAdmin, sessionKindField } from "./kinds";
@@ -30,6 +32,36 @@ import { isAdminUser, refuseNonAdmin, sessionKindField } from "./kinds";
 export type AuthOptions = { baseURL: string; secret: string };
 
 const DAY = 60 * 60 * 24;
+
+const isSignInPath = (path: string | undefined) => path === "/sign-in/email" || path === "/request-password-reset" || !!path?.startsWith("/two-factor/verify");
+
+/** What sign-in looks like from outside goes in the activity log: who, never a password or a code. */
+function signInLog(db: DbOrTx) {
+  return {
+    id: "sign-in-log",
+    hooks: {
+      after: [
+        {
+          matcher: (ctx: { path?: string }) => isSignInPath(ctx.path),
+          handler: createAuthMiddleware(async (ctx) => {
+            const returned = ctx.context.returned as { user?: { id?: string }; twoFactorRedirect?: boolean } | APIError | undefined;
+            const failed = returned instanceof APIError;
+            const email = String((ctx.body as { email?: unknown } | undefined)?.email ?? "").trim().toLowerCase().slice(0, 254);
+            const unknown = { resourceType: "user", resourceId: "unknown" };
+            if (ctx.path === "/request-password-reset") {
+              if (!failed) await logActivity(db, { ...unknown, action: "admin.password_reset_requested", metadata: { email } });
+            } else if (failed) {
+              if (ctx.path === "/sign-in/email") await logActivity(db, { ...unknown, action: "admin.sign_in_failed", metadata: { email } });
+              else await logActivity(db, { ...unknown, action: "admin.code_failed" });
+            } else if (returned?.user?.id && !returned.twoFactorRedirect) {
+              await logActivity(db, { actorId: returned.user.id, action: "admin.signed_in", resourceType: "user", resourceId: returned.user.id });
+            }
+          }),
+        },
+      ],
+    },
+  } satisfies BetterAuthPlugin;
+}
 
 export function createAuth(db: DbOrTx, opts: AuthOptions) {
   return betterAuth({
@@ -71,6 +103,13 @@ export function createAuth(db: DbOrTx, opts: AuthOptions) {
         },
       },
     },
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== "/sign-out") return;
+        const current = await getSessionFromCtx(ctx);
+        if (current) await logActivity(db, { actorId: current.user.id, action: "admin.signed_out", resourceType: "user", resourceId: current.user.id });
+      }),
+    },
     rateLimit: {
       enabled: true,
       storage: "database",
@@ -82,6 +121,8 @@ export function createAuth(db: DbOrTx, opts: AuthOptions) {
     },
     plugins: [
       twoFactor({ issuer: "Astitva", trustDeviceMaxAge: 30 * DAY }),
+      // After twoFactor, which replaces a password sign-in's answer when a code is still needed.
+      signInLog(db),
       // Lets server actions set the session cookie. Must stay last.
       nextCookies(),
     ],

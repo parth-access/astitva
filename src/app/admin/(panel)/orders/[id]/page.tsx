@@ -11,6 +11,7 @@ import {
   ShipForm,
   UnpackButton,
 } from "@/components/admin/order-actions";
+import { ActivityList } from "@/components/admin/activity-list";
 import { OrderStatusBadge } from "@/components/admin/order-status";
 import { Card, cardClass, PageHeader } from "@/components/admin/ui";
 import { db } from "@/db/client";
@@ -18,6 +19,7 @@ import { env } from "@/lib/env";
 import { whatsappLink } from "@/lib/format";
 import { formatMobile } from "@/lib/india";
 import { formatINR } from "@/lib/money";
+import { listActivity } from "@/modules/activity/feed";
 import { requireAdmin } from "@/modules/auth/auth";
 import { isCancellable } from "@/modules/orders/machines";
 import { packingBlocker } from "@/modules/orders/fulfilment";
@@ -31,26 +33,6 @@ export const metadata: Metadata = { title: "Order" };
 
 const when = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" });
 
-const EVENT_LABEL: Record<string, string> = {
-  "order.placed": "Placed by the buyer",
-  "cod.verified": "Confirmed with the buyer",
-  "order.cancelled": "Cancelled",
-  "order.awaiting_payment": "Checkout started, waiting for payment",
-  "order.superseded": "Replaced by a new checkout from the same bag",
-  "payment.captured": "Payment received",
-  "payment.extra": "Paid a second time (refund it from Razorpay)",
-  "order.needs_resolution": "Needs you",
-  "order.packed": "Packed",
-  "order.unpacked": "Unpacked",
-  "order.shipped": "Handed to the courier",
-  "order.delivered": "Delivered",
-  "order.returned": "Came back undelivered",
-  "cod.remitted": "Courier paid over the cash",
-  "order.resolved": "Sorted",
-  "refund.succeeded": "Refunded",
-  "refund.failed": "Refund failed",
-};
-
 export default async function OrderPage({ params }: PageProps<"/admin/orders/[id]">) {
   const { role } = await requireAdmin();
   const { id } = await params;
@@ -60,7 +42,7 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
 
   const a = order.addressSnapshot;
   const canSend = (order.orderStatus === "confirmed" || order.orderStatus === "packed") && packingBlocker(order) === null;
-  const [refundable, receipt] = await Promise.all([refundableMinor(db, order.id), getReceipt(db, order.id)]);
+  const [refundable, receipt, { rows: history }] = await Promise.all([refundableMinor(db, order.id), getReceipt(db, order.id), listActivity(db, { orderId: order.id, limit: 200 })]);
   const canRazorpayRefund = order.payment?.status === "captured" && razorpay() !== null;
   const isOwner = role === "owner";
   const firstName = order.contactName.split(/\s+/)[0];
@@ -212,19 +194,7 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
           ) : null}
 
           <Card title="History">
-            <ol className="relative space-y-4 border-l border-sand pl-5 text-sm">
-              {order.events.map((e) => (
-                <li key={e.id} className="relative">
-                  <span aria-hidden="true" className="absolute -left-[1.6rem] top-1.5 size-2.5 rounded-full border-2 border-paper bg-taupe" />
-                  <span className="block">
-                    {EVENT_LABEL[e.eventType] ?? e.eventType}
-                    {(e.eventType === "order.cancelled" || e.eventType === "order.returned") && typeof e.metadata?.reason === "string" ? `: ${e.metadata.reason}` : ""}
-                    {e.eventType.startsWith("refund.") && typeof e.metadata?.amountMinor === "number" ? ` ${formatINR(e.metadata.amountMinor)}` : ""}
-                  </span>
-                  <span className="block text-xs text-espresso-soft tabular-nums">{when.format(e.createdAt)}</span>
-                </li>
-              ))}
-            </ol>
+            <ActivityList rows={history} linkTo={false} />
           </Card>
         </div>
 

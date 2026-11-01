@@ -9,6 +9,11 @@ function Icon({ children, ...props }: SVGProps<SVGSVGElement>) {
   );
 }
 
+export const ActivityIcon = () => (
+  <Icon>
+    <path d="M3 12h4l3-8 4 16 3-8h4" />
+  </Icon>
+);
 export const HomeIcon = () => (
   <Icon>
     <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z" />

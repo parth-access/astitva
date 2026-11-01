@@ -50,24 +50,24 @@ describe.skipIf(!hasDb)("piece photos", () => {
 
   it("reorders without gaps, makes a cover, and ignores moves past the ends", async () => {
     const [a, b, c] = [await addPhoto(db, productId, photo(1), actorId), await addPhoto(db, productId, photo(2), actorId), await addPhoto(db, productId, photo(3), actorId)];
-    await movePhoto(db, productId, c.id, "first");
+    await movePhoto(db, productId, c.id, "first", actorId);
     expect(await order()).toEqual(["0:p3", "1:p1", "2:p2"]);
-    await movePhoto(db, productId, a.id, "later");
+    await movePhoto(db, productId, a.id, "later", actorId);
     expect(await order()).toEqual(["0:p3", "1:p2", "2:p1"]);
-    await movePhoto(db, productId, c.id, "earlier");
-    await movePhoto(db, productId, a.id, "later");
+    await movePhoto(db, productId, c.id, "earlier", actorId);
+    await movePhoto(db, productId, a.id, "later", actorId);
     expect(await order()).toEqual(["0:p3", "1:p2", "2:p1"]);
     expect(b.id).toBeTruthy();
   });
 
   it("describes and removes a photo, but only on its own piece", async () => {
     const a = await addPhoto(db, productId, photo(1), actorId);
-    await setPhotoAlt(db, productId, a.id, "  Worn with a belt  ");
+    await setPhotoAlt(db, productId, a.id, "  Worn with a belt  ", actorId);
     const [row] = await db.select().from(productImages).where(eq(productImages.id, a.id));
     expect(row!.altText).toBe("Worn with a belt");
 
     const [other] = await db.insert(products).values({ name: "Other", slug: "other" }).returning();
-    await expect(setPhotoAlt(db, other!.id, a.id, "x")).rejects.toBeInstanceOf(PieceRuleError);
+    await expect(setPhotoAlt(db, other!.id, a.id, "x", actorId)).rejects.toBeInstanceOf(PieceRuleError);
     await expect(removePhoto(db, other!.id, a.id, actorId)).rejects.toBeInstanceOf(PieceRuleError);
 
     expect(await removePhoto(db, productId, a.id, actorId)).toBe(photo(1).url);
@@ -82,13 +82,13 @@ describe.skipIf(!hasDb)("piece photos", () => {
     expect([sage1.color, every.color, ink1.color, sage2.color]).toEqual(["Sage", null, "Ink", "Sage"]);
 
     // Earlier within Sage jumps over the photos of other colours in between.
-    await movePhoto(db, productId, sage2.id, "earlier");
+    await movePhoto(db, productId, sage2.id, "earlier", actorId);
     expect(await order()).toEqual(["0:p4", "1:p2", "2:p3", "3:p1"]);
     // The first of its colour already: nothing moves.
-    await movePhoto(db, productId, ink1.id, "first");
-    await movePhoto(db, productId, ink1.id, "later");
+    await movePhoto(db, productId, ink1.id, "first", actorId);
+    await movePhoto(db, productId, ink1.id, "later", actorId);
     expect(await order()).toEqual(["0:p4", "1:p2", "2:p3", "3:p1"]);
-    await movePhoto(db, productId, sage1.id, "first");
+    await movePhoto(db, productId, sage1.id, "first", actorId);
     expect(await order()).toEqual(["0:p1", "1:p2", "2:p3", "3:p4"]);
   });
 
@@ -130,21 +130,21 @@ describe.skipIf(!hasDb)("piece photos", () => {
         ]),
       );
 
-    await setPhotoAngle(db, productId, sage1.id, "front");
-    await setPhotoAngle(db, productId, ink.id, "front");
-    await setPhotoAngle(db, productId, every.id, "front");
+    await setPhotoAngle(db, productId, sage1.id, "front", actorId);
+    await setPhotoAngle(db, productId, ink.id, "front", actorId);
+    await setPhotoAngle(db, productId, every.id, "front", actorId);
     expect(await angles()).toEqual({ p1: "front", p2: null, p3: "front", p4: "front" });
 
     // A second Sage front takes it from the first; other colours keep theirs.
-    await setPhotoAngle(db, productId, sage2.id, "front");
+    await setPhotoAngle(db, productId, sage2.id, "front", actorId);
     expect(await angles()).toEqual({ p1: null, p2: "front", p3: "front", p4: "front" });
 
-    await setPhotoAngle(db, productId, sage2.id, null);
-    await setPhotoAngle(db, productId, sage1.id, "back");
-    await setPhotoColour(db, productId, sage1.id, "Ink");
+    await setPhotoAngle(db, productId, sage2.id, null, actorId);
+    await setPhotoAngle(db, productId, sage1.id, "back", actorId);
+    await setPhotoColour(db, productId, sage1.id, "Ink", actorId);
     expect(await angles()).toEqual({ p1: null, p2: null, p3: "front", p4: "front" });
 
     const other = await db.insert(products).values({ name: "Other", slug: "other" }).returning();
-    await expect(setPhotoAngle(db, other[0]!.id, ink.id, "side")).rejects.toBeInstanceOf(PieceRuleError);
+    await expect(setPhotoAngle(db, other[0]!.id, ink.id, "side", actorId)).rejects.toBeInstanceOf(PieceRuleError);
   });
 });

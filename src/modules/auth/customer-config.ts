@@ -7,6 +7,7 @@ import { sql } from "drizzle-orm";
 import type { DbOrTx } from "@/db/create";
 import { authAccounts, authRateLimits, authSessions, authVerifications, users } from "@/db/schema";
 import { sendEmail } from "@/lib/email";
+import { logActivity } from "@/modules/activity/log";
 import { replyToAddress } from "@/modules/email/reply-to";
 import { renderAccountCode, type CodePurpose } from "@/modules/email/templates";
 import { allow, LIMITS } from "@/modules/limits/service";
@@ -107,6 +108,9 @@ export function createCustomerAuth(db: DbOrTx, opts: CustomerAuthOptions) {
         create: {
           async before(session) {
             if (await isAdminUser(db, session.userId)) refuseAdmin();
+          },
+          async after(session) {
+            await logActivity(db, { actorId: session.userId, action: "customer.signed_in", resourceType: "user", resourceId: session.userId });
           },
         },
       },

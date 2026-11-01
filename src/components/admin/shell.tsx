@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { SignOutButton } from "./auth-forms";
-import { HangerIcon, HomeIcon, OrdersIcon, SettingsIcon, ShopIcon, TagIcon } from "./icons";
+import { ActivityIcon, HangerIcon, HomeIcon, OrdersIcon, SettingsIcon, ShopIcon, TagIcon } from "./icons";
 import { NavLink } from "./nav-link";
 
 type Item = { href: string; label: string; short: string; icon: ReactNode; exact?: boolean; ownersOnly?: boolean; badge?: boolean };
@@ -10,6 +10,7 @@ const ITEMS: Item[] = [
   { href: "/admin", label: "Today", short: "Today", icon: <HomeIcon />, exact: true },
   { href: "/admin/orders", label: "Orders", short: "Orders", icon: <OrdersIcon />, badge: true },
   { href: "/admin/pieces", label: "Pieces", short: "Pieces", icon: <HangerIcon /> },
+  { href: "/admin/activity", label: "Activity", short: "Activity", icon: <ActivityIcon /> },
   { href: "/admin/discounts", label: "Discount codes", short: "Codes", icon: <TagIcon />, ownersOnly: true },
   { href: "/admin/settings", label: "Lookbook & settings", short: "Settings", icon: <SettingsIcon /> },
 ];

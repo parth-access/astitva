@@ -119,11 +119,11 @@ export async function changePhotoAction(productId: string, change: z.infer<typeo
   const c = photoChange.safeParse(change);
   if (!c.success) return { ok: false, error: "Unknown change." };
   try {
-    if (c.data.kind === "alt") await setPhotoAlt(db, productId, c.data.photoId, c.data.altText);
-    if (c.data.kind === "move") await movePhoto(db, productId, c.data.photoId, c.data.direction);
-    if (c.data.kind === "colour") await setPhotoColour(db, productId, c.data.photoId, c.data.colour);
+    if (c.data.kind === "alt") await setPhotoAlt(db, productId, c.data.photoId, c.data.altText, user.id);
+    if (c.data.kind === "move") await movePhoto(db, productId, c.data.photoId, c.data.direction, user.id);
+    if (c.data.kind === "colour") await setPhotoColour(db, productId, c.data.photoId, c.data.colour, user.id);
     if (c.data.kind === "edit") await setPhotoEdit(db, productId, c.data.photoId, c.data.edit, user.id);
-    if (c.data.kind === "angle") await setPhotoAngle(db, productId, c.data.photoId, c.data.angle);
+    if (c.data.kind === "angle") await setPhotoAngle(db, productId, c.data.photoId, c.data.angle, user.id);
     if (c.data.kind === "remove") {
       const url = await removePhoto(db, productId, c.data.photoId, user.id);
       const publicId = publicIdFromUrl(url);
