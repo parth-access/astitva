@@ -19,7 +19,7 @@ export async function GET(request: Request, { params }: RouteContext<"/orders/[n
     headers: {
       "content-type": "application/pdf",
       "content-disposition": `attachment; filename="Astitva-receipt-${receipt.receiptNumber}.pdf"`,
-      // Private to the buyer, and it changes as the payment does (cash collected, a refund).
+      // Private to the buyer, and it changes as the payment does (a refund).
       "cache-control": "private, no-store",
       "x-robots-tag": "noindex",
     },

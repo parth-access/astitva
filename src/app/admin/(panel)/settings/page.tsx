@@ -26,9 +26,6 @@ export default async function SettingsPage({ searchParams }: PageProps<"/admin/s
     profileLinks: (s?.profileLinks ?? []).join("\n"),
     shippingFlatMinor: paiseToRupeesText(Number(s?.shippingFlatMinor ?? 0)),
     freeShippingThresholdMinor: s?.freeShippingThresholdMinor == null ? "" : paiseToRupeesText(Number(s.freeShippingThresholdMinor)),
-    codEnabled: s?.codEnabled ? "on" : "",
-    codFeeMinor: paiseToRupeesText(Number(s?.codFeeMinor ?? 0)),
-    codMaxOrderMinor: paiseToRupeesText(Number(s?.codMaxOrderMinor ?? 500_000)),
     ...Object.fromEntries(Array.from({ length: CONTENTS_PLACES }, (_, i) => [`contentsPick${i}`, s?.contentsPicks[i] ?? ""])),
   };
   const choices = pieces.map((p) => ({
@@ -37,7 +34,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/admin/s
   }));
   return (
     <div className="max-w-3xl">
-      <PageHeader title="Lookbook & settings" subtitle="The home page's words, ordering, delivery charges, cash on delivery and how buyers reach you." />
+      <PageHeader title="Lookbook & settings" subtitle="The home page's words, ordering, delivery charges and how buyers reach you." />
       {saved ? (
         <div className="-mt-4 mb-6">
           <Notice>Saved. The site shows it now.</Notice>

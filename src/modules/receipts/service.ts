@@ -1,9 +1,7 @@
 /**
  * Receipts: one per order, numbered in sequence (ASTR-000001), frozen when
- * issued. Cash on delivery gets its receipt when the order is placed, for the
- * amount to pay on delivery; online orders get theirs when the payment is
- * captured. Both go out with the order confirmation email (with a PDF) and
- * show on the order's private page.
+ * issued, when the payment is captured. It goes out with the order
+ * confirmation email (with a PDF) and shows on the order's private page.
  *
  * Astitva has no GSTIN yet, so this is a payment receipt, not a tax invoice.
  *
@@ -11,7 +9,7 @@
  */
 import { and, asc, eq, sql } from "drizzle-orm";
 import type { DbOrTx } from "@/db/create";
-import { codCollections, orderItems, orders, receipts, refunds, storeSettings, type ReceiptSnapshot } from "@/db/schema";
+import { orderItems, orders, receipts, refunds, storeSettings, type ReceiptSnapshot } from "@/db/schema";
 import { formatLongDate } from "@/lib/format";
 import { whatsappNumber } from "@/lib/india";
 import { formatINR } from "@/lib/money";
@@ -20,8 +18,7 @@ export type ReceiptPayment = { paidWith: string | null; providerPaymentId: strin
 
 /**
  * Issues the order's receipt, once: calling again returns the one already
- * issued. Run inside the transaction that places the order (cash on delivery)
- * or records the capture (online, with `payment`).
+ * issued. Run inside the transaction that records the capture.
  */
 export async function issueReceipt(tx: DbOrTx, orderId: string, payment: ReceiptPayment | null = null): Promise<{ receiptNumber: string }> {
   const [existing] = await tx.select({ receiptNumber: receipts.receiptNumber }).from(receipts).where(eq(receipts.orderId, orderId));
@@ -48,7 +45,6 @@ export async function issueReceipt(tx: DbOrTx, orderId: string, payment: Receipt
     discountMinor: Number(order.discountMinor),
     discountCode: order.discountCode,
     shippingMinor: Number(order.shippingMinor),
-    codFeeMinor: Number(order.codFeeMinor),
     totalMinor: Number(order.totalMinor),
   };
 
@@ -74,14 +70,12 @@ export async function issueReceipt(tx: DbOrTx, orderId: string, payment: Receipt
 /** Where the money stands now, beside the frozen receipt. */
 export type ReceiptStatus =
   | { kind: "paid_online"; paidAt: Date; paidWith: string | null; reference: string }
-  | { kind: "due_on_delivery" }
-  | { kind: "paid_on_delivery"; paidAt: Date | null }
-  | { kind: "not_collected" };
+  /** An older receipt with no online payment behind it: it states the total, nothing more. */
+  | { kind: "total_only" };
 
 export type ReceiptView = {
   receiptNumber: string;
   issuedAt: Date;
-  paymentMethod: "cod" | "online";
   amountMinor: number;
   order: ReceiptSnapshot;
   status: ReceiptStatus;
@@ -95,8 +89,7 @@ export type ReceiptView = {
 export async function getReceipt(db: DbOrTx, orderId: string): Promise<ReceiptView | null> {
   const [r] = await db.select().from(receipts).where(eq(receipts.orderId, orderId));
   if (!r) return null;
-  const [[cod], back, [shop]] = await Promise.all([
-    db.select({ status: codCollections.status, collectedAt: codCollections.collectedAt }).from(codCollections).where(eq(codCollections.orderId, orderId)),
+  const [back, [shop]] = await Promise.all([
     db
       .select({ amountMinor: refunds.amountMinor, status: refunds.status, at: refunds.createdAt })
       .from(refunds)
@@ -108,16 +101,11 @@ export async function getReceipt(db: DbOrTx, orderId: string): Promise<ReceiptVi
   const status: ReceiptStatus =
     r.paymentMethod === "online"
       ? { kind: "paid_online", paidAt: r.paidAt!, paidWith: r.paidWith, reference: r.providerPaymentId ?? "" }
-      : cod?.status === "collected_by_courier" || cod?.status === "remitted"
-        ? { kind: "paid_on_delivery", paidAt: cod.collectedAt }
-        : cod?.status === "failed"
-          ? { kind: "not_collected" }
-          : { kind: "due_on_delivery" };
+      : { kind: "total_only" };
 
   return {
     receiptNumber: r.receiptNumber,
     issuedAt: r.issuedAt,
-    paymentMethod: r.paymentMethod,
     amountMinor: Number(r.amountMinor),
     order: r.snapshot,
     status,
@@ -140,11 +128,7 @@ export function statusLine(v: Pick<ReceiptView, "status" | "amountMinor">): stri
   switch (s.kind) {
     case "paid_online":
       return `Paid ${format(v.amountMinor)} online (${paidWithLabel(s.paidWith)}) on ${date(s.paidAt)}.`;
-    case "due_on_delivery":
-      return `To pay on delivery: ${format(v.amountMinor)}, in cash or by UPI to the courier.`;
-    case "paid_on_delivery":
-      return `Paid ${format(v.amountMinor)} on delivery${s.paidAt ? `, ${date(s.paidAt)}` : ""}.`;
-    case "not_collected":
-      return "Not paid: the order wasn't delivered.";
+    case "total_only":
+      return `Order total: ${format(v.amountMinor)}.`;
   }
 }

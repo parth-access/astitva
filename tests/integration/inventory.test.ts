@@ -34,7 +34,7 @@ describe.skipIf(!hasDb)("inventory engine (real Postgres)", () => {
   });
 
   async function race(variantId: string, buyers: number, mode: "hold" | "commit" = "hold") {
-    const orders = await Promise.all(Array.from({ length: buyers }, () => createOrder(db, mode === "commit" ? "cod" : "online")));
+    const orders = await Promise.all(Array.from({ length: buyers }, () => createOrder(db, mode === "commit" ? "confirmed" : "pending_payment")));
     const results = await Promise.allSettled(
       orders.map((o) =>
         db.transaction((tx) => reserveForOrder(tx, { orderId: o.id, lines: [{ variantId, quantity: 1 }], mode })),
@@ -60,7 +60,7 @@ describe.skipIf(!hasDb)("inventory engine (real Postgres)", () => {
     expect(won).toBe(3);
   });
 
-  it("50 COD buyers racing for 2 units: stock never goes negative", async () => {
+  it("50 buyers taken at once racing for 2 units: stock never goes negative", async () => {
     const v = await createVariant(db, { onHand: 2 });
     const { won } = await race(v.id, 50, "commit");
     expect(won).toBe(2);
@@ -117,7 +117,7 @@ describe.skipIf(!hasDb)("inventory engine (real Postgres)", () => {
     await db.transaction((tx) => reserveForOrder(tx, { orderId: slow.id, lines: [{ variantId: v.id, quantity: 1 }], mode: "hold" }));
     await expireHolds(db, slow.id);
 
-    const fast = await createOrder(db, "cod");
+    const fast = await createOrder(db, "confirmed");
     await db.transaction((tx) => reserveForOrder(tx, { orderId: fast.id, lines: [{ variantId: v.id, quantity: 1 }], mode: "commit" }));
 
     const result = await db.transaction((tx) => commitOrderReservations(tx, slow.id));
@@ -128,7 +128,7 @@ describe.skipIf(!hasDb)("inventory engine (real Postgres)", () => {
 
   it("cancellation restocks exactly once even when two cancels race", async () => {
     const v = await createVariant(db, { onHand: 1 });
-    const order = await createOrder(db, "cod");
+    const order = await createOrder(db, "confirmed");
     await db.transaction((tx) => reserveForOrder(tx, { orderId: order.id, lines: [{ variantId: v.id, quantity: 1 }], mode: "commit" }));
     expect(await onHand(db, v.id)).toBe(0);
 

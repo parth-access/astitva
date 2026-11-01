@@ -5,14 +5,12 @@ export type PricingSettings = {
   shippingFlatMinor: Paise;
   /** Orders at or above this ship free. Null: the flat charge always applies. */
   freeShippingThresholdMinor: Paise | null;
-  codFeeMinor: Paise;
 };
 
 export type OrderTotals = {
   subtotalMinor: Paise;
   discountMinor: Paise;
   shippingMinor: Paise;
-  codFeeMinor: Paise;
   totalMinor: Paise;
 };
 
@@ -34,7 +32,6 @@ export function discountOn(subtotalMinor: Paise, rule: DiscountRule | null): Pai
 export function priceOrder(
   lines: readonly { unitPriceMinor: Paise; quantity: number }[],
   settings: PricingSettings,
-  method: "cod" | "online",
   discount: DiscountRule | null = null,
 ): OrderTotals {
   const subtotalMinor = lines.reduce((sum, l) => {
@@ -47,8 +44,7 @@ export function priceOrder(
   const goods = subtotalMinor - discountMinor;
   const free = settings.freeShippingThresholdMinor !== null && goods >= settings.freeShippingThresholdMinor;
   const shippingMinor = subtotalMinor === 0 || free ? 0 : settings.shippingFlatMinor;
-  const codFeeMinor = method === "cod" ? settings.codFeeMinor : 0;
-  return { subtotalMinor, discountMinor, shippingMinor, codFeeMinor, totalMinor: goods + shippingMinor + codFeeMinor };
+  return { subtotalMinor, discountMinor, shippingMinor, totalMinor: goods + shippingMinor };
 }
 
 /** "₹X more for free shipping", as paise; null when not applicable. */

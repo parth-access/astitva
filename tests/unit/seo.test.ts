@@ -115,7 +115,7 @@ describe("brand, FAQ and category data", () => {
   it("takes profile links one per line, https only, without repeats", () => {
     const form = (links: string) => {
       const f = new FormData();
-      for (const [k, v] of Object.entries({ note: "", supportWhatsapp: "", shippingFlatMinor: "0", codFeeMinor: "0", codMaxOrderMinor: "5000", profileLinks: links })) f.append(k, v);
+      for (const [k, v] of Object.entries({ note: "", supportWhatsapp: "", shippingFlatMinor: "0", profileLinks: links })) f.append(k, v);
       return f;
     };
     const ok = parseSettingsForm(form("https://www.instagram.com/astitva\n\nhttps://in.pinterest.com/astitva\nhttps://www.instagram.com/astitva"));
@@ -132,7 +132,7 @@ describe("brand, FAQ and category data", () => {
     expect(whatsappNumber("447700900123")).toBe("447700900123");
     expect(whatsappNumber(null)).toBeNull();
     const f = new FormData();
-    for (const [k, v] of Object.entries({ note: "", supportWhatsapp: "93155 24561", shippingFlatMinor: "0", codFeeMinor: "0", codMaxOrderMinor: "5000", profileLinks: "" })) f.append(k, v);
+    for (const [k, v] of Object.entries({ note: "", supportWhatsapp: "93155 24561", shippingFlatMinor: "0", profileLinks: "" })) f.append(k, v);
     const parsed = parseSettingsForm(f);
     expect(parsed.ok && parsed.data.supportWhatsapp).toBe("919315524561");
   });

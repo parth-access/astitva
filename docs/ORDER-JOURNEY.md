@@ -19,7 +19,7 @@ Legend: ✅ have it · ⚠️ partly · ❌ missing.
 | Measurements and size guide | ✅ per-size garment measurements, size guide page |
 | More than one angle | ✅ photos per colour, 360° turn (new) |
 | "Back in stock" sign-up | ✅ |
-| **Delivery check by pincode on the piece page** ("Delivers to 131001 by Fri, COD available") | ❌ only checked at checkout. **Should** |
+| **Delivery check by pincode on the piece page** ("Delivers to 131001 by Fri") | ❌ only checked at checkout. **Should** |
 | Return/exchange summary next to the buy button ("7-day exchange") | ❌ policies are drafts. **Must** (once Krishna decides) |
 | **Country of origin** for each product (Consumer Protection (E-Commerce) Rules 2020) | ✅ one field on each piece, shown with the delivery facts; "India" by default, so Krishna confirms it for each piece |
 | Seller's legal name, address, contact and a **grievance officer** (name, contact; acknowledge within 48 h, resolve within a month) | ❌ footer has `TODO(launch)`. **Must** |
@@ -45,13 +45,12 @@ Legend: ✅ have it · ⚠️ partly · ❌ missing.
 | Server re-prices everything; browser never trusted | ✅ |
 | Double tap = one order (idempotency key + bag lock) | ✅ tested |
 | Two buyers, last piece: exactly one wins | ✅ tested (and the deadlock fix) |
-| Pincode serviceable / COD allowed | ✅ when the pincode list is switched on |
+| Pincode serviceable | ✅ when the pincode list is switched on |
 | **Pincode fills in city and state** (India Post data) | ❌ fewer typos, fewer failed deliveries. **Should** |
 | Address quality: house/flat number, landmark, warns on very short addresses | ⚠️ basic validation only. **Should** (failed deliveries are mostly bad addresses) |
-| Full price breakdown: pieces, discount, shipping, COD fee, total | ✅ |
+| Full price breakdown: pieces, discount, shipping, total | ✅ |
 | Discount codes, race-safe | ✅ tested |
 | Phone number required, email optional | ✅ (but no email means no emails, see §6) |
-| COD rules: limit, fee, per-phone cap of unconfirmed orders | ✅ |
 | Rate limits on checkout | ✅ |
 | **Billing name / GSTIN for a business buyer** | ❌ **Later**, only if GST-registered and asked |
 | **Explicit agreement to policies** before paying (consent can't be pre-ticked) | ⚠️ the "Place order" button counts as an affirmative act, but the button area should link the returns, shipping and privacy policies. **Must**, small |
@@ -69,7 +68,6 @@ Legend: ✅ have it · ⚠️ partly · ❌ missing.
 | Retry after a failed or closed payment window | ✅ "Pay now" on the order page |
 | **Late authorisation** (bank confirms minutes/hours later; <0.5% of payments): either capture automatically or they're auto-refunded after ~5 days | ⚠️ we capture any authorised payment we see, but the webhook isn't subscribed to `payment.authorized`. **Must**: subscribe it, and turn on auto-capture in the Razorpay dashboard |
 | **Two successful payments for one order** (buyer pays twice from two UPI apps) | ⚠️ the second should be flagged for a refund, but it isn't tested. **Must**: add the test |
-| Nudge COD buyers to prepay (fewer refusals, money sooner) | ❌ **Later**: e.g. in the WhatsApp confirmation message, a "pay now instead" link |
 | Live keys, live webhook, a real ₹1 payment and refund | ❌ waiting on the bank account |
 
 ## 5. Right after the order
@@ -79,7 +77,6 @@ Legend: ✅ have it · ⚠️ partly · ❌ missing.
 | Thank-you page with order number and what happens next | ✅ the private order page |
 | Confirmation email | ✅ queued, sent through Resend |
 | Owner alert | ✅ email per order |
-| COD confirmed with the buyer before packing | ✅ WhatsApp, "Confirmed with the buyer" |
 | **Buyer can cancel themselves before packing** (no charge allowed unless the seller bears one) | ❌ only by messaging Krishna. **Must** (a button on the order page while confirmed/unpacked) |
 | **"Your order was cancelled" email** (by Krishna, by the buyer, or unpaid) | ❌ no template. **Must** |
 | **Change the address or phone before dispatch** (very common WhatsApp request) | ❌ Krishna would have to cancel and re-order. **Should** (admin edit, logged) |
@@ -91,7 +88,7 @@ Legend: ✅ have it · ⚠️ partly · ❌ missing.
 | What good stores handle | Astitva |
 | --- | --- |
 | Clear steps: confirmed → packed → shipped → delivered | ✅ machine-enforced |
-| Can't pack an unpaid online / unconfirmed COD / flagged order | ✅ |
+| Can't pack an unpaid or flagged order | ✅ |
 | Courier + tracking number, "Track your parcel" link | ✅ typed in by Krishna |
 | Shipping email with tracking | ✅ |
 | **Packing slip and invoice to print** | ❌ **Should** |
@@ -99,15 +96,6 @@ Legend: ✅ have it · ⚠️ partly · ❌ missing.
 | **Failed delivery attempt (NDR)**: courier couldn't deliver, buyer asked to confirm a re-attempt | ❌ we go straight from shipped to delivered or came-back. **Should**: a "delivery attempt failed" note + WhatsApp nudge, since acting within hours saves the parcel |
 | **Delivered email** (and "how did it fit?") | ❌ **Should** |
 | Courier booking, labels, live tracking (Shiprocket etc.) | ❌ **Later**, when manual booking hurts |
-
-## 7. Cash on delivery money
-
-| What good stores handle | Astitva |
-| --- | --- |
-| Delivered ≠ collected ≠ received; track each | ✅ collection machine |
-| Delivered but unremitted orders stay visible | ✅ |
-| Refused at the door (RTO): stock back, collection failed | ✅ |
-| Block repeat refusers | ⚠️ per-phone cap on *unconfirmed* COD orders, but no memory of past refusals. **Later**: warn Krishna when a phone has refused before |
 
 ## 8. After delivery: returns, exchanges, refunds
 
@@ -119,7 +107,6 @@ Legend: ✅ have it · ⚠️ partly · ❌ missing.
 | **Return/exchange request from the order page** (reason, photos, within N days of delivery) | ❌ **Should**, once Krishna sets the policy |
 | Krishna approves → pickup → received and checked → restock or write-off → refund or exchange | ❌ (today: refund manually, adjust stock by hand) |
 | Exchange for another size/colour, holding that piece while the old one comes back | ❌ **Should**, fashion's most common request |
-| Refund for COD orders needs the buyer's UPI/bank details | ⚠️ recorded after Krishna pays manually; no way for the buyer to give details safely. Part of the return flow |
 
 ## 9. Money, tax and records
 
@@ -129,7 +116,7 @@ Legend: ✅ have it · ⚠️ partly · ❌ missing.
 | Every stock change logged; every status change through a machine | ✅ |
 | Audit log of admin actions | ✅ |
 | **GST**: if registered, a tax invoice per order (GSTIN, HSN, tax split CGST/SGST or IGST by state); on the composition scheme, a bill of supply; if not registered, a plain receipt | ❌ **Must**: Krishna's CA decides which; we then generate the right PDF per order. Selling only on our own site means no marketplace TCS |
-| Reports: sales by day/month, COD outstanding, refunds, stock value | ❌ **Should** (an admin dashboard, see below) |
+| Reports: sales by day/month, refunds, stock value | ❌ **Should** (an admin dashboard, see below) |
 | Nightly encrypted backups | ✅ |
 
 ## 10. Privacy (DPDP Act 2023)
@@ -159,7 +146,7 @@ Legend: ✅ have it · ⚠️ partly · ❌ missing.
 9. Delivered email; failed-delivery step.
 10. Packing slip and invoice printing; a dashboard with the numbers.
 
-**Later:** courier integration, COD→prepaid nudge, abandoned-checkout reminders, repeat-refuser warning, price-change notice in the bag.
+**Later:** courier integration, abandoned-checkout reminders, price-change notice in the bag.
 
 **Questions for Krishna** (they decide items 1–3 and 6):
 - Is Astitva GST-registered (regular or composition), or under the threshold for now?

@@ -8,7 +8,6 @@ import { requireAdmin } from "@/modules/auth/auth";
 import { notifyRestockedSoon } from "@/modules/alerts/soon";
 import { CATALOG_TAG } from "@/modules/catalog/queries";
 import {
-  markCodRemitted,
   markDelivered,
   markReturnedToOrigin,
   packOrder,
@@ -16,7 +15,7 @@ import {
   shipOrder,
   unpackOrder,
 } from "@/modules/orders/fulfilment";
-import { cancelOrder, markCodVerified, OrderRuleError } from "@/modules/orders/service";
+import { cancelOrder, OrderRuleError } from "@/modules/orders/service";
 import { alertError } from "@/modules/email/outbox";
 import { sendQueuedEmailsSoon } from "@/modules/email/soon";
 import { razorpay } from "@/modules/payments/client";
@@ -50,10 +49,6 @@ async function run(orderId: string, work: (actorId: string) => Promise<unknown>,
 }
 
 /** Krishna has spoken to the buyer and the order is real. */
-export async function verifyOrderAction(orderId: string): Promise<OrderActionState> {
-  return run(orderId, (actorId) => markCodVerified(db, orderId, actorId));
-}
-
 /** Cancel before dispatch. Stock goes back on sale. */
 export async function cancelOrderAction(orderId: string, _prev: OrderActionState, form: FormData): Promise<OrderActionState> {
   return run(orderId, (actorId) => cancelOrder(db, orderId, actorId, text(form, "reason")), { stockChanged: true });
@@ -83,10 +78,6 @@ export async function deliveredAction(orderId: string): Promise<OrderActionState
 
 export async function returnedAction(orderId: string, _prev: OrderActionState, form: FormData): Promise<OrderActionState> {
   return run(orderId, (actorId) => markReturnedToOrigin(db, orderId, actorId, text(form, "reason")), { stockChanged: true });
-}
-
-export async function remittedAction(orderId: string, _prev: OrderActionState, form: FormData): Promise<OrderActionState> {
-  return run(orderId, (actorId) => markCodRemitted(db, orderId, actorId, text(form, "reference")));
 }
 
 export async function resolveAction(orderId: string, _prev: OrderActionState, form: FormData): Promise<OrderActionState> {

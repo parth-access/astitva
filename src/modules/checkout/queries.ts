@@ -6,7 +6,7 @@ import { storeSettings } from "@/db/schema";
 import { SETTINGS_TAG } from "@/modules/catalog/queries";
 import type { PricingSettings } from "./pricing";
 
-export type CheckoutSettings = PricingSettings & { codEnabled: boolean; codMaxOrderMinor: number; holdMinutes: number };
+export type CheckoutSettings = PricingSettings & { holdMinutes: number };
 
 /** For display (the bag and checkout pages). Placing an order re-reads the settings under lock. */
 export async function getCheckoutSettings(): Promise<CheckoutSettings> {
@@ -16,9 +16,6 @@ export async function getCheckoutSettings(): Promise<CheckoutSettings> {
 
   const [s] = await db
     .select({
-      codEnabled: storeSettings.codEnabled,
-      codMaxOrderMinor: storeSettings.codMaxOrderMinor,
-      codFeeMinor: storeSettings.codFeeMinor,
       shippingFlatMinor: storeSettings.shippingFlatMinor,
       freeShippingThresholdMinor: storeSettings.freeShippingThresholdMinor,
       holdMinutes: storeSettings.reservationTtlMinutes,
@@ -26,9 +23,6 @@ export async function getCheckoutSettings(): Promise<CheckoutSettings> {
     .from(storeSettings)
     .where(eq(storeSettings.id, 1));
   return {
-    codEnabled: s?.codEnabled ?? false,
-    codMaxOrderMinor: Number(s?.codMaxOrderMinor ?? 500_000),
-    codFeeMinor: Number(s?.codFeeMinor ?? 0),
     shippingFlatMinor: Number(s?.shippingFlatMinor ?? 0),
     freeShippingThresholdMinor: s?.freeShippingThresholdMinor == null ? null : Number(s.freeShippingThresholdMinor),
     holdMinutes: s?.holdMinutes ?? 15,

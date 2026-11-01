@@ -45,7 +45,6 @@ const checkoutSchema = z.object({
   ...addressFields,
   note: optional(500),
   discountCode: optional(40),
-  payment: z.enum(["cod", "online"], { message: "Choose how to pay." }),
   key: z.uuid("Please reload the page and try again."),
 });
 
@@ -57,7 +56,6 @@ export type CheckoutInput = {
   contact: { name: string; phone: string; email: string | null };
   address: AddressSnapshot;
   note: string | null;
-  paymentMethod: "cod" | "online";
   /** As typed; checked and claimed under lock when the order is placed. */
   discountCode?: string | null;
 };
@@ -104,7 +102,6 @@ export function parseCheckoutForm(
       contact: { name: d.name, phone: d.phone, email: d.email?.toLowerCase() ?? null },
       address,
       note: d.note,
-      paymentMethod: d.payment,
       discountCode: d.discountCode,
     },
   };

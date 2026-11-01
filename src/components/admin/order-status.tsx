@@ -17,7 +17,6 @@ export function OrderStatusBadge({
   needsResolution = false,
 }: {
   status: OrderStatus;
-  method: "cod" | "online";
   needsResolution?: boolean;
 }) {
   const label = needsResolution ? "Needs you" : LABEL[status];

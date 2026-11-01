@@ -7,7 +7,7 @@ import type { CheckoutInput } from "../../src/modules/checkout/input";
 import { placeOrder } from "../../src/modules/checkout/service";
 import { confirmFromCheckout, handleWebhook, openPayment, PaymentError } from "../../src/modules/payments/service";
 import { fakeRazorpay } from "./fake-razorpay";
-import { createVariant, expireHolds, hasDb, makeDb, movementSum, onHand, resetData } from "./helpers";
+import { createVariant, expireHolds, hasDb, makeDb, movementSum, onHand, placePaid, resetData } from "./helpers";
 
 function buyer(key = randomUUID()): CheckoutInput {
   return {
@@ -15,7 +15,6 @@ function buyer(key = randomUUID()): CheckoutInput {
     contact: { name: "Asha Rao", phone: "9812345678", email: "asha@example.com" },
     address: { recipientName: "Asha Rao", phone: "9812345678", line1: "12 Model Town", city: "Sonipat", state: "Haryana", pincode: "131001", countryCode: "IN" },
     note: null,
-    paymentMethod: "online",
   };
 }
 
@@ -34,7 +33,7 @@ describe.skipIf(!hasDb)("online payment", () => {
   beforeEach(async () => {
     await resetData(db);
     await db.delete(storeSettings);
-    await db.insert(storeSettings).values({ id: 1, orderingOpen: true, codEnabled: true, reservationTtlMinutes: 15 });
+    await db.insert(storeSettings).values({ id: 1, orderingOpen: true, reservationTtlMinutes: 15 });
   });
   afterAll(async () => {
     await db.$client.end();
@@ -42,7 +41,7 @@ describe.skipIf(!hasDb)("online payment", () => {
 
   it("holds stock while waiting, and keeps the bag", async () => {
     const { v, bagId, placed } = await checkout(2);
-    expect(placed).toMatchObject({ paymentMethod: "online", orderStatus: "pending_payment", totalMinor: 349_900 });
+    expect(placed).toMatchObject({ orderStatus: "pending_payment", totalMinor: 349_900 });
     expect(await onHand(db, v.id)).toBe(2);
     const [hold] = await db.select().from(inventoryReservations).where(eq(inventoryReservations.orderId, placed.orderId));
     expect(hold).toMatchObject({ status: "active", quantity: 1 });
@@ -110,10 +109,10 @@ describe.skipIf(!hasDb)("online payment", () => {
     const session = await openPayment(db, fake.rzp, placed.orderId);
     await expireHolds(db, placed.orderId);
 
-    // Someone else buys the last one by cash on delivery while this buyer is still paying.
+    // Someone else buys the last one while this buyer is still paying.
     const other = await openBag(db, null);
     await addToBag(db, other.id, v.id);
-    await placeOrder(db, other.id, { ...buyer(), paymentMethod: "cod", contact: { name: "Meera", phone: "9811111111", email: null } });
+    await placePaid(db, other.id, { ...buyer(), contact: { name: "Meera", phone: "9811111111", email: null } });
 
     const { reply } = fake.pay(session.razorpayOrderId);
     expect(await confirmFromCheckout(db, fake.rzp, reply)).toMatchObject({ outcome: "needs_resolution" });
@@ -160,7 +159,7 @@ describe.skipIf(!hasDb)("online payment", () => {
     await expireHolds(db, second.placed.orderId);
     const other = await openBag(db, null);
     await addToBag(db, other.id, second.v.id);
-    await placeOrder(db, other.id, { ...buyer(), paymentMethod: "cod", contact: { name: "Meera", phone: "9811111111", email: null } });
+    await placePaid(db, other.id, { ...buyer(), contact: { name: "Meera", phone: "9811111111", email: null } });
     await expect(openPayment(db, fake.rzp, second.placed.orderId)).rejects.toMatchObject({ code: "sold_out" });
     expect(await orderRow(second.placed.orderId)).toMatchObject({ orderStatus: "cancelled", paymentStatus: "unpaid" });
     const holds = await db.select().from(inventoryReservations).where(eq(inventoryReservations.orderId, second.placed.orderId));

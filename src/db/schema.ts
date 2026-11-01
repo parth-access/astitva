@@ -889,7 +889,6 @@ export type ReceiptSnapshot = {
   discountMinor: number;
   discountCode: string | null;
   shippingMinor: number;
-  codFeeMinor: number;
   totalMinor: number;
 };
 

@@ -1,17 +1,17 @@
 /**
  * Orders after checkout: what the buyer sees on their order page, and what
- * Krishna does from the admin (check a COD order with the buyer, cancel).
+ * Krishna does from the admin (cancel).
  * Packing, shipping and refunds arrive in M5.
  */
 import { and, asc, desc, eq, or, sql } from "drizzle-orm";
 import type { DbOrTx, Db } from "@/db/create";
-import { auditLogs, codCollections, orderEvents, orderItems, orders, payments, refunds, shipments } from "@/db/schema";
+import { auditLogs, orderEvents, orderItems, orders, payments, refunds, shipments } from "@/db/schema";
 import { formatINR } from "@/lib/money";
 import { InvalidTransitionError } from "@/lib/state-machine";
 import { releaseCodeUse } from "@/modules/discounts/service";
 import { alertOwners, queueEmail } from "@/modules/email/outbox";
 import { restockCancelledOrder } from "@/modules/inventory/service";
-import { codCollectionMachine, orderMachine, type OrderStatus } from "./machines";
+import { orderMachine, type OrderStatus } from "./machines";
 
 export class OrderRuleError extends Error {
   constructor(message: string) {
@@ -52,11 +52,9 @@ export async function getOrderForBuyer(db: DbOrTx, orderNumber: string) {
       discountMinor: orders.discountMinor,
       discountCode: orders.discountCode,
       shippingMinor: orders.shippingMinor,
-      codFeeMinor: orders.codFeeMinor,
       totalMinor: orders.totalMinor,
       address: orders.addressSnapshot,
       customerNote: orders.customerNote,
-      codVerifiedAt: orders.codVerifiedAt,
       createdAt: orders.createdAt,
     })
     .from(orders)
@@ -85,7 +83,7 @@ export async function getOrderForBuyer(db: DbOrTx, orderNumber: string) {
   return {
     shipment: shipment ?? null,
     refunds: refunded.map((r) => money(r, ["amountMinor"])),
-    ...money(order, ["subtotalMinor", "discountMinor", "shippingMinor", "codFeeMinor", "totalMinor"]),
+    ...money(order, ["subtotalMinor", "discountMinor", "shippingMinor", "totalMinor"]),
     items: items.map((i) => money(i, ["unitPriceMinor", "lineTotalMinor"])),
   };
 }
@@ -97,7 +95,7 @@ const needsKrishna = eq(orders.needsResolution, true);
 
 /**
  * Newest first. "to_check": orders waiting on Krishna. "open": everything not
- * finished (including COD cash the courier still owes), except online
+ * finished, except online
  * checkouts nobody paid for (they're under "all").
  */
 export async function listOrders(db: DbOrTx, filter: OrderListFilter = "open") {
@@ -108,8 +106,6 @@ export async function listOrders(db: DbOrTx, filter: OrderListFilter = "open") {
         ? or(
             eq(orders.needsResolution, true),
             sql`${orders.orderStatus} not in ('delivered', 'cancelled', 'returned') and not (${orders.orderStatus} = 'pending_payment' and ${orders.paymentStatus} = 'unpaid')`,
-            // Delivered on cash, but the courier hasn't paid it over yet.
-            and(eq(orders.orderStatus, "delivered"), eq(orders.paymentMethod, "cod"), eq(orders.paymentStatus, "unpaid")),
           )
         : undefined;
   const rows = await db
@@ -123,7 +119,6 @@ export async function listOrders(db: DbOrTx, filter: OrderListFilter = "open") {
       totalMinor: orders.totalMinor,
       orderStatus: orders.orderStatus,
       paymentMethod: orders.paymentMethod,
-      codVerifiedAt: orders.codVerifiedAt,
       paymentStatus: orders.paymentStatus,
       needsResolution: orders.needsResolution,
       units: sql<number>`(select coalesce(sum(oi.quantity), 0)::int from order_items oi where oi.order_id = orders.id)`,
@@ -146,10 +141,9 @@ export async function countOrdersToCheck(db: DbOrTx): Promise<number> {
 export async function getOrderForAdmin(db: DbOrTx, orderId: string) {
   const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
   if (!order) return null;
-  const [items, events, [cod], [payment], sent, refunded] = await Promise.all([
+  const [items, events, [payment], sent, refunded] = await Promise.all([
     db.select({ ...itemFields, sku: orderItems.skuSnapshot }).from(orderItems).where(eq(orderItems.orderId, orderId)).orderBy(asc(orderItems.id)),
     db.select().from(orderEvents).where(eq(orderEvents.orderId, orderId)).orderBy(asc(orderEvents.createdAt)),
-    db.select().from(codCollections).where(eq(codCollections.orderId, orderId)),
     db
       .select({ status: payments.status, providerPaymentId: payments.providerPaymentId, failureReason: payments.failureReason })
       .from(payments)
@@ -160,10 +154,9 @@ export async function getOrderForAdmin(db: DbOrTx, orderId: string) {
     db.select().from(refunds).where(eq(refunds.orderId, orderId)).orderBy(asc(refunds.createdAt)),
   ]);
   return {
-    ...money(order, ["subtotalMinor", "discountMinor", "shippingMinor", "codFeeMinor", "taxIncludedMinor", "totalMinor"]),
+    ...money(order, ["subtotalMinor", "discountMinor", "shippingMinor", "taxIncludedMinor", "totalMinor"]),
     items: items.map((i) => money(i, ["unitPriceMinor", "lineTotalMinor"])),
     events,
-    cod: cod ? money(cod, ["amountDueMinor"]) : null,
     payment: payment ?? null,
     shipment: sent[0] ?? null,
     refunds: refunded.map((r) => money(r, ["amountMinor"])),
@@ -178,7 +171,6 @@ async function lockOrder(db: Db | DbOrTx, orderId: string) {
       method: orders.paymentMethod,
       paid: orders.paymentStatus,
       total: orders.totalMinor,
-      codVerifiedAt: orders.codVerifiedAt,
     })
     .from(orders)
     .where(eq(orders.id, orderId))
@@ -187,22 +179,9 @@ async function lockOrder(db: Db | DbOrTx, orderId: string) {
   return order;
 }
 
-/** Krishna has confirmed a cash-on-delivery order with the buyer. Doing it twice changes nothing. */
-export async function markCodVerified(db: Db, orderId: string, actorId: string): Promise<void> {
-  await db.transaction(async (tx) => {
-    const order = await lockOrder(tx, orderId);
-    if (order.method !== "cod") throw new OrderRuleError("Only cash-on-delivery orders are checked this way.");
-    if (order.codVerifiedAt) return;
-    if (order.status === "cancelled") throw new OrderRuleError("This order was cancelled.");
-    await tx.update(orders).set({ codVerifiedAt: new Date() }).where(eq(orders.id, orderId));
-    await tx.insert(orderEvents).values({ orderId, eventType: "cod.verified", actorType: "admin", actorId });
-    await tx.insert(auditLogs).values({ actorId, action: "order.cod_verified", resourceType: "order", resourceId: orderId });
-  });
-}
-
 /**
  * Cancel before dispatch: stock goes back on the shelf (once, however many
- * times this is called), and an unpaid COD collection is closed as failed.
+ * times this is called).
  */
 export async function cancelOrder(db: Db, orderId: string, actorId: string, reason: string): Promise<void> {
   const why = reason.trim();
@@ -231,10 +210,6 @@ export async function cancelOrder(db: Db, orderId: string, actorId: string, reas
     const [buyer] = await tx.select({ email: orders.contactEmail }).from(orders).where(eq(orders.id, orderId));
     if (buyer?.email) await queueEmail(tx, { dedupeKey: `order_cancelled:${orderId}`, template: "order_cancelled", to: buyer.email, payload: { orderId } });
 
-    const [cod] = await tx.select({ id: codCollections.id, status: codCollections.status }).from(codCollections).where(eq(codCollections.orderId, orderId));
-    if (cod && codCollectionMachine.can(cod.status, "failed")) {
-      await tx.update(codCollections).set({ status: "failed", notes: `Order cancelled: ${why}` }).where(eq(codCollections.id, cod.id));
-    }
     await tx.insert(orderEvents).values({
       orderId,
       eventType: "order.cancelled",

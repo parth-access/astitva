@@ -143,7 +143,7 @@ async function main() {
         product_categories, product_collections, product_variants, products, categories, collections, suppliers
       restart identity cascade`);
 
-    // Placeholder terms until Krishna sets real ones: free shipping, COD on with no fee, up to ₹5,000.
+    // Placeholder terms until Krishna sets real ones: free shipping.
     const settings = {
       lookbookTitle: "Autumn–Winter 2026",
       lookbookSubtitle: "The first pieces, in the colours we couldn't choose between.",
@@ -151,9 +151,6 @@ async function main() {
       noteSignature: "Krishna",
       // Blank: buyers read "we" and "us" (e.g. "We'll message you on WhatsApp").
       conciergeName: null,
-      codEnabled: true,
-      codFeeMinor: 0,
-      codMaxOrderMinor: 500_000,
       shippingFlatMinor: 0,
       freeShippingThresholdMinor: null,
     };

@@ -35,7 +35,7 @@ async function ReceiptView({ params, searchParams }: PageProps<"/orders/[number]
           ["Paid on", formatLongDate(s.paidAt)],
           ["Payment reference", s.reference],
         ]
-      : [["Payment", s.kind === "paid_on_delivery" ? "Cash on delivery, paid to the courier" : "Cash on delivery: cash or UPI to the courier"]];
+      : [];
 
   return (
     <div className="mx-auto max-w-3xl px-4 pb-28 pt-10 sm:px-8 md:pt-16 print:max-w-none print:p-0">
@@ -158,14 +158,8 @@ async function ReceiptView({ params, searchParams }: PageProps<"/orders/[number]
             <dt className="text-espresso-soft">Delivery</dt>
             <dd>{o.shippingMinor ? formatINR(o.shippingMinor) : "Free"}</dd>
           </div>
-          {o.codFeeMinor ? (
-            <div className="flex justify-between">
-              <dt className="text-espresso-soft">Cash on delivery fee</dt>
-              <dd>{formatINR(o.codFeeMinor)}</dd>
-            </div>
-          ) : null}
           <div className="flex items-baseline justify-between border-t border-taupe/50 pt-3">
-            <dt className="font-medium">{s.kind === "due_on_delivery" ? "To pay on delivery" : "Total"}</dt>
+            <dt className="font-medium">Total</dt>
             <dd className="font-display text-2xl">{formatINR(r.amountMinor)}</dd>
           </div>
           {r.refunds.map((b, n) => (
@@ -176,8 +170,8 @@ async function ReceiptView({ params, searchParams }: PageProps<"/orders/[number]
           ))}
         </dl>
 
-        <section aria-label="Payment" className={`mt-8 border p-5 text-sm ${s.kind === "not_collected" ? "border-burgundy" : "border-taupe/60"}`}>
-          <p className={`font-medium ${s.kind === "not_collected" ? "text-burgundy" : ""}`}>{statusLine(r)}</p>
+        <section aria-label="Payment" className="mt-8 border border-taupe/60 p-5 text-sm">
+          <p className="font-medium">{statusLine(r)}</p>
           <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5">
             {facts.map(([k, v]) => (
               <div key={k} className="contents">

@@ -172,7 +172,7 @@ async function DeliveryFacts({ countryOfOrigin }: { countryOfOrigin: string }) {
   const facts = [
     `Leaves us within ${POLICY_TERMS.dispatch}`,
     delivery,
-    s.codEnabled ? "Pay online, or cash on delivery" : "Pay online: UPI, cards or net banking",
+    "Pay online: UPI, cards or net banking",
     `Return or exchange within ${POLICY_TERMS.returnWindow}`,
     `Made in ${countryOfOrigin}`,
   ];

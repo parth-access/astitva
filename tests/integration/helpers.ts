@@ -1,3 +1,7 @@
+import type { CheckoutInput } from "../../src/modules/checkout/input";
+import { placeOrder } from "../../src/modules/checkout/service";
+import { confirmFromCheckout, openPayment } from "../../src/modules/payments/service";
+import { fakeRazorpay } from "./fake-razorpay";
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
@@ -49,14 +53,28 @@ export async function createVariant(db: Db, opts: { onHand: number; priceMinor?:
   return variant!;
 }
 
-export async function createOrder(db: Db, method: "online" | "cod" = "online") {
+/** Pay a placed order the way a buyer does, through a fake Razorpay. */
+export async function payOrder(db: Db, orderId: string) {
+  const fake = fakeRazorpay();
+  const session = await openPayment(db, fake.rzp, orderId);
+  await confirmFromCheckout(db, fake.rzp, fake.pay(session.razorpayOrderId).reply);
+}
+
+/** Place an order and pay for it. */
+export async function placePaid(db: Db, bagId: string, input: CheckoutInput, userId: string | null = null) {
+  const placed = await placeOrder(db, bagId, input, userId);
+  await payOrder(db, placed.orderId);
+  return placed;
+}
+
+export async function createOrder(db: Db, orderStatus: "pending_payment" | "confirmed" = "pending_payment") {
   const [order] = await db
     .insert(orders)
     .values({
       contactName: "Test Buyer",
       contactPhone: "9999999999",
-      orderStatus: method === "online" ? "pending_payment" : "confirmed",
-      paymentMethod: method,
+      orderStatus,
+      paymentMethod: "online",
       subtotalMinor: 249_900,
       totalMinor: 249_900,
       addressSnapshot: {

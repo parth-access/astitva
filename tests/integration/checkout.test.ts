@@ -1,13 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { codCollections, emailOutbox, orderItems, orders, products, storeSettings, users } from "../../src/db/schema";
+import { emailOutbox, orderItems, orders, products, storeSettings, users } from "../../src/db/schema";
 import { addToBag, BagError, openBag, readBag, setLineQuantity } from "../../src/modules/bag/service";
 import type { CheckoutInput } from "../../src/modules/checkout/input";
 import { CheckoutError, placeOrder } from "../../src/modules/checkout/service";
-import { packOrder } from "../../src/modules/orders/fulfilment";
-import { cancelOrder, markCodVerified, OrderRuleError } from "../../src/modules/orders/service";
-import { createVariant, hasDb, makeDb, movementSum, onHand, resetData } from "./helpers";
+import { cancelOrder, OrderRuleError } from "../../src/modules/orders/service";
+import { createVariant, hasDb, makeDb, movementSum, onHand, payOrder, resetData } from "./helpers";
 
 function buyer(overrides: Partial<CheckoutInput["contact"]> = {}, key = randomUUID()): CheckoutInput {
   const contact = { name: "Asha Rao", phone: "9812345678", email: "asha@example.com", ...overrides };
@@ -16,7 +15,6 @@ function buyer(overrides: Partial<CheckoutInput["contact"]> = {}, key = randomUU
     contact,
     address: { recipientName: contact.name, phone: contact.phone, line1: "12 Model Town", city: "Sonipat", state: "Haryana", pincode: "131001", countryCode: "IN" },
     note: null,
-    paymentMethod: "cod",
   };
 }
 
@@ -26,7 +24,7 @@ async function expectCheckout(p: Promise<unknown>, code: CheckoutError["code"]) 
   expect((err as CheckoutError).code).toBe(code);
 }
 
-describe.skipIf(!hasDb)("bag and cash-on-delivery checkout", () => {
+describe.skipIf(!hasDb)("bag and checkout", () => {
   const db = makeDb(8);
   let adminId: string;
 
@@ -42,7 +40,7 @@ describe.skipIf(!hasDb)("bag and cash-on-delivery checkout", () => {
   beforeEach(async () => {
     await resetData(db);
     await db.delete(storeSettings);
-    await settings({ orderingOpen: true, codEnabled: true, codMaxOrderMinor: 500_000, codFeeMinor: 0, shippingFlatMinor: 0 });
+    await settings({ orderingOpen: true, shippingFlatMinor: 0 });
     const [u] = await db.insert(users).values({ name: "Krishna", email: "k@example.com" }).returning();
     adminId = u!.id;
   });
@@ -71,8 +69,8 @@ describe.skipIf(!hasDb)("bag and cash-on-delivery checkout", () => {
     await expect(addToBag(db, bag.id, draft.id)).rejects.toMatchObject({ code: "unavailable" });
   });
 
-  it("places a COD order: prices from the database, stock taken, collection due, bag emptied", async () => {
-    await settings({ shippingFlatMinor: 9_900, freeShippingThresholdMinor: 1_000_000, codFeeMinor: 5_000, codMaxOrderMinor: 1_000_000 });
+  it("places an order: prices from the database, stock held, bag kept until it's paid", async () => {
+    await settings({ shippingFlatMinor: 9_900, freeShippingThresholdMinor: 1_000_000 });
     const v = await createVariant(db, { onHand: 3, priceMinor: 349_900 });
     const bagId = await bagWith(v.id, 2);
 
@@ -80,26 +78,28 @@ describe.skipIf(!hasDb)("bag and cash-on-delivery checkout", () => {
     expect(placed.orderNumber).toMatch(/^AST-\d{6}$/);
     const [order] = await db.select().from(orders).where(eq(orders.id, placed.orderId));
     expect(order).toMatchObject({
-      orderStatus: "confirmed",
-      paymentMethod: "cod",
+      orderStatus: "pending_payment",
+      paymentMethod: "online",
       paymentStatus: "unpaid",
       subtotalMinor: 699_800,
       shippingMinor: 9_900,
-      codFeeMinor: 5_000,
-      totalMinor: 714_700,
+      totalMinor: 709_700,
       contactPhone: "9812345678",
     });
     const items = await db.select().from(orderItems).where(eq(orderItems.orderId, placed.orderId));
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({ quantity: 2, unitPriceMinor: 349_900, lineTotalMinor: 699_800 });
 
+    expect(await onHand(db, v.id)).toBe(3);
+    expect(await db.select().from(emailOutbox)).toHaveLength(0);
+    expect((await readBag(db, bagId)).count).toBe(2);
+    expect(order!.userId).toBeNull();
+
+    await payOrder(db, placed.orderId);
     expect(await onHand(db, v.id)).toBe(1);
     expect(await movementSum(db, v.id)).toBe(1);
-    const [cod] = await db.select().from(codCollections).where(eq(codCollections.orderId, placed.orderId));
-    expect(cod).toMatchObject({ amountDueMinor: 714_700, status: "pending" });
     expect(await db.select().from(emailOutbox)).toHaveLength(1);
     expect((await readBag(db, bagId)).count).toBe(0);
-    expect(order!.userId).toBeNull();
   });
 
   it("records the signed-in customer, so the order shows in their account", async () => {
@@ -118,7 +118,6 @@ describe.skipIf(!hasDb)("bag and cash-on-delivery checkout", () => {
     expect(a.orderId).toBe(b.orderId);
     expect([a.repeated, b.repeated].sort()).toEqual([false, true]);
     expect(await db.select().from(orders)).toHaveLength(1);
-    expect(await onHand(db, v.id)).toBe(1);
   });
 
   it("two buyers for the last piece: exactly one gets it", async () => {
@@ -128,23 +127,18 @@ describe.skipIf(!hasDb)("bag and cash-on-delivery checkout", () => {
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     const lost = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
     expect(lost.reason).toMatchObject({ code: "unavailable", variantIds: [v.id] });
-    expect(await onHand(db, v.id)).toBe(0);
     expect(await db.select().from(orders)).toHaveLength(1);
     // The loser's bag is untouched, and now shows the line as sold out.
     const loserBag = bags[results.findIndex((r) => r.status === "rejected")]!;
     expect((await readBag(db, loserBag)).hasProblems).toBe(true);
   });
 
-  it("follows the store's rules for cash on delivery", async () => {
+  it("follows the store's rules", async () => {
     const v = await createVariant(db, { onHand: 5, priceMinor: 300_000 });
 
     await settings({ orderingOpen: false });
     await expectCheckout(placeOrder(db, await bagWith(v.id), buyer()), "ordering_closed");
-    await settings({ orderingOpen: true, codEnabled: false });
-    await expectCheckout(placeOrder(db, await bagWith(v.id), buyer()), "cod_off");
-    await settings({ codEnabled: true });
-
-    await expectCheckout(placeOrder(db, await bagWith(v.id, 2), buyer()), "over_cod_limit");
+    await settings({ orderingOpen: true });
     await expectCheckout(placeOrder(db, (await openBag(db, null)).id, buyer()), "empty");
 
     await settings({ restrictToListedPincodes: true });
@@ -157,17 +151,12 @@ describe.skipIf(!hasDb)("bag and cash-on-delivery checkout", () => {
     await expectCheckout(placeOrder(db, hiddenBag, buyer()), "unavailable");
     await db.update(products).set({ status: "active" });
 
-    // Two cash orders not yet packed on one number; a third waits until one is packed.
-    const first = await placeOrder(db, await bagWith(v.id), buyer());
-    await placeOrder(db, await bagWith(v.id), buyer());
-    await expectCheckout(placeOrder(db, await bagWith(v.id), buyer()), "too_many_unverified");
-    await packOrder(db, first.orderId, adminId);
-    await placeOrder(db, await bagWith(v.id), buyer());
   });
 
-  it("cancelling puts the stock back once and closes the collection", async () => {
+  it("cancelling puts the stock back once", async () => {
     const v = await createVariant(db, { onHand: 2 });
     const placed = await placeOrder(db, await bagWith(v.id, 2), buyer());
+    await payOrder(db, placed.orderId);
     expect(await onHand(db, v.id)).toBe(0);
 
     await expect(cancelOrder(db, placed.orderId, adminId, " ")).rejects.toBeInstanceOf(OrderRuleError);
@@ -179,8 +168,5 @@ describe.skipIf(!hasDb)("bag and cash-on-delivery checkout", () => {
     expect(await movementSum(db, v.id)).toBe(2);
     const [order] = await db.select().from(orders).where(eq(orders.id, placed.orderId));
     expect(order).toMatchObject({ orderStatus: "cancelled", cancelReason: "Buyer changed her mind" });
-    const [cod] = await db.select().from(codCollections).where(eq(codCollections.orderId, placed.orderId));
-    expect(cod!.status).toBe("failed");
-    await expect(markCodVerified(db, placed.orderId, adminId)).rejects.toBeInstanceOf(OrderRuleError);
   });
 });

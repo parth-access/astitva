@@ -6,7 +6,6 @@ import {
   DeliveredButton,
   PackButton,
   RefundForm,
-  RemittedForm,
   ResolveForm,
   ReturnedForm,
   ShipForm,
@@ -61,7 +60,6 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
 
   const a = order.addressSnapshot;
   const canSend = (order.orderStatus === "confirmed" || order.orderStatus === "packed") && packingBlocker(order) === null;
-  const awaitingRemittance = order.paymentMethod === "cod" && order.orderStatus === "delivered" && order.cod?.status === "collected_by_courier";
   const [refundable, receipt] = await Promise.all([refundableMinor(db, order.id), getReceipt(db, order.id)]);
   const canRazorpayRefund = order.payment?.status === "captured" && razorpay() !== null;
   const isOwner = role === "owner";
@@ -72,11 +70,10 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
 
   const steps: { label: string; done: boolean }[] = [
     { label: "Placed", done: true },
-    ...(order.paymentMethod === "online" ? [{ label: "Paid", done: order.paymentStatus !== "unpaid" }] : []),
+    { label: "Paid", done: order.paymentStatus !== "unpaid" },
     { label: "Packed", done: ["packed", "shipped", "delivered", "returned"].includes(order.orderStatus) },
     { label: "Sent", done: ["shipped", "delivered", "returned"].includes(order.orderStatus) },
     { label: "Delivered", done: order.orderStatus === "delivered" },
-    ...(order.paymentMethod === "cod" ? [{ label: "Cash in", done: order.paymentStatus !== "unpaid" }] : []),
   ];
   const ended = order.orderStatus === "cancelled" || order.orderStatus === "returned" || order.orderStatus === "pending_payment";
 
@@ -87,12 +84,12 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
         title={
           <span className="flex flex-wrap items-center gap-3">
             <span className="tabular-nums">{order.orderNumber}</span>
-            <OrderStatusBadge status={order.orderStatus} method={order.paymentMethod} needsResolution={order.needsResolution} />
+            <OrderStatusBadge status={order.orderStatus} needsResolution={order.needsResolution} />
           </span>
         }
         subtitle={
           <>
-            {when.format(order.createdAt)} · {order.paymentMethod === "cod" ? "Cash on delivery" : order.paymentStatus === "unpaid" ? "Online, not paid" : "Paid online"} ·{" "}
+            {when.format(order.createdAt)} · {order.paymentStatus === "unpaid" ? "Not paid" : "Paid online"} ·{" "}
             <span className="tabular-nums">{formatINR(order.totalMinor)}</span>
           </>
         }
@@ -151,20 +148,8 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
                 <dt className="text-espresso-soft">Shipping</dt>
                 <dd>{order.shippingMinor ? formatINR(order.shippingMinor) : "Free"}</dd>
               </div>
-              {order.codFeeMinor ? (
-                <div className="flex justify-between">
-                  <dt className="text-espresso-soft">COD fee</dt>
-                  <dd>{formatINR(order.codFeeMinor)}</dd>
-                </div>
-              ) : null}
               <div className="flex justify-between border-t border-sand pt-2 font-medium">
-                <dt>
-                  {order.paymentMethod === "cod" && order.orderStatus !== "cancelled" && order.orderStatus !== "returned"
-                    ? order.paymentStatus === "unpaid"
-                      ? "To collect"
-                      : "Collected"
-                    : "Total"}
-                </dt>
+                <dt>Total</dt>
                 <dd>{formatINR(order.totalMinor)}</dd>
               </div>
             </dl>
@@ -257,7 +242,6 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
           {canSend ? (
             <Card title={order.orderStatus === "packed" ? "Packed. Send it" : "Pack and send"} tone="calm">
               <div className="space-y-4">
-                {order.codVerifiedAt ? <p className="text-xs text-espresso-soft">Confirmed with the buyer {when.format(order.codVerifiedAt)}.</p> : null}
                 {order.orderStatus === "confirmed" ? <PackButton orderId={order.id} /> : null}
                 <ShipForm orderId={order.id} />
                 {order.orderStatus === "packed" ? <UnpackButton orderId={order.id} /> : null}
@@ -290,15 +274,6 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
                     <ReturnedForm orderId={order.id} />
                   </div>
                 ) : null}
-              </div>
-            </Card>
-          ) : null}
-
-          {awaitingRemittance ? (
-            <Card title="Cash with the courier" tone="calm">
-              <div className="space-y-3">
-                <p className="text-sm text-espresso-soft">The courier collected {formatINR(order.totalMinor)} on delivery.</p>
-                <RemittedForm orderId={order.id} amountMinor={order.totalMinor} />
               </div>
             </Card>
           ) : null}

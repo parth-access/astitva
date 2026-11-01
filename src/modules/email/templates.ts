@@ -137,7 +137,7 @@ function receiptFacts(r: ReceiptView): [string, string][] {
           ["Paid with", paidWithLabel(s.paidWith)],
           ["Reference", s.reference],
         ] as [string, string][])
-      : ([["Payment", "Cash on delivery"]] as [string, string][])),
+      : []),
   ];
 }
 
@@ -160,9 +160,7 @@ function totalRows(order: Order): [string, string][] {
   const rows: [string, string][] = [["Pieces", formatINR(Number(order.subtotalMinor))]];
   if (Number(order.discountMinor) > 0) rows.push([`Discount${order.discountCode ? ` (${order.discountCode})` : ""}`, `−${formatINR(Number(order.discountMinor))}`]);
   rows.push(["Delivery", Number(order.shippingMinor) ? formatINR(Number(order.shippingMinor)) : "Free"]);
-  if (Number(order.codFeeMinor) > 0) rows.push(["Cash on delivery fee", formatINR(Number(order.codFeeMinor))]);
-  const unpaidCod = order.paymentMethod === "cod" && order.paymentStatus === "unpaid";
-  rows.push([unpaidCod ? "To pay on delivery" : "Total", formatINR(Number(order.totalMinor))]);
+  rows.push(["Total", formatINR(Number(order.totalMinor))]);
   return rows;
 }
 
@@ -173,11 +171,9 @@ function addressLines(a: Order["addressSnapshot"]) {
 /** The steps of an order, and which one it's on (the first not yet done). */
 function journey(order: Order): { steps: string[]; current: number } {
   const s = order.orderStatus;
-  const cod = order.paymentMethod === "cod";
-  // Cash on delivery has no "Paid" step before packing: it's paid at the door.
   const all: [string, boolean][] = [
     ["Placed", true],
-    ...(cod ? [] : [["Paid", order.paymentStatus !== "unpaid"] as [string, boolean]]),
+    ["Paid", order.paymentStatus !== "unpaid"],
     ["Packed", s === "packed" || s === "shipped" || s === "delivered"],
     ["On its way", s === "shipped" || s === "delivered"],
     ["With you", s === "delivered"],
@@ -324,7 +320,6 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
   const buyerLink = `${appUrl}${orderPath(order.orderNumber, orderLinkKey(order.id, ctx.linkSecret))}`;
   const adminLink = `${appUrl}/admin/orders/${order.id}`;
   const first = order.contactName.split(/\s+/)[0]!;
-  const cod = order.paymentMethod === "cod";
   const list = emailPieces(items, appUrl);
   const { steps, current } = journey(order);
   // Emails come from the team, not one person.
@@ -333,9 +328,7 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
 
   switch (template) {
     case "order_placed": {
-      const lead = cod
-        ? `We'll pack it by hand and let you know when it's on its way. You pay ${total} when it arrives.`
-        : `We've received your payment of ${total}. We'll pack it by hand and let you know when it's on its way.`;
+      const lead = `We've received your payment of ${total}. We'll pack it by hand and let you know when it's on its way.`;
       const note = noteToShare(items);
       const promise = cardPromise(items);
       const receipt = await getReceipt(db, order.id);
@@ -354,7 +347,7 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
         attachments,
         html: shell({
           appUrl,
-          preheader: cod ? `It's packed by hand next. You pay ${total} when it arrives.` : `Paid, thank you. ${list.length === 1 ? `${list[0]!.title} is` : "Your pieces are"} being packed by hand.`,
+          preheader: `Paid, thank you. ${list.length === 1 ? `${list[0]!.title} is` : "Your pieces are"} being packed by hand.`,
           title: `Thank you, ${first}.`,
           footerLinks: buyerFooter([{ label: "Your order", url: buyerLink }]),
           footerNote: orderFooterNote,
@@ -371,7 +364,7 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
             promise ? paragraph(promise, { align: "center", color: C.soft, size: 14 }) : "",
             columns([
               { title: "Going to", text: addressLines(order.addressSnapshot) },
-              { title: "Paying", text: cod ? `Cash on delivery\n${total} when it arrives` : `Paid online\n${total}` },
+              { title: "Paying", text: `Paid online\n${total}` },
             ]),
             receipt ? receiptPanel(receipt, receiptUrl) : "",
             button("See your order", buyerLink),
@@ -410,7 +403,7 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
     case "order_shipped": {
       const [s] = await db.select().from(shipments).where(eq(shipments.orderId, order.id)).orderBy(desc(shipments.createdAt)).limit(1);
       if (!s) return null;
-      const lead = `Your order ${order.orderNumber} has been packed by hand and handed to ${s.carrierName}. Tracking number ${s.trackingNumber}.${cod ? ` Please keep ${total} ready for the courier.` : ""}`;
+      const lead = `Your order ${order.orderNumber} has been packed by hand and handed to ${s.carrierName}. Tracking number ${s.trackingNumber}.`;
       const track = s.trackingUrl ? { label: "Track your parcel", url: s.trackingUrl } : { label: "See your order", url: buyerLink };
       const care = careToShare(items);
       const hero = list[0];
@@ -419,7 +412,7 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
         text: textOf("On its way", [lead, itemLines(items), track]),
         html: shell({
           appUrl,
-          preheader: `With ${s.carrierName} now. Tracking number ${s.trackingNumber}.${cod ? ` Keep ${total} ready.` : ""}`,
+          preheader: `With ${s.carrierName} now. Tracking number ${s.trackingNumber}.`,
           title: "On its way",
           footerLinks: buyerFooter([{ label: "Your order", url: buyerLink }]),
           footerNote: orderFooterNote,
@@ -446,7 +439,7 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
             kicker(`Order ${order.orderNumber}`),
             heading("On its way"),
             paragraph(
-              `Packed by hand and handed to ${s.carrierName}.${cod ? ` Please keep ${total} ready for the courier.` : ""}`,
+              `Packed by hand and handed to ${s.carrierName}.`,
               { align: "center" },
             ),
             progress(steps, current),
@@ -533,10 +526,10 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
     }
 
     case "owner_new_order": {
-      const how = cod ? `Cash on delivery, ${total}, collected by the courier. Ready to pack.` : `Paid online, ${total}. Ready to pack.`;
+      const how = `Paid online, ${total}. Ready to pack.`;
       const a = order.addressSnapshot;
       return {
-        subject: `New order ${order.orderNumber} · ${total} · ${cod ? "cash on delivery" : "paid online"}`,
+        subject: `New order ${order.orderNumber} · ${total} · paid online`,
         text: textOf(`New order from ${first}`, [
           `${order.contactName}, ${a.city} · ${formatMobile(order.contactPhone)}`,
           itemLines(items, order),
@@ -547,14 +540,14 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
         html: shell({
           appUrl,
           forOwner: true,
-          preheader: `${order.contactName}, ${a.city}. ${cod ? "Cash on delivery" : "Paid online"}: ready to pack.`,
+          preheader: `${order.contactName}, ${a.city}. Paid online: ready to pack.`,
           title: `New order from ${first}`,
           footerLinks: [{ label: "Today in the admin", url: `${appUrl}/admin` }],
           body: [
             kicker(`New order · ${order.orderNumber}`, "left"),
             heading(`${total} from ${first}`, "left"),
             paragraph(`${order.contactName}, ${a.city} · ${formatMobile(order.contactPhone)}`, { color: C.soft }),
-            panel(cod ? "Cash on delivery" : "Paid online", paragraph(how).replace("margin:0 0 16px", "margin:0"), "ivory"),
+            panel("Paid online", paragraph(how).replace("margin:0 0 16px", "margin:0"), "ivory"),
             order.customerNote ? quote("Their note", order.customerNote, null) : "",
             pieces(list),
             totals(totalRows(order)),

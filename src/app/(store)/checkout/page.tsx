@@ -56,7 +56,7 @@ async function Checkout() {
   }
 
   const lines = bag.lines.map((l) => ({ unitPriceMinor: l.priceMinor, quantity: l.quantity }));
-  const totals = { cod: priceOrder(lines, settings, "cod"), online: priceOrder(lines, settings, "online") };
+  const totals = priceOrder(lines, settings);
   const rzp = razorpay();
   const account = await accountFor((await getCustomer())?.id ?? null);
   // The order key below is new on every request, never prerendered.
@@ -77,8 +77,6 @@ async function Checkout() {
         bag={bag}
         totals={totals}
         online={rzp ? { testMode: rzp.testMode } : null}
-        codEnabled={settings.codEnabled}
-        overCodLimit={totals.cod.totalMinor > settings.codMaxOrderMinor}
         holdMinutes={settings.holdMinutes}
         account={account}
         // One key per visit to this page: a double tap or a resubmit places one order.

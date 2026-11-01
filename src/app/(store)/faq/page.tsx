@@ -7,7 +7,7 @@ import { ACROSS } from "@/lib/transition-types";
 
 export const metadata: Metadata = pageMeta({
   title: "Questions: sizes, delivery, payment and returns",
-  description: "Answers about Astitva's pieces, sizes, ordering, payment (UPI, cards, cash on delivery), delivery across India and returns.",
+  description: "Answers about Astitva's pieces, sizes, ordering, payment (UPI, cards, net banking), delivery across India and returns.",
   path: "/faq",
 });
 
@@ -38,11 +38,7 @@ const SECTIONS: { id: string; title: string; faqs: { q: string; a: ReactNode }[]
       },
       {
         q: "How can I pay?",
-        a: <>Checkout shows the ways to pay that are open: cash on delivery, and online by UPI, card or netbanking through Razorpay. You&apos;ll see the full total, delivery included, before you place the order.</>,
-      },
-      {
-        q: "Is cash on delivery available everywhere?",
-        a: <>For most pincodes and orders, yes. Checkout tells you if it isn&apos;t available for your pincode or for an order of that value.</>,
+        a: <>You pay online by UPI, card or netbanking through Razorpay. You&apos;ll see the full total, delivery included, before you place the order.</>,
       },
       {
         q: "Is paying online safe?",
@@ -139,7 +135,7 @@ const SECTIONS: { id: string; title: string; faqs: { q: string; a: ReactNode }[]
       },
       {
         q: "When will I get my refund?",
-        a: <>A refund to a card or UPI usually shows in your account within 5 to 7 working days of us sending it; we email you when we do. For cash orders, we refund by UPI or bank transfer.</>,
+        a: <>A refund to a card or UPI usually shows in your account within 5 to 7 working days of us sending it; we email you when we do.</>,
       },
       {
         q: "How do I reach you?",

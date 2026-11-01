@@ -51,7 +51,7 @@ export default async function TodayPage() {
 
       <section aria-label="Waiting on you" className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
         <Stat label="Needs you" value={o.needsYou} hint="Paid, but can't go ahead" href="/admin/orders?show=to_check" tone={o.needsYou ? "attention" : undefined} />
-        <Stat label="To pack" value={o.toPack} hint="Cash on delivery, or paid" href="/admin/orders?show=open" />
+        <Stat label="To pack" value={o.toPack} hint="Paid, ready to go" href="/admin/orders?show=open" />
         <Stat label="To send" value={o.toShip} hint="Packed, for the courier" href="/admin/orders?show=open" />
         <Stat label="On the way" value={o.onTheWay} hint="With the courier" href="/admin/orders?show=open" />
       </section>
@@ -59,12 +59,6 @@ export default async function TodayPage() {
       <section aria-label="Money" className="grid gap-3 sm:grid-cols-3 sm:gap-4">
         <Stat label="Last 7 days" value={formatINR(o.week.minor)} hint={`${o.week.orders} ${o.week.orders === 1 ? "order" : "orders"}`} />
         <Stat label="Last 30 days" value={formatINR(o.month.minor)} hint={`${o.month.orders} ${o.month.orders === 1 ? "order" : "orders"}, before refunds`} />
-        <Stat
-          label="Cash with couriers"
-          value={formatINR(o.cashDue.minor)}
-          hint={o.cashDue.orders ? `${o.cashDue.orders} delivered, not yet paid over` : "Nothing owed"}
-          href={o.cashDue.orders ? "/admin/orders?show=open" : undefined}
-        />
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
@@ -90,7 +84,7 @@ export default async function TodayPage() {
                       </span>
                     </span>
                     <span className="text-sm tabular-nums">{formatINR(r.totalMinor)}</span>
-                    <OrderStatusBadge status={r.orderStatus} method={r.paymentMethod} needsResolution={r.needsResolution} />
+                    <OrderStatusBadge status={r.orderStatus} needsResolution={r.needsResolution} />
                   </Link>
                 </li>
               ))}

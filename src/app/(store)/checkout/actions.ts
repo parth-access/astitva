@@ -16,7 +16,7 @@ import { getCheckoutSettings } from "@/modules/checkout/queries";
 import { checkCode } from "@/modules/discounts/service";
 import { CATALOG_TAG } from "@/modules/catalog/queries";
 import { parseCheckoutForm, type CheckoutInput } from "@/modules/checkout/input";
-import { CheckoutError, MAX_UNVERIFIED_COD, placeOrder } from "@/modules/checkout/service";
+import { CheckoutError, placeOrder } from "@/modules/checkout/service";
 import { isOrderLinkKey, orderLinkKey, orderPath } from "@/modules/orders/links";
 import { alertError } from "@/modules/email/outbox";
 import { allowRequest } from "@/modules/limits/request";
@@ -32,14 +32,14 @@ export type CheckoutState = {
   /** The bag changed under the buyer (sold out): send them back to it. */
   bagChanged?: boolean;
   values?: Record<string, string>;
-  /** Online: open Razorpay's window with this. */
+  /** Open Razorpay's window with this. */
   payment?: CheckoutSession & { orderPath: string };
   /** The code stopped being valid between applying it and placing the order. */
   discountRejected?: boolean;
 };
 
 export type DiscountPreview =
-  | { ok: true; code: string; label: string; totals: { cod: OrderTotals; online: OrderTotals }; overCodLimit: boolean }
+  | { ok: true; code: string; label: string; totals: OrderTotals }
   | { ok: false; message: string };
 
 /** "Apply" on the checkout page: is the code good for this bag, and what does the order come to with it? */
@@ -52,18 +52,14 @@ export async function previewDiscountAction(input: string, phone: string): Promi
   const check = await checkCode(db, input, { subtotalMinor: contents.subtotalMinor, phone: normaliseMobile(phone) });
   if (!check.ok) return check;
   const settings = await getCheckoutSettings();
-  const totals = { cod: priceOrder(lines, settings, "cod", check.rule), online: priceOrder(lines, settings, "online", check.rule) };
-  return { ok: true, code: check.code, label: check.label, totals, overCodLimit: totals.cod.totalMinor > settings.codMaxOrderMinor };
+  return { ok: true, code: check.code, label: check.label, totals: priceOrder(lines, settings, check.rule) };
 }
 
 const MESSAGES: Record<CheckoutError["code"], string> = {
   ordering_closed: "Ordering isn't open yet. Nothing has been charged or placed.",
-  cod_off: "Cash on delivery is paused for now. Please pay online, or message us.",
   empty: "Your bag is empty.",
   unavailable: "Someone has just bought one of your pieces. Your bag shows which; change it and place the order again.",
-  over_cod_limit: "This order is over our cash-on-delivery limit. Please pay online, or message us and we'll arrange it.",
   pincode: "We can't deliver to this pincode yet. Please message us.",
-  too_many_unverified: `This number already has ${MAX_UNVERIFIED_COD} cash-on-delivery orders we haven't packed yet. Pay online, or order again once they're on their way.`,
   discount: "That code can't be used on this order.",
 };
 
@@ -90,8 +86,8 @@ export async function placeOrderAction(_prev: CheckoutState, form: FormData): Pr
     return { errors: {}, values, message: "Too many orders in a short time. Please wait a little, or message us and we'll help." };
   }
 
-  const rzp = parsed.data.paymentMethod === "online" ? razorpay() : null;
-  if (parsed.data.paymentMethod === "online" && !rzp) return { errors: {}, message: "Online payment isn't available right now.", values };
+  const rzp = razorpay();
+  if (!rzp) return { errors: {}, message: "Online payment isn't available right now.", values };
 
   const bag = await currentBag();
   if (!bag) return { errors: {}, message: MESSAGES.empty, values };
@@ -115,10 +111,10 @@ export async function placeOrderAction(_prev: CheckoutState, form: FormData): Pr
   sendQueuedEmailsSoon();
 
   const path = linkFor(placed.orderId, placed.orderNumber);
-  if (placed.paymentMethod === "cod" || placed.orderStatus !== "pending_payment") redirect(path);
+  if (placed.orderStatus !== "pending_payment") redirect(path);
 
   try {
-    return { errors: {}, values, payment: { ...(await openPayment(db, rzp!, placed.orderId)), orderPath: path } };
+    return { errors: {}, values, payment: { ...(await openPayment(db, rzp, placed.orderId)), orderPath: path } };
   } catch (err) {
     if (err instanceof PaymentError) {
       return { errors: {}, values, message: "We couldn't reach the payment service, so nothing was charged and your pieces are back in your bag. Please try again in a minute, or choose cash on delivery." };

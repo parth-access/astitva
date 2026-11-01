@@ -16,14 +16,13 @@ import { createVariant, hasDb, makeDb, resetData } from "./helpers";
 
 const ctx = { appUrl: "https://astitva.test", linkSecret: "s".repeat(32) };
 
-function buyer(opts: { phone?: string; email?: string | null; code?: string; method?: "cod" | "online" } = {}): CheckoutInput {
+function buyer(opts: { phone?: string; email?: string | null; code?: string } = {}): CheckoutInput {
   const phone = opts.phone ?? "9812345678";
   return {
     idempotencyKey: randomUUID(),
     contact: { name: "Asha Rao", phone, email: opts.email === undefined ? "asha@example.com" : opts.email },
     address: { recipientName: "Asha Rao", phone, line1: "12 Model Town", city: "Sonipat", state: "Haryana", pincode: "131001", countryCode: "IN" },
     note: null,
-    paymentMethod: opts.method ?? "cod",
     discountCode: opts.code ?? null,
   };
 }
@@ -45,7 +44,7 @@ describe.skipIf(!hasDb)("find my order, back-in-stock alerts, discount codes", (
   beforeEach(async () => {
     await resetData(db);
     await db.delete(storeSettings);
-    await db.insert(storeSettings).values({ id: 1, orderingOpen: true, codEnabled: true, codMaxOrderMinor: 5_000_000 });
+    await db.insert(storeSettings).values({ id: 1, orderingOpen: true });
     const [u] = await db.insert(users).values({ name: "Krishna", email: "k@example.com" }).returning();
     admin = u!.id;
   });
@@ -169,9 +168,9 @@ describe.skipIf(!hasDb)("find my order, back-in-stock alerts, discount codes", (
       const v = await createVariant(db, { onHand: 2, priceMinor: 349_900 });
       const bag = await openBag(db, null);
       await addToBag(db, bag.id, v.id);
-      await placeOrder(db, bag.id, buyer({ code: "ONLINE", method: "online" }));
+      await placeOrder(db, bag.id, buyer({ code: "ONLINE" }));
       expect(await uses("ONLINE")).toBe(1);
-      await placeOrder(db, bag.id, buyer({ code: "ONLINE", method: "online" }));
+      await placeOrder(db, bag.id, buyer({ code: "ONLINE" }));
       expect(await uses("ONLINE")).toBe(1);
       const live = await db.execute(sql`select count(*)::int as n from orders where discount_code = 'ONLINE' and order_status <> 'cancelled'`);
       expect(live.rows[0]).toEqual({ n: 1 });

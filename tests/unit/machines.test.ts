@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { InvalidTransitionError } from "@/lib/state-machine";
 import {
-  codCollectionMachine,
   isCancellable,
   orderMachine,
   productMachine,
@@ -55,11 +54,6 @@ describe("other machines", () => {
     expect(reservationMachine.can("committed", "released")).toBe(true);
     expect(reservationMachine.can("expired", "committed")).toBe(false);
     expect(reservationMachine.can("released", "active")).toBe(false);
-  });
-
-  it("COD money must be collected before it is remitted", () => {
-    expect(codCollectionMachine.can("pending", "remitted")).toBe(false);
-    expect(codCollectionMachine.can("collected_by_courier", "remitted")).toBe(true);
   });
 
   it("refunds are final once resolved, except a failed one Razorpay later reports processed", () => {

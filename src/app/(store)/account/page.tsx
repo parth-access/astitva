@@ -73,7 +73,7 @@ async function Orders() {
                   <span className="block text-xs tracking-[0.18em] text-espresso-soft tabular-nums">{o.number}</span>
                   <span className="mt-0.5 block truncate font-display text-xl italic">{o.summary}</span>
                   <span className="mt-0.5 block text-sm text-espresso-soft">
-                    {day.format(o.placedAt)} · <span className="tabular-nums">{formatINR(o.totalMinor)}</span> · {o.paymentMethod === "cod" ? "Cash on delivery" : "Paid online"}
+                    {day.format(o.placedAt)} · <span className="tabular-nums">{formatINR(o.totalMinor)}</span> · Paid online
                   </span>
                 </span>
                 <span className="shrink-0 rounded-full bg-champagne px-3 py-1 text-xs">{STATUS[o.status]}</span>

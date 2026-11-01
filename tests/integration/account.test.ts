@@ -49,8 +49,7 @@ describe.skipIf(!hasDb)("customer accounts", () => {
     return u!;
   }
 
-  async function order(opts: { email?: string | null; userId?: string | null; method?: "cod" | "online"; paid?: boolean; items?: string[] }) {
-    const method = opts.method ?? "cod";
+  async function order(opts: { email?: string | null; userId?: string | null; paid?: boolean; items?: string[] }) {
     const [o] = await db
       .insert(orders)
       .values({
@@ -58,9 +57,9 @@ describe.skipIf(!hasDb)("customer accounts", () => {
         contactName: "Meera",
         contactEmail: opts.email ?? null,
         contactPhone: "9812345678",
-        orderStatus: method === "cod" ? "confirmed" : opts.paid ? "confirmed" : "pending_payment",
-        paymentStatus: opts.paid ? "paid" : "unpaid",
-        paymentMethod: method,
+        orderStatus: opts.paid === false ? "pending_payment" : "confirmed",
+        paymentMethod: "online",
+        paymentStatus: opts.paid === false ? "unpaid" : "paid",
         subtotalMinor: 200_000,
         totalMinor: 200_000,
         addressSnapshot: { recipientName: "Meera", phone: "9812345678", line1: "12 Lake Road", city: "Pune", state: "Maharashtra", pincode: "411001", countryCode: "IN" },
@@ -90,8 +89,8 @@ describe.skipIf(!hasDb)("customer accounts", () => {
     const tara = await customer("tara@example.com");
     await order({ userId: tara.id, email: "meera@example.com" });
     // An online checkout nobody paid for isn't an order.
-    await order({ email: "meera@example.com", method: "online", paid: false });
-    const paidOnline = await order({ email: "meera@example.com", method: "online", paid: true });
+    await order({ email: "meera@example.com", paid: false });
+    const paidOnline = await order({ email: "meera@example.com", paid: true });
 
     // Before her email is verified, only the order she placed signed in.
     const unverified = await listAccountOrders(db, { userId: meera.id, email: null }, SECRET);

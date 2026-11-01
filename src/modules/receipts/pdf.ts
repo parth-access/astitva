@@ -20,7 +20,6 @@ const ESPRESSO = hex("#34251e");
 const SOFT = hex("#66554a");
 const TAUPE = hex("#a39282");
 const CHAMPAGNE = hex("#efe3cc");
-const BURGUNDY = hex("#6a1d2b");
 const OLIVE = hex("#56573a");
 
 const font = (file: string) => readFile(join(process.cwd(), "src/fonts/og", file));
@@ -192,7 +191,6 @@ export async function renderReceiptPdf(v: ReceiptView, appUrl: string): Promise<
   const rows: [string, string, ReturnType<typeof rgb>?][] = [["Subtotal", formatINR(o.subtotalMinor)]];
   if (o.discountMinor) rows.push([`Discount${o.discountCode ? ` (${o.discountCode})` : ""}`, `−${formatINR(o.discountMinor)}`, OLIVE]);
   rows.push(["Delivery", o.shippingMinor ? formatINR(o.shippingMinor) : "Free"]);
-  if (o.codFeeMinor) rows.push(["Cash on delivery fee", formatINR(o.codFeeMinor)]);
   const labelX = R - 200;
   for (const [label, value, color] of rows) {
     w.text(label, labelX, y, { size: 9.5, color: color ?? SOFT });
@@ -201,8 +199,7 @@ export async function renderReceiptPdf(v: ReceiptView, appUrl: string): Promise<
   }
   w.rule(labelX, R, y + 6);
   y -= 12;
-  const due = v.status.kind === "due_on_delivery";
-  w.text(due ? "To pay on delivery" : "Total", labelX, y, { size: 10.5, font: "medium" });
+  w.text("Total", labelX, y, { size: 10.5, font: "medium" });
   w.text(formatINR(v.amountMinor), R - 8, y - 1, { size: 16, font: "display", align: "right" });
   y -= 20;
   for (const r of v.refunds) {
@@ -221,10 +218,10 @@ export async function renderReceiptPdf(v: ReceiptView, appUrl: string): Promise<
           ["Paid on", formatLongDate(s.paidAt)],
           ["Payment reference", s.reference],
         ]
-      : [["Payment", s.kind === "paid_on_delivery" ? "Cash on delivery, paid to the courier" : "Cash on delivery: cash or UPI to the courier"]];
+      : [];
   const boxH = 30 + facts.length * 15;
-  w.page.drawRectangle({ x: L, y: y - boxH + 14, width: R - L, height: boxH, borderColor: s.kind === "not_collected" ? BURGUNDY : TAUPE, borderWidth: 0.75 });
-  w.text(statusLine(v), L + 14, y - 4, { size: 10.5, font: "medium", color: s.kind === "not_collected" ? BURGUNDY : ESPRESSO });
+  w.page.drawRectangle({ x: L, y: y - boxH + 14, width: R - L, height: boxH, borderColor: TAUPE, borderWidth: 0.75 });
+  w.text(statusLine(v), L + 14, y - 4, { size: 10.5, font: "medium", color: ESPRESSO });
   facts.forEach(([label, value], i) => {
     const fy = y - 22 - i * 15;
     w.text(label, L + 14, fy, { size: 9, color: SOFT });

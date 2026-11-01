@@ -4,19 +4,17 @@
  *   confirmed ──pack──▶ packed ──ship──▶ shipped ──▶ delivered
  *                                            └──────▶ returned (RTO: courier brought it back)
  *
- * Cash on delivery adds its own trail (cod_collections): pending → collected
- * by the courier on delivery → remitted when the courier pays us. Only then is
- * a COD order "paid". Every step goes through the machines and writes an
+ * Every step goes through the machines and writes an
  * order event and an audit row, in one transaction with the order row locked.
  */
 import { desc, eq } from "drizzle-orm";
 import type { Db, Tx } from "@/db/create";
-import { auditLogs, codCollections, orderEvents, orders, shipments } from "@/db/schema";
+import { auditLogs, orderEvents, orders, shipments } from "@/db/schema";
 import { alertOwners, queueEmail } from "@/modules/email/outbox";
 import { formatINR } from "@/lib/money";
 import { InvalidTransitionError } from "@/lib/state-machine";
 import { restockCancelledOrder } from "@/modules/inventory/service";
-import { codCollectionMachine, orderMachine, orderPaymentMachine, type OrderStatus } from "./machines";
+import { orderMachine, type OrderStatus } from "./machines";
 import { OrderRuleError } from "./service";
 
 type Order = typeof orders.$inferSelect;
@@ -43,9 +41,9 @@ async function move(tx: Tx, order: Order, to: OrderStatus, actorId: string, even
 }
 
 /** Why an order can't be packed yet, or null. */
-export function packingBlocker(order: Pick<Order, "needsResolution" | "paymentMethod" | "paymentStatus">): string | null {
+export function packingBlocker(order: Pick<Order, "needsResolution" | "paymentStatus">): string | null {
   if (order.needsResolution) return "Sort out what's flagged first.";
-  if (order.paymentMethod === "online" && order.paymentStatus !== "paid") return "It isn't paid.";
+  if (order.paymentStatus !== "paid") return "It isn't paid.";
   return null;
 }
 
@@ -92,27 +90,18 @@ async function latestShipment(tx: Tx, orderId: string) {
   return s ?? null;
 }
 
-async function codTo(tx: Tx, orderId: string, to: "collected_by_courier" | "remitted" | "failed", set: Partial<typeof codCollections.$inferInsert>) {
-  const [cod] = await tx.select().from(codCollections).where(eq(codCollections.orderId, orderId)).for("update");
-  if (!cod) return null;
-  codCollectionMachine.assertTransition(cod.status, to);
-  await tx.update(codCollections).set({ status: to, ...set }).where(eq(codCollections.id, cod.id));
-  return cod;
-}
-
-/** The courier delivered it. For COD, the courier now holds the cash. */
+/** The courier delivered it. */
 export async function markDelivered(db: Db, orderId: string, actorId: string): Promise<void> {
   await withOrder(db, orderId, async (tx, order) => {
     await move(tx, order, "delivered", actorId, "order.delivered");
     const shipment = await latestShipment(tx, orderId);
     if (shipment) await tx.update(shipments).set({ status: "delivered", deliveredAt: new Date() }).where(eq(shipments.id, shipment.id));
-    if (order.paymentMethod === "cod") await codTo(tx, orderId, "collected_by_courier", { collectedAt: new Date(), confirmedBy: actorId });
   });
 }
 
 /**
  * The courier brought it back undelivered (RTO). The pieces go back on sale
- * (as a return movement), COD collection fails, and a paid order is flagged
+ * (as a return movement), and a paid order is flagged
  * for a refund.
  */
 export async function markReturnedToOrigin(db: Db, orderId: string, actorId: string, reason: string): Promise<void> {
@@ -123,7 +112,6 @@ export async function markReturnedToOrigin(db: Db, orderId: string, actorId: str
     const shipment = await latestShipment(tx, orderId);
     if (shipment) await tx.update(shipments).set({ status: "returned_to_origin" }).where(eq(shipments.id, shipment.id));
     await restockCancelledOrder(tx, orderId, actorId, "return_restock");
-    if (order.paymentMethod === "cod") await codTo(tx, orderId, "failed", { notes: `Returned: ${why}` });
     if (order.paymentStatus === "paid" || order.paymentStatus === "partially_refunded") {
       await tx
         .update(orders)
@@ -131,20 +119,6 @@ export async function markReturnedToOrigin(db: Db, orderId: string, actorId: str
         .where(eq(orders.id, orderId));
       await alertOwners(tx, "owner_needs_you", `${orderId}:${Date.now()}`, { orderId });
     }
-  });
-}
-
-/** The courier paid over the cash for a COD order. Now it counts as paid. */
-export async function markCodRemitted(db: Db, orderId: string, actorId: string, reference: string): Promise<void> {
-  const ref = reference.trim().slice(0, 120) || null;
-  await withOrder(db, orderId, async (tx, order) => {
-    if (order.paymentMethod !== "cod") throw new OrderRuleError("Only cash-on-delivery orders are remitted by the courier.");
-    const cod = await codTo(tx, orderId, "remitted", { remittedAt: new Date(), remittanceReference: ref });
-    if (!cod) throw new OrderRuleError("This order has no cash to collect.");
-    orderPaymentMachine.assertTransition(order.paymentStatus, "paid");
-    await tx.update(orders).set({ paymentStatus: "paid" }).where(eq(orders.id, orderId));
-    await tx.insert(orderEvents).values({ orderId, eventType: "cod.remitted", actorType: "admin", actorId, metadata: { reference: ref } });
-    await tx.insert(auditLogs).values({ actorId, action: "order.cod_remitted", resourceType: "order", resourceId: orderId, metadata: { reference: ref } });
   });
 }
 

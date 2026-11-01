@@ -6,12 +6,10 @@ import {
   deliveredAction,
   packOrderAction,
   refundAction,
-  remittedAction,
   resolveAction,
   returnedAction,
   shipOrderAction,
   unpackOrderAction,
-  verifyOrderAction,
   type OrderActionState,
 } from "@/app/admin/(panel)/orders/actions";
 import { paiseToRupeesText } from "@/lib/money";
@@ -87,10 +85,6 @@ function ActionForm({
   );
 }
 
-export function VerifyButton({ orderId }: { orderId: string }) {
-  return <ActionButton action={verifyOrderAction.bind(null, orderId)} label="Confirmed with the buyer" pending="One moment…" />;
-}
-
 export function CancelOrder({ orderId }: { orderId: string }) {
   return (
     <ActionForm
@@ -146,14 +140,6 @@ export function ReturnedForm({ orderId }: { orderId: string }) {
       note="The pieces go back on sale. A paid order is flagged for a refund."
     >
       <Field label="What happened?" name="reason" required maxLength={300} placeholder="Refused at the door" />
-    </ActionForm>
-  );
-}
-
-export function RemittedForm({ orderId, amountMinor }: { orderId: string; amountMinor: number }) {
-  return (
-    <ActionForm action={remittedAction.bind(null, orderId)} submit="The courier has paid us" pending="Saving…" note={`Mark it once ₹${paiseToRupeesText(amountMinor)} is in the bank.`}>
-      <Field label="Remittance reference (optional)" name="reference" maxLength={120} />
     </ActionForm>
   );
 }

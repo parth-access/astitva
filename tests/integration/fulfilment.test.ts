@@ -1,13 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { and, eq, sql } from "drizzle-orm";
-import { adminRoleAssignments, codCollections, emailOutbox, inventoryMovements, orderEvents, orders, refunds, shipments, storeSettings, users } from "../../src/db/schema";
+import { adminRoleAssignments, emailOutbox, inventoryMovements, orderEvents, orders, refunds, shipments, storeSettings, users } from "../../src/db/schema";
 import { renderEmail } from "../../src/modules/email/templates";
 import { addToBag, openBag } from "../../src/modules/bag/service";
 import type { CheckoutInput } from "../../src/modules/checkout/input";
 import { placeOrder } from "../../src/modules/checkout/service";
 import {
-  markCodRemitted,
   markDelivered,
   markReturnedToOrigin,
   packOrder,
@@ -19,17 +18,16 @@ import { cancelOrder, OrderRuleError } from "../../src/modules/orders/service";
 import { reconcileRefunds, refundableMinor, RefundError, refundOrder } from "../../src/modules/payments/refunds";
 import { confirmFromCheckout, handleWebhook, openPayment } from "../../src/modules/payments/service";
 import { fakeRazorpay } from "./fake-razorpay";
-import { createVariant, expireHolds, hasDb, makeDb, movementSum, onHand, resetData } from "./helpers";
+import { createVariant, expireHolds, hasDb, makeDb, movementSum, onHand, placePaid, resetData } from "./helpers";
 
 const ship = { carrierName: "Delhivery", trackingNumber: "AWB123456", trackingUrl: "https://www.delhivery.com/track/package/AWB123456" };
 
-function buyer(method: "cod" | "online", phone = "9812345678"): CheckoutInput {
+function buyer(phone = "9812345678"): CheckoutInput {
   return {
     idempotencyKey: randomUUID(),
     contact: { name: "Asha Rao", phone, email: "asha@example.com" },
     address: { recipientName: "Asha Rao", phone, line1: "12 Model Town", city: "Sonipat", state: "Haryana", pincode: "131001", countryCode: "IN" },
     note: null,
-    paymentMethod: method,
   };
 }
 
@@ -45,18 +43,11 @@ describe.skipIf(!hasDb)("after the order: packing, shipping, returns and refunds
 
   const orderRow = async (id: string) => (await db.select().from(orders).where(eq(orders.id, id)))[0]!;
 
-  async function codOrder(units = 1) {
-    const v = await createVariant(db, { onHand: units, priceMinor: 349_900 });
-    const bag = await openBag(db, null);
-    await addToBag(db, bag.id, v.id);
-    return { v, ...(await placeOrder(db, bag.id, buyer("cod"))) };
-  }
-
   async function paidOnlineOrder(fake: ReturnType<typeof fakeRazorpay>, units = 1) {
     const v = await createVariant(db, { onHand: units, priceMinor: 349_900 });
     const bag = await openBag(db, null);
     await addToBag(db, bag.id, v.id);
-    const placed = await placeOrder(db, bag.id, buyer("online"));
+    const placed = await placeOrder(db, bag.id, buyer());
     const session = await openPayment(db, fake.rzp, placed.orderId);
     const paid = fake.pay(session.razorpayOrderId);
     await confirmFromCheckout(db, fake.rzp, paid.reply);
@@ -66,7 +57,7 @@ describe.skipIf(!hasDb)("after the order: packing, shipping, returns and refunds
   beforeEach(async () => {
     await resetData(db);
     await db.delete(storeSettings);
-    await db.insert(storeSettings).values({ id: 1, orderingOpen: true, codEnabled: true });
+    await db.insert(storeSettings).values({ id: 1, orderingOpen: true });
     const [u] = await db.insert(users).values({ name: "Krishna", email: "k@example.com" }).returning();
     admin = u!.id;
   });
@@ -74,8 +65,8 @@ describe.skipIf(!hasDb)("after the order: packing, shipping, returns and refunds
     await db.$client.end();
   });
 
-  it("COD: pack straight away, ship, deliver, the courier pays over, then a refund in two parts", async () => {
-    const { orderId } = await codOrder();
+  it("pack, ship, deliver, then a refund recorded by hand in two parts", async () => {
+    const { orderId } = await paidOnlineOrder(fakeRazorpay());
 
     await packOrder(db, orderId, admin);
     await unpackOrder(db, orderId, admin);
@@ -89,12 +80,7 @@ describe.skipIf(!hasDb)("after the order: packing, shipping, returns and refunds
     expect(await rule(cancelOrder(db, orderId, admin, "changed mind"))).toMatch(/already left/);
 
     await markDelivered(db, orderId, admin);
-    expect(await orderRow(orderId)).toMatchObject({ orderStatus: "delivered", paymentStatus: "unpaid" });
-    expect((await db.select().from(codCollections).where(eq(codCollections.orderId, orderId)))[0]!.status).toBe("collected_by_courier");
-    expect(await refundableMinor(db, orderId)).toBe(0);
-
-    await markCodRemitted(db, orderId, admin, "Delhivery remittance 0423");
-    expect((await orderRow(orderId)).paymentStatus).toBe("paid");
+    expect(await orderRow(orderId)).toMatchObject({ orderStatus: "delivered", paymentStatus: "paid" });
     expect(await refundableMinor(db, orderId)).toBe(349_900);
 
     // Krishna sends money back by UPI herself, in two parts.
@@ -216,12 +202,12 @@ describe.skipIf(!hasDb)("after the order: packing, shipping, returns and refunds
     const v = await createVariant(db, { onHand: 1, priceMinor: 349_900 });
     const bag = await openBag(db, null);
     await addToBag(db, bag.id, v.id);
-    const placed = await placeOrder(db, bag.id, buyer("online"));
+    const placed = await placeOrder(db, bag.id, buyer());
     const session = await openPayment(db, fake.rzp, placed.orderId);
     await expireHolds(db, placed.orderId);
     const other = await openBag(db, null);
     await addToBag(db, other.id, v.id);
-    await placeOrder(db, other.id, buyer("cod", "9811111111"));
+    await placePaid(db, other.id, buyer("9811111111"));
     await confirmFromCheckout(db, fake.rzp, fake.pay(session.razorpayOrderId).reply);
     expect(await orderRow(placed.orderId)).toMatchObject({ needsResolution: true, orderStatus: "pending_payment" });
     expect(await rule(packOrder(db, placed.orderId, admin))).toMatch(/flagged/);

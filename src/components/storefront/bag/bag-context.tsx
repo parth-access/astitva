@@ -35,7 +35,7 @@ type BagApi = {
   seed: (bag: Bag) => void;
 };
 
-const NOOP_PRICING: PricingSettings = { shippingFlatMinor: 0, freeShippingThresholdMinor: null, codFeeMinor: 0 };
+const NOOP_PRICING: PricingSettings = { shippingFlatMinor: 0, freeShippingThresholdMinor: null };
 
 const Ctx = createContext<BagApi>({
   enabled: false,

@@ -18,7 +18,6 @@ export function SettingsForm({ initial, pieces }: { initial: Record<string, stri
   const [signature, setSignature] = useState(v("noteSignature"));
   const [preview, setPreview] = useState(false);
   const [open, setOpen] = useState(v("orderingOpen") === "on");
-  const [cod, setCod] = useState(v("codEnabled") === "on");
   const count = Object.keys(state.errors).length;
 
   return (
@@ -64,37 +63,6 @@ export function SettingsForm({ initial, pieces }: { initial: Record<string, stri
             defaultValue={v("freeShippingThresholdMinor")}
             error={e("freeShippingThresholdMinor")}
             hint="Orders at or above this ship free. Blank: never."
-          />
-        </div>
-        <label className="flex cursor-pointer items-start gap-4">
-          <span className="relative mt-0.5 inline-flex h-7 w-12 shrink-0 items-center">
-            <input type="checkbox" name="codEnabled" checked={cod} onChange={(ev) => setCod(ev.target.checked)} className="peer sr-only" />
-            <span className="absolute inset-0 rounded-full bg-sand transition-colors peer-checked:bg-olive peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-burgundy" />
-            <span className="absolute left-1 size-5 rounded-full bg-ivory shadow transition-transform duration-200 peer-checked:translate-x-5" />
-          </span>
-          <span>
-            <span className="font-medium">{cod ? "Cash on delivery is on" : "Cash on delivery is off"}</span>
-            <span className="mt-1 block text-sm text-espresso-soft">
-              Until online payment arrives, this is the only way to pay: with it off, nobody can check out.
-            </span>
-          </span>
-        </label>
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field
-            label="Cash-on-delivery fee"
-            name="codFeeMinor"
-            inputMode="decimal"
-            defaultValue={v("codFeeMinor")}
-            error={e("codFeeMinor")}
-            hint="Added to COD orders. 0 for none."
-          />
-          <Field
-            label="Cash-on-delivery limit"
-            name="codMaxOrderMinor"
-            inputMode="decimal"
-            defaultValue={v("codMaxOrderMinor")}
-            error={e("codMaxOrderMinor")}
-            hint="Larger orders are asked to message you."
           />
         </div>
       </Section>

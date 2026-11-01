@@ -9,7 +9,7 @@ import { formValues, type FieldErrors } from "./input";
 
 /**
  * The store settings Krishna edits: the home page lookbook's words, whether
- * ordering is open, what delivery and cash on delivery cost, and how
+ * ordering is open, what delivery costs, and how
  * customers reach her. Amounts are typed in rupees and stored as paise.
  */
 
@@ -47,9 +47,6 @@ const settingsSchema = z.object({
   ),
   shippingFlatMinor: rupees("Shipping"),
   freeShippingThresholdMinor: z.preprocess(blank, rupees("Free shipping from").nullable()),
-  codEnabled: z.boolean(),
-  codFeeMinor: rupees("Cash-on-delivery fee"),
-  codMaxOrderMinor: rupees("Cash-on-delivery limit").refine((v) => v > 0, "Above ₹0, or switch cash on delivery off."),
   // Places on the home page's Contents page; a blank place is filled at random. The same piece twice counts once.
   contentsPicks: z.array(z.uuid()).transform((ids) => [...new Set(ids)].slice(0, CONTENTS_PLACES)),
 });
@@ -59,7 +56,7 @@ export type SettingsInput = z.infer<typeof settingsSchema>;
 export function parseSettingsForm(form: FormData): { ok: true; data: SettingsInput } | { ok: false; errors: FieldErrors } {
   const values = formValues(form);
   const picks = Array.from({ length: CONTENTS_PLACES }, (_, i) => values[`contentsPick${i}`] ?? "").filter(Boolean);
-  const parsed = settingsSchema.safeParse({ ...values, orderingOpen: values.orderingOpen === "on", codEnabled: values.codEnabled === "on", contentsPicks: picks });
+  const parsed = settingsSchema.safeParse({ ...values, orderingOpen: values.orderingOpen === "on", contentsPicks: picks });
   if (parsed.success) return { ok: true, data: parsed.data };
   const errors: FieldErrors = {};
   // By field: a bad profile link reports on the links box, not its line.
@@ -85,9 +82,6 @@ export async function saveSettings(db: Db, input: SettingsInput, actorId: string
       resourceId: "1",
       metadata: {
         orderingOpen: input.orderingOpen,
-        codEnabled: input.codEnabled,
-        codFeeMinor: input.codFeeMinor,
-        codMaxOrderMinor: input.codMaxOrderMinor,
         shippingFlatMinor: input.shippingFlatMinor,
         freeShippingThresholdMinor: input.freeShippingThresholdMinor,
         contentsPicks: input.contentsPicks,

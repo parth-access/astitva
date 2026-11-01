@@ -2,21 +2,17 @@
  * Guest checkout. Everything that costs money is read from the database here,
  * under lock, never from the browser.
  *
- * Cash on delivery: the order is placed "confirmed" and its stock is taken
- * off the shelf at once (there is no payment to wait for).
- *
- * Online: the order waits "pending_payment" with its stock held for the
+ * Every order is paid online. It waits "pending_payment" with its stock held for the
  * store's reservation time (15 minutes by default); the bag is kept until the
  * payment arrives (src/modules/payments). Starting a new online checkout from
  * the same bag cancels the earlier unpaid one, so a buyer never holds stock
  * against themselves.
  */
-import { and, asc, count, eq, isNull } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { Db, Tx } from "@/db/create";
 import {
   cartItems,
   carts,
-  codCollections,
   orderEvents,
   orderItems,
   orders,
@@ -32,21 +28,14 @@ import { InsufficientStockError, VariantUnavailableError } from "@/modules/inven
 import { releaseOrderHolds, reserveForOrder } from "@/modules/inventory/service";
 import { alertOwners, queueEmail } from "@/modules/email/outbox";
 import { orderMachine } from "@/modules/orders/machines";
-import { issueReceipt } from "@/modules/receipts/service";
 import type { CheckoutInput } from "./input";
 import { priceOrder } from "./pricing";
 
-/** A phone number may have this many cash-on-delivery orders not yet packed: a brake on fake orders. */
-export const MAX_UNVERIFIED_COD = 2;
-
 export type CheckoutErrorCode =
   | "ordering_closed"
-  | "cod_off"
   | "empty"
   | "unavailable"
-  | "over_cod_limit"
   | "pincode"
-  | "too_many_unverified"
   | "discount";
 
 export class CheckoutError extends Error {
@@ -67,7 +56,6 @@ export type PlacedOrder = {
   orderNumber: string;
   /** The same checkout submitted again (double tap): the first order is returned. */
   repeated: boolean;
-  paymentMethod: "cod" | "online";
   orderStatus: (typeof orders.$inferSelect)["orderStatus"];
   totalMinor: number;
 };
@@ -102,7 +90,6 @@ async function supersedeUnpaid(tx: Tx, bagId: string) {
 
 /** `userId`: the signed-in customer placing it, if any, so the order shows in their account. */
 export async function placeOrder(db: Db, bagId: string, input: CheckoutInput, userId: string | null = null): Promise<PlacedOrder> {
-  const method = input.paymentMethod;
   return db.transaction(async (tx) => {
     // One checkout per bag at a time: a double tap waits here, then finds the order below.
     const [bag] = await tx.select({ id: carts.id }).from(carts).where(eq(carts.id, bagId)).for("update");
@@ -112,7 +99,6 @@ export async function placeOrder(db: Db, bagId: string, input: CheckoutInput, us
       .select({
         orderId: orders.id,
         orderNumber: orders.orderNumber,
-        paymentMethod: orders.paymentMethod,
         orderStatus: orders.orderStatus,
         totalMinor: orders.totalMinor,
       })
@@ -122,9 +108,8 @@ export async function placeOrder(db: Db, bagId: string, input: CheckoutInput, us
 
     const [settings] = await tx.select().from(storeSettings).where(eq(storeSettings.id, 1));
     if (!settings?.orderingOpen) throw new CheckoutError("ordering_closed");
-    if (method === "cod" && !settings.codEnabled) throw new CheckoutError("cod_off");
 
-    if (method === "online") await supersedeUnpaid(tx, bagId);
+    await supersedeUnpaid(tx, bagId);
 
     const lines = await tx
       .select({
@@ -168,34 +153,16 @@ export async function placeOrder(db: Db, bagId: string, input: CheckoutInput, us
       {
         shippingFlatMinor: Number(settings.shippingFlatMinor),
         freeShippingThresholdMinor: settings.freeShippingThresholdMinor === null ? null : Number(settings.freeShippingThresholdMinor),
-        codFeeMinor: Number(settings.codFeeMinor),
       },
-      method,
       discount?.rule ?? null,
     );
-    if (method === "cod" && totals.totalMinor > Number(settings.codMaxOrderMinor)) throw new CheckoutError("over_cod_limit");
 
     if (settings.restrictToListedPincodes) {
       const [pin] = await tx.select().from(pincodes).where(eq(pincodes.pincode, input.address.pincode));
-      if (!pin?.isServiceable || (method === "cod" && !pin.codAllowed)) throw new CheckoutError("pincode");
+      if (!pin?.isServiceable) throw new CheckoutError("pincode");
     }
 
-    if (method === "cod") {
-      const [waiting] = await tx
-        .select({ n: count() })
-        .from(orders)
-        .where(
-          and(
-            eq(orders.contactPhone, input.contact.phone),
-            eq(orders.paymentMethod, "cod"),
-            eq(orders.orderStatus, "confirmed"),
-            isNull(orders.codVerifiedAt),
-          ),
-        );
-      if ((waiting?.n ?? 0) >= MAX_UNVERIFIED_COD) throw new CheckoutError("too_many_unverified");
-    }
-
-    const orderStatus = method === "cod" ? "confirmed" : "pending_payment";
+    const orderStatus = "pending_payment";
     const [order] = await tx
       .insert(orders)
       .values({
@@ -204,7 +171,7 @@ export async function placeOrder(db: Db, bagId: string, input: CheckoutInput, us
         contactEmail: input.contact.email,
         contactPhone: input.contact.phone,
         orderStatus,
-        paymentMethod: method,
+        paymentMethod: "online",
         ...totals,
         addressSnapshot: input.address,
         customerNote: input.note,
@@ -216,14 +183,14 @@ export async function placeOrder(db: Db, bagId: string, input: CheckoutInput, us
       .returning({ id: orders.id, orderNumber: orders.orderNumber });
     const orderId = order!.id;
 
-    // Take (or hold) the stock before writing order lines. A line's reference
+    // Hold the stock before writing order lines. A line's reference
     // to its variant takes a shared lock on that row; taking it first and the
     // row lock second would deadlock two buyers of the same piece.
     try {
       await reserveForOrder(tx, {
         orderId,
         lines: lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
-        mode: method === "cod" ? "commit" : "hold",
+        mode: "hold",
         ttlMinutes: settings.reservationTtlMinutes,
       });
     } catch (err) {
@@ -253,20 +220,13 @@ export async function placeOrder(db: Db, bagId: string, input: CheckoutInput, us
 
     await tx.insert(orderEvents).values({
       orderId,
-      eventType: method === "cod" ? "order.placed" : "order.awaiting_payment",
+      eventType: "order.awaiting_payment",
       toStatus: orderStatus,
       actorType: "customer",
-      metadata: { paymentMethod: method, totalMinor: totals.totalMinor },
+      metadata: { paymentMethod: "online", totalMinor: totals.totalMinor },
     });
 
-    if (method === "cod") {
-      await tx.insert(codCollections).values({ orderId, amountDueMinor: totals.totalMinor });
-      await issueReceipt(tx, orderId);
-      await queueOrderPlacedEmails(tx, orderId, order!.orderNumber, input.contact.email);
-      await tx.delete(cartItems).where(eq(cartItems.cartId, bagId));
-    }
-
-    return { orderId, orderNumber: order!.orderNumber, repeated: false, paymentMethod: method, orderStatus, totalMinor: totals.totalMinor };
+    return { orderId, orderNumber: order!.orderNumber, repeated: false, orderStatus, totalMinor: totals.totalMinor };
   });
 }
 

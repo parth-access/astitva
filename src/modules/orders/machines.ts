@@ -1,6 +1,5 @@
 import { defineMachine } from "@/lib/state-machine";
 import type {
-  codCollectionStatus,
   orderPaymentStatus,
   orderStatus,
   paymentAttemptStatus,
@@ -15,7 +14,6 @@ export type OrderStatus = EnumValues<typeof orderStatus>;
 export type OrderPaymentStatus = EnumValues<typeof orderPaymentStatus>;
 export type PaymentAttemptStatus = EnumValues<typeof paymentAttemptStatus>;
 export type ReservationStatus = EnumValues<typeof reservationStatus>;
-export type CodCollectionStatus = EnumValues<typeof codCollectionStatus>;
 export type RefundStatus = EnumValues<typeof refundStatus>;
 export type ProductStatus = EnumValues<typeof productStatus>;
 
@@ -56,14 +54,6 @@ export const reservationMachine = defineMachine<ReservationStatus>("reservation"
   committed: ["released"], // released = cancelled before dispatch, stock goes back
   released: [],
   expired: [],
-});
-
-/** Delivered does not mean collected; collected does not mean remitted. */
-export const codCollectionMachine = defineMachine<CodCollectionStatus>("cod_collection", {
-  pending: ["collected_by_courier", "failed"],
-  collected_by_courier: ["remitted"],
-  remitted: [],
-  failed: [],
 });
 
 export const refundMachine = defineMachine<RefundStatus>("refund", {

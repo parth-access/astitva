@@ -5,39 +5,36 @@ import { discountOn, priceOrder, untilFreeShipping } from "../../src/modules/che
 import { isOrderLinkKey, orderLinkKey } from "../../src/modules/orders/links";
 
 describe("priceOrder", () => {
-  const settings = { shippingFlatMinor: 9_900, freeShippingThresholdMinor: 500_000, codFeeMinor: 5_000 };
+  const settings = { shippingFlatMinor: 9_900, freeShippingThresholdMinor: 500_000 };
 
-  it("adds shipping and the COD fee below the free-shipping line", () => {
-    expect(priceOrder([{ unitPriceMinor: 349_900, quantity: 1 }], settings, "cod")).toEqual({
+  it("adds shipping below the free-shipping line", () => {
+    expect(priceOrder([{ unitPriceMinor: 349_900, quantity: 1 }], settings)).toEqual({
       subtotalMinor: 349_900,
       discountMinor: 0,
       shippingMinor: 9_900,
-      codFeeMinor: 5_000,
-      totalMinor: 364_800,
+      totalMinor: 359_800,
     });
   });
 
-  it("ships free at the line, and charges no COD fee online", () => {
-    expect(priceOrder([{ unitPriceMinor: 250_000, quantity: 2 }], settings, "online")).toEqual({
+  it("ships free at the line", () => {
+    expect(priceOrder([{ unitPriceMinor: 250_000, quantity: 2 }], settings)).toEqual({
       subtotalMinor: 500_000,
       discountMinor: 0,
       shippingMinor: 0,
-      codFeeMinor: 0,
       totalMinor: 500_000,
     });
   });
 
   it("takes a discount off the pieces, and judges free shipping after it", () => {
     // 10% off ₹5,000 is ₹4,500: below the ₹5,000 line, so shipping is charged again.
-    expect(priceOrder([{ unitPriceMinor: 250_000, quantity: 2 }], settings, "cod", { kind: "percent", value: 1000 })).toEqual({
+    expect(priceOrder([{ unitPriceMinor: 250_000, quantity: 2 }], settings, { kind: "percent", value: 1000 })).toEqual({
       subtotalMinor: 500_000,
       discountMinor: 50_000,
       shippingMinor: 9_900,
-      codFeeMinor: 5_000,
-      totalMinor: 464_900,
+      totalMinor: 459_900,
     });
     // A fixed amount never takes more than the pieces cost.
-    expect(priceOrder([{ unitPriceMinor: 30_000, quantity: 1 }], settings, "online", { kind: "amount", value: 50_000 })).toMatchObject({
+    expect(priceOrder([{ unitPriceMinor: 30_000, quantity: 1 }], settings, { kind: "amount", value: 50_000 })).toMatchObject({
       discountMinor: 30_000,
       totalMinor: 9_900,
     });
@@ -47,8 +44,8 @@ describe("priceOrder", () => {
   });
 
   it("refuses fractions of paise and empty quantities", () => {
-    expect(() => priceOrder([{ unitPriceMinor: 10.5, quantity: 1 }], settings, "cod")).toThrow();
-    expect(() => priceOrder([{ unitPriceMinor: 100, quantity: 0 }], settings, "cod")).toThrow();
+    expect(() => priceOrder([{ unitPriceMinor: 10.5, quantity: 1 }], settings)).toThrow();
+    expect(() => priceOrder([{ unitPriceMinor: 100, quantity: 0 }], settings)).toThrow();
   });
 
   it("says how far from free shipping, only when there is a charge to avoid", () => {
@@ -79,7 +76,6 @@ describe("parseCheckoutForm", () => {
     city: "Sonipat",
     state: "Haryana",
     pincode: "131001",
-    payment: "cod",
     key: "6f1c0a52-7d0e-4c4f-9d8e-2b1f0a3c5d7e",
   };
   const form = (fields: Record<string, string>) => {

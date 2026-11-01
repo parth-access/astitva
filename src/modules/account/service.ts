@@ -28,7 +28,6 @@ export type AccountOrder = {
   number: string;
   placedAt: Date;
   status: (typeof orders.$inferSelect)["orderStatus"];
-  paymentMethod: "cod" | "online";
   totalMinor: number;
   /** "Neem", or "Neem and 2 more". */
   summary: string;
@@ -58,13 +57,12 @@ export async function listAccountOrders(db: DbOrTx, owner: Owner, secret: string
       number: orders.orderNumber,
       placedAt: orders.createdAt,
       status: orders.orderStatus,
-      paymentMethod: orders.paymentMethod,
       totalMinor: orders.totalMinor,
       receiptNumber: receipts.receiptNumber,
     })
     .from(orders)
     .leftJoin(receipts, eq(receipts.orderId, orders.id))
-    .where(and(ownedBy(owner), or(eq(orders.paymentMethod, "cod"), ne(orders.paymentStatus, "unpaid"))))
+    .where(and(ownedBy(owner), ne(orders.paymentStatus, "unpaid")))
     .orderBy(desc(orders.createdAt))
     .limit(100);
   if (rows.length === 0) return [];

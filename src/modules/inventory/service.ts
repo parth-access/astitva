@@ -151,8 +151,8 @@ export async function getAvailability(db: DbOrTx, variantIds: string[]): Promise
 
 /**
  * Hold stock for an order.
- * - Online payment: `mode: "hold"` creates active reservations that lapse after `ttlMinutes`.
- * - COD: `mode: "commit"` decrements on_hand immediately (there is no payment to wait for).
+ * - `mode: "hold"` (checkout) creates active reservations that lapse after `ttlMinutes`.
+ * - `mode: "commit"` decrements on_hand immediately.
  *
  * Throws InsufficientStockError (nothing is held) if any line cannot be met.
  */

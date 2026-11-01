@@ -57,7 +57,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/admin/ord
                     <span className="block text-xs font-normal text-espresso-soft">{when.format(o.createdAt)}</span>
                   </span>
                   <span className="justify-self-end sm:order-last">
-                    <OrderStatusBadge status={o.orderStatus} method={o.paymentMethod} needsResolution={o.needsResolution} />
+                    <OrderStatusBadge status={o.orderStatus} needsResolution={o.needsResolution} />
                   </span>
                   <span className="min-w-0 text-sm">
                     <span className="block truncate">{o.contactName}</span>
@@ -68,7 +68,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/admin/ord
                   <span className="text-right text-sm tabular-nums sm:text-right">
                     {formatINR(o.totalMinor)}
                     <span className="block text-xs text-espresso-soft">
-                      {o.units} {o.units === 1 ? "piece" : "pieces"} · {o.paymentMethod === "cod" ? "Cash" : "Online"}
+                      {o.units} {o.units === 1 ? "piece" : "pieces"}
                     </span>
                   </span>
                 </Link>

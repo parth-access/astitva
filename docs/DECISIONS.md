@@ -2,6 +2,14 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-11-02 — No cash on delivery
+
+**Decision:** Astitva takes online payment only. Cash on delivery is gone from the checkout, the shop's words, emails, receipts, policies and the admin. Every order waits `pending_payment` with its stock held until Razorpay confirms it.
+
+**Kept in the database:** `store_settings.cod_*`, `orders.cod_fee_minor`, `orders.cod_verified_at`, `pincodes.cod_allowed`, the `cod_collections` table and its enum stay, unused by the code. Three old test orders refer to them, and backups aren't running yet, so nothing is dropped. Old rows still open: their receipts state the total without a payment line. Earlier entries below are history and still describe it.
+
+`reserveForOrder`'s `mode: "commit"` stays: it isn't about cash, and the stock tests lean on it.
+
 ## 2026-11-01 — Checkout errors, error pages and the cancelled email
 
 - **Checkout submits through `onSubmit`,** not only the form's `action`. React resets a form after an `action` runs, which blanked the state and put the payment radio back to "Pay now" while the button still said "Place order", so one typo could turn a cash order into an online one. `action` stays for browsers without JavaScript.

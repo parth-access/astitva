@@ -70,8 +70,7 @@ export const POLICY_PAGES: PolicyPage[] = [
         heading: "What it costs",
         body: [
           "The shipping charge, if any, is shown in your bag and at checkout before you pay. When an order is over our free-shipping amount, shipping is free; checkout shows this too.",
-          "Cash on delivery may carry a small extra fee. It is shown at checkout when you choose it.",
-          "All prices include GST. There is nothing more to pay at the door, apart from the amount shown for a cash-on-delivery order.",
+          "All prices include GST. There is nothing more to pay at the door.",
         ],
       },
       {
@@ -124,18 +123,15 @@ export const POLICY_PAGES: PolicyPage[] = [
         heading: "Faulty or wrong pieces",
         body: [
           "If a piece arrives with a fault, or isn't what you ordered, tell us within 48 hours of delivery, with photos (an unboxing video helps a lot).",
-          "We'll replace it or refund it in full, including shipping and any cash-on-delivery fee, and arrange the return at our cost.",
+          "We'll replace it or refund it in full, including shipping, and arrange the return at our cost.",
         ],
       },
       {
         heading: "Refunds",
         body: [
           "Once the piece reaches us and passes its check, we send your refund within 5–7 working days.",
-          [
-            "Paid online: the refund goes back to the card, UPI or account you paid with. Your bank may take a few more days to show it.",
-            "Cash on delivery: we refund by UPI or bank transfer to an account you give us.",
-          ],
-          "Shipping charges and the cash-on-delivery fee aren't refunded on a return for change of mind; they are on a faulty or wrong piece.",
+          "The refund goes back to the card, UPI or account you paid with. Your bank may take a few more days to show it.",
+          "Shipping charges aren't refunded on a return for change of mind; they are on a faulty or wrong piece.",
         ],
       },
       {
@@ -161,8 +157,7 @@ export const POLICY_PAGES: PolicyPage[] = [
       {
         heading: "Refunds for cancelled orders",
         body: [
-          "If you paid online, the full amount, shipping included, goes back to the card, UPI or account you paid with, within 5–7 working days. Your bank may take a few more days to show it.",
-          "A cash-on-delivery order has nothing to refund: nothing was charged.",
+          "The full amount you paid, shipping included, goes back to the card, UPI or account you paid with, within 5–7 working days. Your bank may take a few more days to show it.",
         ],
       },
       {
@@ -180,17 +175,9 @@ export const POLICY_PAGES: PolicyPage[] = [
             "a piece turns out to be damaged or no longer available",
             "a price or detail on the site was clearly wrong",
             "the courier can't deliver to the address",
-            "we can't confirm a cash-on-delivery order with you, or a number has refused cash-on-delivery parcels before",
             "the order looks fraudulent",
           ],
           "If we do, we'll tell you why and refund anything you paid, in full.",
-        ],
-      },
-      {
-        heading: "Cash on delivery",
-        body: [
-          "Each mobile number can have a limited number of cash-on-delivery orders waiting to be packed at one time, and cash on delivery is available up to a set order value. Checkout tells you if either applies.",
-          "Refused cash-on-delivery parcels cost us two shipments. If parcels to a number are refused, we may offer only online payment for its future orders.",
         ],
       },
     ],
@@ -225,7 +212,7 @@ export const POLICY_PAGES: PolicyPage[] = [
             "to arrange returns, exchanges and refunds",
             "to answer your messages",
             "to keep your account, saved addresses and saved pieces",
-            "to prevent fraud and abuse, for example limits on sign-in attempts and on cash-on-delivery orders per number",
+            "to prevent fraud and abuse, for example limits on sign-in attempts and on orders per number",
             "to keep the records tax law requires (invoices and receipts)",
           ],
           "We don't send marketing messages unless you've asked for them, and we never sell or rent your details.",
@@ -313,7 +300,7 @@ export const POLICY_PAGES: PolicyPage[] = [
         heading: "Prices and payment",
         body: [
           "Prices are in Indian rupees and include GST. The price you pay is the one shown at checkout when you place your order.",
-          "You can pay online through Razorpay (UPI, cards, net banking and wallets) or, where offered, in cash on delivery.",
+          "You pay online through Razorpay (UPI, cards, net banking and wallets).",
           "If a price on the site is clearly wrong, we'll tell you before sending the order and you can choose to cancel.",
         ],
       },

@@ -6,7 +6,7 @@
  *   Razorpay is asked; its answer, or later the refund.processed webhook,
  *   marks it succeeded.
  * - Manual (UPI or bank transfer): Krishna has already sent the money herself,
- *   typically to a COD buyer; it is recorded as succeeded at once.
+ *   it is recorded as succeeded at once.
  *
  * Never more than was received: the amounts of refunds not failed are counted
  * against what was paid. The order's payment status follows: partially
@@ -40,7 +40,7 @@ async function balance(tx: Tx, order: Order) {
     .where(and(eq(payments.orderId, order.id), eq(payments.status, "captured")))
     .orderBy(asc(payments.capturedAt))
     .limit(1);
-  // A COD order counts as received once the courier has remitted the cash (payment status "paid").
+  // An order marked paid with no Razorpay capture behind it counts in full.
   const received = captured ? Number(captured.amount) : order.paymentStatus === "unpaid" ? 0 : Number(order.totalMinor);
   const [{ out }] = (await tx
     .select({ out: sql<number>`coalesce(sum(${refunds.amountMinor}), 0)::bigint` })

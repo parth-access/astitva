@@ -54,10 +54,9 @@ async function OrderView({ params, searchParams }: PageProps<"/orders/[number]">
   // Money arrived but the order can't go ahead as it is (stock gone, or cancelled first): Krishna sorts it out.
   const attention = order.needsResolution;
   const cancelled = order.orderStatus === "cancelled" && !attention;
-  const awaitingPayment = order.paymentMethod === "online" && order.orderStatus === "pending_payment" && !paid;
-  const cod = order.paymentMethod === "cod";
+  const awaitingPayment = order.orderStatus === "pending_payment" && !paid;
   const a = order.address;
-  const hello = `Hello${concierge.name ? ` ${concierge.name}` : ""}, I've just placed order ${order.orderNumber} (${formatINR(order.totalMinor)}, ${cod ? "cash on delivery" : paid ? "paid online" : "not paid yet"}).`;
+  const hello = `Hello${concierge.name ? ` ${concierge.name}` : ""}, I've just placed order ${order.orderNumber} (${formatINR(order.totalMinor)}, ${paid ? "paid online" : "not paid yet"}).`;
   const lead = "mx-auto mt-6 max-w-xl text-lg leading-relaxed";
   const status = order.orderStatus;
   const refundedMinor = order.refunds.reduce((n, r) => n + r.amountMinor, 0);
@@ -110,10 +109,8 @@ async function OrderView({ params, searchParams }: PageProps<"/orders/[number]">
           </>
         ) : status === "packed" ? (
           <p className={lead}>Packed by hand. It goes to the courier next.</p>
-        ) : !cod ? (
-          <p className={lead}>Paid, thank you. We&apos;re packing it by hand and will send it soon.</p>
         ) : (
-          <p className={lead}>We&apos;re packing it by hand and will send it soon. You pay when it arrives.</p>
+          <p className={lead}>Paid, thank you. We&apos;re packing it by hand and will send it soon.</p>
         )}
         {concierge.whatsapp && !cancelled && !awaitingPayment ? (
           <a href={whatsappLink(concierge.whatsapp, hello)} target="_blank" rel="noopener noreferrer" className={`btn-outline mt-8 ${parcel?.trackingUrl && status === "shipped" ? "ml-3" : ""}`}>
@@ -151,14 +148,8 @@ async function OrderView({ params, searchParams }: PageProps<"/orders/[number]">
             <dt>Shipping</dt>
             <dd>{order.shippingMinor ? formatINR(order.shippingMinor) : "Free"}</dd>
           </div>
-          {order.codFeeMinor ? (
-            <div className="flex justify-between">
-              <dt>Cash on delivery</dt>
-              <dd>{formatINR(order.codFeeMinor)}</dd>
-            </div>
-          ) : null}
           <div className="flex items-baseline justify-between border-t border-taupe/40 pt-3">
-            <dt>{cod && !paid && !cancelled && status !== "returned" ? "To pay on delivery" : paid ? "Paid" : "Total"}</dt>
+            <dt>{paid ? "Paid" : "Total"}</dt>
             <dd className="font-display text-2xl">{formatINR(order.totalMinor)}</dd>
           </div>
           {order.refunds.map((r) => (
@@ -239,8 +230,8 @@ async function OrderView({ params, searchParams }: PageProps<"/orders/[number]">
             transaction_id: order.orderNumber,
             currency: "INR",
             value: gaRupees(order.totalMinor),
-            shipping: gaRupees(order.shippingMinor + order.codFeeMinor),
-            payment_type: cod ? "cod" : "online",
+            shipping: gaRupees(order.shippingMinor),
+            payment_type: "online",
             ...(order.discountCode ? { coupon: order.discountCode } : {}),
             items: order.items.map((i) =>
               gaItem({ slug: i.slug ?? i.name, name: shortName(i.name), colour: i.variant.color, size: i.variant.size, priceMinor: i.unitPriceMinor, quantity: i.quantity }),

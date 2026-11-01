@@ -25,7 +25,6 @@ export type CheckoutAccount = {
   addresses: { id: string; recipientName: string; phone: string; lines: string; place: string; isDefault: boolean }[];
 };
 
-type Method = "online" | "cod";
 type Paying =
   | { phase: "idle" }
   | { phase: "window"; session: CheckoutSession & { orderPath: string } }
@@ -38,25 +37,21 @@ type Paying =
  * beside it. Totals shown here are for reading only; the server prices the
  * order again from the database when it's placed.
  *
- * Online: placing the order holds the pieces and opens Razorpay's window.
+ * Placing the order holds the pieces and opens Razorpay's window.
  * Paid → the order page. Closed → "Pay now" again while the hold lasts.
  */
 export function CheckoutForm({
   bag,
   totals,
   online,
-  codEnabled,
-  overCodLimit,
   holdMinutes,
   idempotencyKey,
   account = null,
 }: {
   bag: Bag;
-  totals: Record<Method, OrderTotals>;
+  totals: OrderTotals;
   /** Null when online payment isn't set up. */
   online: { testMode: boolean } | null;
-  codEnabled: boolean;
-  overCodLimit: boolean;
   holdMinutes: number;
   idempotencyKey: string;
   account?: CheckoutAccount | null;
@@ -66,13 +61,12 @@ export function CheckoutForm({
   const { open: openBag, bag: liveBag } = useBag();
   const form = useRef<HTMLFormElement>(null);
   // Called directly, not through the form's `action`, which React follows by resetting the
-  // form: a typo would blank the state and put the payment choice back to its first option.
+  // form: a typo would blank the state and the note.
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     startTransition(() => action(data));
   };
-  const [method, setMethod] = useState<Method>((state.values?.payment as Method | undefined) ?? (online ? "online" : "cod"));
   const [paying, setPaying] = useState<Paying>({ phase: "idle" });
   // What they typed last time, else what the account knows.
   const filled: Record<string, string> = { name: account?.name ?? "", phone: account?.phone ?? "", email: account?.email ?? "" };
@@ -82,9 +76,7 @@ export function CheckoutForm({
   const e = (k: string) => state.errors[k];
   const errorCount = Object.keys(state.errors).filter((k) => k !== "discountCode").length;
   const [discount, setDiscount] = useState<Applied | null>(null);
-  const shown = discount?.totals ?? totals;
-  const total = shown[method];
-  const overLimit = discount ? discount.overCodLimit : overCodLimit;
+  const total = discount?.totals ?? totals;
 
   // The code stopped being valid while they filled in the form: take it off and say why.
   useEffect(() => {
@@ -146,9 +138,8 @@ export function CheckoutForm({
     };
   }, [paying, router]);
 
-  const methodBlocked = method === "cod" ? !codEnabled || overLimit : !online;
   const busy = pending || paying.phase === "window" || paying.phase === "confirming";
-  const blocked = methodBlocked || bag.hasProblems;
+  const blocked = !online || bag.hasProblems;
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-8 md:pt-10">
@@ -270,35 +261,19 @@ export function CheckoutForm({
           </Step>
 
           <Step n={3} title="How you'll pay">
-            <div className="space-y-3" role="radiogroup" aria-label="How you'll pay">
-              {online ? (
-                <label className="choice-card">
-                  <input type="radio" name="payment" value="online" checked={method === "online"} onChange={() => setMethod("online")} className="mt-1 accent-burgundy" />
-                  <span>
-                    <span className="font-medium">Pay now</span>
-                    <span className="mt-1 block text-sm text-espresso-soft">UPI, cards or netbanking, through Razorpay. Your pieces are held while you pay.</span>
-                    {online.testMode ? (
-                      <span className="mt-2 inline-block bg-sand px-2 py-0.5 text-xs text-espresso">Test mode: no real money moves</span>
-                    ) : null}
-                  </span>
-                </label>
-              ) : null}
-              {codEnabled ? (
-                <label className="choice-card">
-                  <input type="radio" name="payment" value="cod" checked={method === "cod"} onChange={() => setMethod("cod")} className="mt-1 accent-burgundy" />
-                  <span>
-                    <span className="font-medium">
-                      Cash on delivery
-                      {shown.cod.codFeeMinor ? <span className="font-normal text-espresso-soft"> · {formatINR(shown.cod.codFeeMinor)} extra</span> : null}
-                    </span>
-                    <span className="mt-1 block text-sm text-espresso-soft">
-                      Pay in cash or by UPI to the courier when it arrives.
-                    </span>
-                  </span>
-                </label>
-              ) : null}
-              {!online && !codEnabled ? <p className="text-sm text-espresso-soft">Checkout is paused for a moment. Please message us to order.</p> : null}
-            </div>
+            {online ? (
+              <div className="choice-card">
+                <span>
+                  <span className="font-medium">Pay now</span>
+                  <span className="mt-1 block text-sm text-espresso-soft">UPI, cards or netbanking, through Razorpay. Your pieces are held while you pay.</span>
+                  {online.testMode ? (
+                    <span className="mt-2 inline-block bg-sand px-2 py-0.5 text-xs text-espresso">Test mode: no real money moves</span>
+                  ) : null}
+                </span>
+              </div>
+            ) : (
+              <p className="text-sm text-espresso-soft">Checkout is paused for a moment. Please message us to order.</p>
+            )}
             <input type="hidden" name="discountCode" value={discount?.code ?? ""} />
             <DiscountField
               applied={discount}
@@ -321,11 +296,6 @@ export function CheckoutForm({
                     </button>
                   </>
                 ) : null}
-              </p>
-            ) : null}
-            {method === "cod" && overLimit ? (
-              <p className="mb-5 text-sm text-espresso-soft">
-                This order is over our cash-on-delivery limit.{online ? " Please pay now instead." : " Please message us and we'll arrange it."}
               </p>
             ) : null}
             {bag.hasProblems ? (
@@ -358,17 +328,11 @@ export function CheckoutForm({
                   {paying.phase === "confirming"
                     ? "Confirming your payment…"
                     : busy
-                      ? method === "online"
-                        ? "Opening payment…"
-                        : "Placing your order…"
-                      : method === "online"
-                        ? `Pay ${formatINR(total.totalMinor)}`
-                        : `Place order · ${formatINR(total.totalMinor)}`}
+                      ? "Opening payment…"
+                      : `Pay ${formatINR(total.totalMinor)}`}
                 </button>
                 <p className="mt-3 text-center text-xs text-espresso-soft">
-                  {method === "online"
-                    ? "You'll pay in Razorpay's secure window. We never see your card or UPI details."
-                    : `Nothing is paid now. You pay ${formatINR(total.totalMinor)} when it arrives.`}
+                  You&apos;ll pay in Razorpay&apos;s secure window. We never see your card or UPI details.
                 </p>
                 {/* A new tab, so reading them doesn't lose what's typed here. */}
                 <p className="mt-3 text-center text-xs text-espresso-soft">
@@ -431,7 +395,7 @@ function PaymentPaused({
   );
 }
 
-type Applied = { code: string; label: string; totals: Record<Method, OrderTotals>; overCodLimit: boolean };
+type Applied = { code: string; label: string; totals: OrderTotals };
 
 /** "Have a code?" → a field and Apply; once applied, the code and Remove. */
 function DiscountField({
@@ -474,7 +438,7 @@ function DiscountField({
       const r = await previewDiscountAction(code, phone());
       if (r.ok) {
         setMessage(null);
-        onApply({ code: r.code, label: r.label, totals: r.totals, overCodLimit: r.overCodLimit });
+        onApply({ code: r.code, label: r.label, totals: r.totals });
       } else setMessage(r.message);
     });
   return (
@@ -580,12 +544,6 @@ function Summary({ bag, totals, code }: { bag: Bag; totals: OrderTotals; code: s
           <dt>Shipping</dt>
           <dd>{totals.shippingMinor ? formatINR(totals.shippingMinor) : "Free"}</dd>
         </div>
-        {totals.codFeeMinor ? (
-          <div className="flex justify-between">
-            <dt>Cash on delivery</dt>
-            <dd>{formatINR(totals.codFeeMinor)}</dd>
-          </div>
-        ) : null}
         <div className="flex items-baseline justify-between border-t border-taupe/40 pt-3">
           <dt>Total</dt>
           <dd className="font-display text-2xl">{formatINR(totals.totalMinor)}</dd>

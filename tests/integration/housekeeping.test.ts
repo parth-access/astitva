@@ -10,18 +10,16 @@ import { alertError, MAX_ATTEMPTS, processOutbox } from "../../src/modules/email
 import { closeAbandonedCheckouts, runJob } from "../../src/modules/jobs/service";
 import { allow, LIMITS } from "../../src/modules/limits/service";
 import { shipOrder } from "../../src/modules/orders/fulfilment";
-import { markCodVerified } from "../../src/modules/orders/service";
-import { createVariant, hasDb, makeDb, onHand, resetData } from "./helpers";
+import { createVariant, hasDb, makeDb, onHand, payOrder, resetData } from "./helpers";
 
 const ctx = { appUrl: "https://astitva.test", linkSecret: "s".repeat(32) };
 
-function buyer(method: "cod" | "online", email: string | null = "asha@example.com"): CheckoutInput {
+function buyer(email: string | null = "asha@example.com"): CheckoutInput {
   return {
     idempotencyKey: randomUUID(),
     contact: { name: "Asha Rao", phone: "9812345678", email },
     address: { recipientName: "Asha Rao", phone: "9812345678", line1: "12 Model Town", city: "Sonipat", state: "Haryana", pincode: "131001", countryCode: "IN" },
     note: "Please call first",
-    paymentMethod: method,
   };
 }
 
@@ -29,18 +27,23 @@ describe.skipIf(!hasDb)("emails, alerts, scheduled jobs and limits", () => {
   const db = makeDb(6);
   let owner: string;
 
-  async function order(method: "cod" | "online", email: string | null = "asha@example.com") {
+  async function unpaid(email: string | null = "asha@example.com") {
     const v = await createVariant(db, { onHand: 2, priceMinor: 349_900 });
     const bag = await openBag(db, null);
     await addToBag(db, bag.id, v.id);
-    return { v, ...(await placeOrder(db, bag.id, buyer(method, email))) };
+    return { v, ...(await placeOrder(db, bag.id, buyer(email))) };
+  }
+  async function order(email: string | null = "asha@example.com") {
+    const placed = await unpaid(email);
+    await payOrder(db, placed.orderId);
+    return placed;
   }
   const outbox = () => db.select().from(emailOutbox).orderBy(emailOutbox.toAddress);
 
   beforeEach(async () => {
     await resetData(db);
     await db.delete(storeSettings);
-    await db.insert(storeSettings).values({ id: 1, orderingOpen: true, codEnabled: true, conciergeName: "Krishna", supportEmail: "help@astitva.test" });
+    await db.insert(storeSettings).values({ id: 1, orderingOpen: true, conciergeName: "Krishna", supportEmail: "help@astitva.test" });
     const [k] = await db.insert(users).values({ name: "Krishna", email: "krishna@astitva.test" }).returning();
     const [p] = await db.insert(users).values({ name: "Parth", email: "parth@astitva.test" }).returning();
     const [staff] = await db.insert(users).values({ name: "Helper", email: "staff@astitva.test" }).returning();
@@ -55,8 +58,8 @@ describe.skipIf(!hasDb)("emails, alerts, scheduled jobs and limits", () => {
     await db.$client.end();
   });
 
-  it("a COD order queues the buyer's thank-you and an alert to each owner, and they render", async () => {
-    const placed = await order("cod");
+  it("a paid order queues the buyer's thank-you and an alert to each owner, and they render", async () => {
+    const placed = await order();
     const rows = await outbox();
     expect(rows.map((r) => [r.template, r.toAddress])).toEqual([
       ["order_placed", "asha@example.com"],
@@ -69,13 +72,13 @@ describe.skipIf(!hasDb)("emails, alerts, scheduled jobs and limits", () => {
     expect(result).toEqual({ sent: 3, retrying: 0, gaveUp: 0 });
     const toBuyer = sent.find((e) => e.to === "asha@example.com")!;
     expect(toBuyer.subject).toBe(`Your Astitva order ${placed.orderNumber}`);
-    expect(toBuyer.text).toMatch(/You pay .+ when it arrives/);
+    expect(toBuyer.text).toMatch(/We've received your payment of/);
     expect(toBuyer.text).not.toMatch(/WhatsApp/);
     expect(toBuyer.text).toMatch(new RegExp(`https://astitva.test/orders/${placed.orderNumber}\\?k=`));
     expect(toBuyer.html).toContain("Thank you, Asha.");
     expect(toBuyer.replyTo).toBe("help@astitva.test");
     const toOwner = sent.find((e) => e.to === "krishna@astitva.test")!;
-    expect(toOwner.subject).toBe(`New order ${placed.orderNumber} · ₹3,499 · cash on delivery`);
+    expect(toOwner.subject).toBe(`New order ${placed.orderNumber} · ₹3,499 · paid online`);
     expect(toOwner.text).toMatch(/Their note: Please call first/);
     expect(toOwner.text).toContain(`https://astitva.test/admin/orders/${placed.orderId}`);
     expect((await outbox()).every((r) => r.status === "sent")).toBe(true);
@@ -85,22 +88,21 @@ describe.skipIf(!hasDb)("emails, alerts, scheduled jobs and limits", () => {
   });
 
   it("an unpaid online checkout tells nobody; shipping tells the buyer, with the tracking", async () => {
-    await order("online");
+    await unpaid();
     expect(await outbox()).toHaveLength(0);
 
-    const cod = await order("cod", "meera@example.com");
-    await markCodVerified(db, cod.orderId, owner);
-    await shipOrder(db, cod.orderId, owner, { carrierName: "Delhivery", trackingNumber: "AWB1", trackingUrl: "https://track.example/AWB1" });
+    const paid = await order("meera@example.com");
+    await shipOrder(db, paid.orderId, owner, { carrierName: "Delhivery", trackingNumber: "AWB1", trackingUrl: "https://track.example/AWB1" });
     const sent: Email[] = [];
     await processOutbox(db, async (e) => void sent.push(e), ctx);
     const shipped = sent.find((e) => e.subject === "Your Astitva order is on its way")!;
     expect(shipped.to).toBe("meera@example.com");
-    expect(shipped.text).toMatch(/handed to Delhivery\. Tracking number AWB1\. Please keep ₹3,499 ready/);
+    expect(shipped.text).toMatch(/handed to Delhivery\. Tracking number AWB1\./);
     expect(shipped.text).toContain("Track your parcel: https://track.example/AWB1");
   });
 
   it("retries with growing gaps, gives up after six tries, and two workers never double-send", async () => {
-    await order("cod", null);
+    await order(null);
     const failing = async () => {
       throw new Error("Resend is down");
     };
@@ -120,7 +122,7 @@ describe.skipIf(!hasDb)("emails, alerts, scheduled jobs and limits", () => {
 
     // Two workers at once: each email goes out exactly once.
     await db.delete(emailOutbox);
-    await order("cod");
+    await order();
     const sent: string[] = [];
     const slowSend = async (e: Email) => {
       await new Promise((r) => setTimeout(r, 30));
@@ -131,7 +133,7 @@ describe.skipIf(!hasDb)("emails, alerts, scheduled jobs and limits", () => {
   });
 
   it("a retry carries the same idempotency key, so a send that timed out isn't sent twice", async () => {
-    await order("cod", null);
+    await order(null);
     const keys: string[] = [];
     const timesOut = async (e: Email) => {
       keys.push(e.idempotencyKey!);
@@ -157,8 +159,8 @@ describe.skipIf(!hasDb)("emails, alerts, scheduled jobs and limits", () => {
   });
 
   it("closes online checkouts nobody paid for and frees their stock", async () => {
-    const fresh = await order("online");
-    const stale = await order("online");
+    const fresh = await unpaid();
+    const stale = await unpaid();
     await db.execute(sql`update orders set created_at = now() - interval '3 hours' where id = ${stale.orderId}`);
     await db.execute(sql`update inventory_reservations set expires_at = now() + interval '1 hour' where order_id = ${stale.orderId}`);
     expect(await onHand(db, stale.v.id)).toBe(2);

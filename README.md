@@ -11,12 +11,12 @@ The specification is the revised PRD (Astitva PRD Review and Revised Specificati
 | M0 Foundation: repo, schema, tokens, CI-ready scripts | Done |
 | M1 Catalogue: the lookbook storefront, styles in colours × sizes, admin | Done: storefront lookbook, admin sign-in (password + required 2FA), style editor with colour × size stock grid, photos on Cloudinary, lookbook settings, colour and size choice across the storefront |
 | M2 Inventory engine: reservations, movements, state machines | Done, with concurrency tests |
-| M3 Cart, guest checkout, COD | Done: bag drawer, one-page guest checkout, cash on delivery (no confirmation call for now; at most 2 unpacked COD orders per mobile), buyer's private order page, admin Orders, delivery and COD settings |
+| M3 Cart, guest checkout | Done: bag drawer, one-page guest checkout, buyer's private order page, admin Orders, delivery settings |
 | M4 Razorpay | Done, in test mode: pay now at checkout (stock held 15 minutes), signature and server-side checks, webhook, late-payment flags. Test keys (`rzp_test_…`) show "Test mode" at checkout; live keys once Krishna's current account is verified |
-| M5 Fulfilment and refunds | Done: pack, ship with courier and tracking, delivered, came back (RTO, stock returned), COD cash remitted, refunds through Razorpay or recorded UPI/bank, flags for Krishna, tracking on the buyer's order page. Order and shipping emails sent through Resend |
+| M5 Fulfilment and refunds | Done: pack, ship with courier and tracking, delivered, came back (RTO, stock returned), refunds through Razorpay or recorded UPI/bank, flags for Krishna, tracking on the buyer's order page. Order and shipping emails sent through Resend |
 | M6 Hardening and launch | In progress: deployed on Netlify; owner alerts and buyer emails (sent through Resend, retried), scheduled jobs and encrypted nightly backups (GitHub Actions), abuse limits, error alerts, security headers, sitemap and robots, Google Analytics behind a consent banner, category pages and structured data (products, breadcrumbs, FAQ, brand profiles), a loading bar on every page change. Left: final policies, business details, live Razorpay keys |
 | Customer accounts | Done: sign up (name, mobile, email, password); sign in by password, a 6-digit email code or Google; verify the email with a code; forgot password; orders, saved addresses (offered at checkout, which also fills in the account's details), saved pieces (hearts), details, sign out everywhere, delete the account. The bag follows the account across devices. Guest checkout stays |
-| Receipts | Done: a numbered receipt for every order (online once paid; cash on delivery when placed, "to pay on delivery"), sent as a PDF with the confirmation email and shown on the order page, the account's orders and a printable receipt page |
+| Receipts | Done: a numbered receipt for every order once it's paid, sent as a PDF with the confirmation email and shown on the order page, the account's orders and a printable receipt page |
 
 ## Stack
 
@@ -102,7 +102,7 @@ src/
     jobs/             what the scheduled jobs do
     limits/           abuse limits per visitor, mobile or email
     media/            Cloudinary: signed uploads, reply checks, deletes
-    orders/           order, payment, COD, refund state machines; fulfilment
+    orders/           order, payment, refund state machines; fulfilment
     payments/         Razorpay: payments, webhook, refunds
     receipts/         numbered receipts, frozen at issue; the PDF
 assets/brand/         the logo source the mascot assets are generated from
@@ -132,7 +132,7 @@ Build settings are in `netlify.toml` (Node 22, `npm run build`) and `.npmrc`. In
 | `BETTER_AUTH_SECRET` ✱ | New `openssl rand -base64 32`; changing it signs everyone out and breaks old order links |
 | `CLOUDINARY_URL` ✱ | `cloudinary://…` |
 | `RESEND_API_KEY` ✱, `EMAIL_FROM` | Resend key; sender on the domain verified in Resend, e.g. `Astitva <hello@…>` |
-| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` ✱ | Test keys until the account is live; without them checkout offers COD only |
+| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` ✱ | Test keys until the account is live; without them checkout is paused |
 | `RAZORPAY_WEBHOOK_SECRET` ✱ | Same value as the webhook in Razorpay's dashboard |
 | `CRON_SECRET` ✱ | Same value as the GitHub secret `CRON_SECRET` |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` ✱ | Optional: "Sign in with Google" for customers. A Web client in Google Cloud with redirect URI `https://<live address>/api/account/callback/google`; without them customers sign in by password or email code |
