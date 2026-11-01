@@ -40,7 +40,7 @@ describe.skipIf(!hasDb)("emails, alerts, scheduled jobs and limits", () => {
   beforeEach(async () => {
     await resetData(db);
     await db.delete(storeSettings);
-    await db.insert(storeSettings).values({ id: 1, orderingOpen: true, codEnabled: true, conciergeName: "Krishna" });
+    await db.insert(storeSettings).values({ id: 1, orderingOpen: true, codEnabled: true, conciergeName: "Krishna", supportEmail: "help@astitva.test" });
     const [k] = await db.insert(users).values({ name: "Krishna", email: "krishna@astitva.test" }).returning();
     const [p] = await db.insert(users).values({ name: "Parth", email: "parth@astitva.test" }).returning();
     const [staff] = await db.insert(users).values({ name: "Helper", email: "staff@astitva.test" }).returning();
@@ -73,6 +73,7 @@ describe.skipIf(!hasDb)("emails, alerts, scheduled jobs and limits", () => {
     expect(toBuyer.text).not.toMatch(/WhatsApp/);
     expect(toBuyer.text).toMatch(new RegExp(`https://astitva.test/orders/${placed.orderNumber}\\?k=`));
     expect(toBuyer.html).toContain("Thank you, Asha.");
+    expect(toBuyer.replyTo).toBe("help@astitva.test");
     const toOwner = sent.find((e) => e.to === "krishna@astitva.test")!;
     expect(toOwner.subject).toBe(`New order ${placed.orderNumber} · ₹3,499 · cash on delivery`);
     expect(toOwner.text).toMatch(/Their note: Please call first/);

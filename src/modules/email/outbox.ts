@@ -14,6 +14,7 @@ import { and, asc, eq, lte, sql } from "drizzle-orm";
 import type { Db, DbOrTx } from "@/db/create";
 import { adminRoleAssignments, emailOutbox, users } from "@/db/schema";
 import type { SendEmail } from "@/lib/email";
+import { replyToAddress } from "./reply-to";
 import { renderEmail, type RenderContext, type TemplateName } from "./templates";
 
 export const MAX_ATTEMPTS = 6;
@@ -77,6 +78,8 @@ export async function processOutbox(db: Db, send: SendEmail, ctx: RenderContext,
     return due;
   });
 
+  const replyTo = claimed.length ? await replyToAddress(db) : undefined;
+
   for (const row of claimed) {
     try {
       const email = await renderEmail(db, row.template as TemplateName, row.payload, ctx);
@@ -86,7 +89,7 @@ export async function processOutbox(db: Db, send: SendEmail, ctx: RenderContext,
         continue;
       }
       // Keyed by the row: a retry after a send we never heard back from isn't a second email.
-      await send({ to: row.toAddress, ...email, idempotencyKey: `outbox-${row.id}` });
+      await send({ to: row.toAddress, replyTo, ...email, idempotencyKey: `outbox-${row.id}` });
       await db.update(emailOutbox).set({ status: "sent", sentAt: new Date(), attempts: row.attempts + 1, lastError: null }).where(eq(emailOutbox.id, row.id));
       result.sent++;
     } catch (err) {

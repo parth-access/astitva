@@ -14,6 +14,8 @@ export type Email = {
   text: string;
   html?: string;
   attachments?: Attachment[];
+  /** Where a reply goes. */
+  replyTo?: string;
   /**
    * The same key within 24 hours sends nothing new: Resend answers with the
    * first send. A retry after a timeout (sent, but we never heard) can't send twice.
@@ -46,6 +48,7 @@ export async function sendEmail(email: Email, env: Partial<Record<string, string
       to: [email.to],
       subject: email.subject,
       text: email.text,
+      ...(email.replyTo ? { reply_to: email.replyTo } : {}),
       ...(email.html ? { html: email.html } : {}),
       ...(email.attachments?.length
         ? { attachments: email.attachments.map((a) => ({ filename: a.filename, content: Buffer.from(a.content).toString("base64") })) }

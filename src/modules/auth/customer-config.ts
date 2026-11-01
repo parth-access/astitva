@@ -7,6 +7,7 @@ import { sql } from "drizzle-orm";
 import type { DbOrTx } from "@/db/create";
 import { authAccounts, authRateLimits, authSessions, authVerifications, users } from "@/db/schema";
 import { sendEmail } from "@/lib/email";
+import { replyToAddress } from "@/modules/email/reply-to";
 import { renderAccountCode, type CodePurpose } from "@/modules/email/templates";
 import { allow, LIMITS } from "@/modules/limits/service";
 import { IP_HEADERS } from "./constants";
@@ -161,7 +162,7 @@ export function createCustomerAuth(db: DbOrTx, opts: CustomerAuthOptions) {
         resendStrategy: "reuse",
         async sendVerificationOTP({ email, otp, type }) {
           const purpose: CodePurpose = type === "email-verification" || type === "forget-password" ? type : "sign-in";
-          await sendEmail({ to: email, ...renderAccountCode({ otp, purpose, minutes: CODE_MINUTES, appUrl: opts.baseURL.replace(/\/$/, "") }) });
+          await sendEmail({ to: email, replyTo: await replyToAddress(db), ...renderAccountCode({ otp, purpose, minutes: CODE_MINUTES, appUrl: opts.baseURL.replace(/\/$/, "") }) });
         },
       }),
       // Lets server actions set the session cookie. Must stay last.
