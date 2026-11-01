@@ -9,7 +9,7 @@ import { auditLogs, codCollections, orderEvents, orderItems, orders, payments, r
 import { formatINR } from "@/lib/money";
 import { InvalidTransitionError } from "@/lib/state-machine";
 import { releaseCodeUse } from "@/modules/discounts/service";
-import { alertOwners } from "@/modules/email/outbox";
+import { alertOwners, queueEmail } from "@/modules/email/outbox";
 import { restockCancelledOrder } from "@/modules/inventory/service";
 import { codCollectionMachine, orderMachine, type OrderStatus } from "./machines";
 
@@ -228,6 +228,8 @@ export async function cancelOrder(db: Db, orderId: string, actorId: string, reas
     const restocked = await restockCancelledOrder(tx, orderId, actorId);
     await releaseCodeUse(tx, orderId);
     if (refundDue) await alertOwners(tx, "owner_needs_you", `${orderId}:${Date.now()}`, { orderId });
+    const [buyer] = await tx.select({ email: orders.contactEmail }).from(orders).where(eq(orders.id, orderId));
+    if (buyer?.email) await queueEmail(tx, { dedupeKey: `order_cancelled:${orderId}`, template: "order_cancelled", to: buyer.email, payload: { orderId } });
 
     const [cod] = await tx.select({ id: codCollections.id, status: codCollections.status }).from(codCollections).where(eq(codCollections.orderId, orderId));
     if (cod && codCollectionMachine.can(cod.status, "failed")) {

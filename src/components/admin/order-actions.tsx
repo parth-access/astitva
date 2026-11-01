@@ -99,7 +99,7 @@ export function CancelOrder({ orderId }: { orderId: string }) {
       danger
       submit="Cancel the order"
       pending="Cancelling…"
-      note="The pieces go back on sale at once. This can't be undone."
+      note="The pieces go back on sale at once, and the buyer gets an email saying it's cancelled. Your reason isn't in it. This can't be undone."
     >
       <Field label="Why?" name="reason" required maxLength={300} placeholder="Buyer asked to cancel on WhatsApp" />
     </ActionForm>

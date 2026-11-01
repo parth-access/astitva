@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { and, eq, sql } from "drizzle-orm";
 import { adminRoleAssignments, codCollections, emailOutbox, inventoryMovements, orderEvents, orders, refunds, shipments, storeSettings, users } from "../../src/db/schema";
+import { renderEmail } from "../../src/modules/email/templates";
 import { addToBag, openBag } from "../../src/modules/bag/service";
 import type { CheckoutInput } from "../../src/modules/checkout/input";
 import { placeOrder } from "../../src/modules/checkout/service";
@@ -227,6 +228,17 @@ describe.skipIf(!hasDb)("after the order: packing, shipping, returns and refunds
 
     await refundOrder(db, fake.rzp, placed.orderId, admin, { amountMinor: 349_900, reason: "Sold out before payment", method: "razorpay" });
     expect(await orderRow(placed.orderId)).toMatchObject({ orderStatus: "cancelled", paymentStatus: "refunded", needsResolution: false });
+  });
+
+  it("tells the buyer an order was cancelled, once, and keeps the reason private", async () => {
+    const fake = fakeRazorpay();
+    const { orderId } = await paidOnlineOrder(fake);
+    await cancelOrder(db, orderId, admin, "Looks like a fake address");
+    const queued = await db.select().from(emailOutbox).where(eq(emailOutbox.template, "order_cancelled"));
+    expect(queued.length).toBe(1);
+    const email = await renderEmail(db, "order_cancelled", queued[0]!.payload as Record<string, unknown>, { appUrl: "https://astitva.test", linkSecret: "s".repeat(32) });
+    expect(email!.text).toMatch(/coming back to how you paid/);
+    expect(`${email!.text}${email!.html}`).not.toMatch(/fake address/);
   });
 
   it("resolving a flag needs a note", async () => {

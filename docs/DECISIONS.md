@@ -2,6 +2,13 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-11-01 — Checkout errors, error pages and the cancelled email
+
+- **Checkout submits through `onSubmit`,** not only the form's `action`. React resets a form after an `action` runs, which blanked the state and put the payment radio back to "Pay now" while the button still said "Place order", so one typo could turn a cash order into an online one. `action` stays for browsers without JavaScript.
+- **Error pages:** `app/(store)/error.tsx` keeps the header and footer, `app/error.tsx` catches the rest, `app/global-error.tsx` the root layout. The help email is written into `components/brand/error-view.tsx`, because a page may have broken for want of the database.
+- **Cancelled email:** an admin cancelling an order emails the buyer. The reason isn't in it: it's written as a private note ("looks like a fake address"). Orders cancelled automatically (unpaid checkouts) send nothing.
+- **Policy links** sit under "Place order", opening in a new tab so the form isn't lost.
+
 ## 2026-11-01 — Replies, country of origin and the first three addresses
 
 - **Replies:** the domain we send from has no mailbox, so order emails and customers' codes set Reply-To to the support email in the admin's settings.

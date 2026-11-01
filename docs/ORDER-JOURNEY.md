@@ -149,7 +149,7 @@ Legend: ✅ have it · ⚠️ partly · ❌ missing.
 1. Business details and grievance officer on the site; country of origin on pieces.
 2. Final policies (returns, exchanges, shipping, cancellation, privacy), linked next to "Place order".
 3. Invoice or receipt PDF per order (after asking the CA about GST).
-4. Buyer can cancel before packing, plus a "cancelled" email.
+4. ~~A "cancelled" email~~ done. Buyers cancel before packing by messaging us (the Cancellation policy says so).
 5. Razorpay: `payment.authorized` webhook, auto-capture on, a test for paying twice.
 
 **Soon after (Should):**

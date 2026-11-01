@@ -33,6 +33,7 @@ async function main() {
       ["Order placed", "order_placed", latest ? { orderId: latest.id } : null],
       ["Your order page", "order_link", latest ? { orderId: latest.id } : null],
       ["On its way", "order_shipped", shipped ? { orderId: shipped.id } : null],
+      ["Cancelled", "order_cancelled", latest ? { orderId: latest.id } : null],
       ["Refunded", "refund_succeeded", refund ? { orderId: refund.orderId, refundId: refund.id } : null],
       ["Back in stock", "back_in_stock", variant ? { variantId: variant.id } : null],
       ["Owner: new order", "owner_new_order", latest ? { orderId: latest.id } : null],

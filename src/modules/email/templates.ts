@@ -41,7 +41,7 @@ import {
   type EmailPiece,
 } from "./layout";
 
-export type TemplateName = "order_placed" | "order_link" | "order_shipped" | "refund_succeeded" | "back_in_stock" | "owner_new_order" | "owner_needs_you" | "owner_error";
+export type TemplateName = "order_placed" | "order_link" | "order_shipped" | "order_cancelled" | "refund_succeeded" | "back_in_stock" | "owner_new_order" | "owner_needs_you" | "owner_error";
 
 export type RenderContext = { appUrl: string; linkSecret: string };
 
@@ -458,6 +458,36 @@ export async function renderEmail(db: DbOrTx, template: TemplateName, payload: R
             button(track.label, track.url),
             pieces(list),
             care ? panel(`Caring for ${care.title}`, paragraph(care.care).replace("margin:0 0 16px", "margin:0")) : "",
+            rule(),
+            signoff(signer),
+          ].join(""),
+        }),
+      };
+    }
+
+    case "order_cancelled": {
+      // The reason stays out: it's the admin's private note on the order.
+      const money =
+        order.paymentStatus === "unpaid"
+          ? "Nothing was charged, and there's nothing to pay."
+          : "What you paid is coming back to how you paid. We'll email you when it's sent; banks usually take 5–7 working days to show it.";
+      const reply = "If this is a surprise, or you'd like to order again, just reply to this email.";
+      return {
+        subject: `Your Astitva order ${order.orderNumber} was cancelled`,
+        text: textOf(`Your order was cancelled, ${first}`, [`We've cancelled order ${order.orderNumber}.`, money, reply, { label: "See your order", url: buyerLink }]),
+        html: shell({
+          appUrl,
+          preheader: money,
+          title: "Your order was cancelled",
+          footerLinks: buyerFooter([{ label: "Your order", url: buyerLink }]),
+          footerNote: orderFooterNote,
+          body: [
+            kicker(`Order ${order.orderNumber}`),
+            heading(`Your order was cancelled, ${first}`),
+            paragraph(money, { align: "center" }),
+            pieces(list),
+            paragraph(reply, { align: "center", color: C.soft }),
+            button("See your order", buyerLink, { tone: "outline" }),
             rule(),
             signoff(signer),
           ].join(""),
