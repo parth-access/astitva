@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useRef, useState, useTransition, type ComponentProps, type ReactNode } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState, useTransition, type ComponentProps, type FormEvent, type ReactNode } from "react";
 import { confirmPaymentAction, placeOrderAction, previewDiscountAction, type CheckoutState } from "@/app/(store)/checkout/actions";
 import { Plate } from "@/components/brand/plate";
 import { formatMobile, INDIAN_STATES } from "@/lib/india";
@@ -65,6 +65,13 @@ export function CheckoutForm({
   const router = useRouter();
   const { open: openBag, bag: liveBag } = useBag();
   const form = useRef<HTMLFormElement>(null);
+  // Called directly, not through the form's `action`, which React follows by resetting the
+  // form: a typo would blank the state and put the payment choice back to its first option.
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    startTransition(() => action(data));
+  };
   const [method, setMethod] = useState<Method>((state.values?.payment as Method | undefined) ?? (online ? "online" : "cod"));
   const [paying, setPaying] = useState<Paying>({ phase: "idle" });
   // What they typed last time, else what the account knows.
@@ -162,7 +169,7 @@ export function CheckoutForm({
       </details>
 
       <div className="mt-8 grid gap-12 md:mt-12 md:grid-cols-12 md:gap-8">
-        <form ref={form} action={action} noValidate className="space-y-12 md:col-span-7">
+        <form ref={form} action={action} onSubmit={submit} noValidate className="space-y-12 md:col-span-7">
           <input type="hidden" name="key" value={idempotencyKey} />
 
           {errorCount ? (
@@ -362,6 +369,15 @@ export function CheckoutForm({
                   {method === "online"
                     ? "You'll pay in Razorpay's secure window. We never see your card or UPI details."
                     : `Nothing is paid now. You pay ${formatINR(total.totalMinor)} when it arrives.`}
+                </p>
+                {/* A new tab, so reading them doesn't lose what's typed here. */}
+                <p className="mt-3 text-center text-xs text-espresso-soft">
+                  By placing this order you agree to our{" "}
+                  <a href="/policies/terms" target="_blank" rel="noopener" className="link">Terms</a>, and our{" "}
+                  <a href="/policies/shipping" target="_blank" rel="noopener" className="link">Shipping</a>,{" "}
+                  <a href="/policies/returns" target="_blank" rel="noopener" className="link">Returns</a>,{" "}
+                  <a href="/policies/cancellation" target="_blank" rel="noopener" className="link">Cancellation</a> and{" "}
+                  <a href="/policies/privacy" target="_blank" rel="noopener" className="link">Privacy</a> policies.
                 </p>
               </>
             )}
