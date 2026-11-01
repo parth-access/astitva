@@ -141,6 +141,20 @@
       "when": 1793272953933,
       "tag": "0019_majestic_medusa",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793554859160,
+      "tag": "0020_old_zzzax",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793554859554,
+      "tag": "0021_real_addresses_for_first_pieces",
+      "breakpoints": true
     }
   ]
 }

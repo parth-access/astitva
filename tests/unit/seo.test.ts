@@ -11,6 +11,7 @@ const neem: LdPiece = {
   pieceNumber: 1,
   description: "A wrap dress in soft-washed linen.",
   material: "Linen blend",
+  countryOfOrigin: "India",
   category: "dresses",
   images: [
     { url: "https://res.cloudinary.com/x/image/upload/v1/sage.jpg", color: "Sage" },
@@ -25,6 +26,7 @@ const neem: LdPiece = {
 describe("structured data", () => {
   it("describes a style as a group of colour and size variants, each with its price and stock", () => {
     const ld = productLd(neem) as Record<string, any>;
+    expect(ld.countryOfOrigin).toEqual({ "@type": "Country", name: "India" });
     expect(ld["@type"]).toBe("ProductGroup");
     expect(ld.name).toBe("Nº 01 Neem, linen wrap dress");
     expect(ld.variesBy).toEqual(["https://schema.org/color", "https://schema.org/size"]);

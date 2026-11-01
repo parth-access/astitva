@@ -2,6 +2,14 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-11-01 — Replies, country of origin and the first three addresses
+
+- **Replies:** the domain we send from has no mailbox, so order emails and customers' codes set Reply-To to the support email in the admin's settings.
+- **Country of origin:** `products.country_of_origin`, "India" unless the editor says otherwise, shown on the piece page as "Made in …" and in structured data. The default is a claim: Krishna confirms it for each piece, because a curated piece may have been made elsewhere.
+- **Addresses:** the first three pieces were made by editing the sample products and kept their addresses. Migration 0021 moves them to `the-muse-knit`, `the-cloud-comfort` and `the-good-mood-club`, which breaks the rule that an address is fixed at first publish; it's safe because nothing has sold under them yet. `next.config.ts` redirects the old ones. The seed's samples now start `sample-` so they can't land on a redirect.
+
+**Deploying this:** run `npm run db:migrate` right before pushing; until the deploy finishes the old addresses answer "Not found".
+
 ## 2026-10-29 — Search: brand and long-tail clothing searches
 
 **Decision:** Aim at what code can win: anyone searching "astitva" finds the site, and each page matches what the shop actually sells ("women's dresses online", "linen wrap dress"). A top place for "buy clothes" depends on links, reviews and time, not on the code.

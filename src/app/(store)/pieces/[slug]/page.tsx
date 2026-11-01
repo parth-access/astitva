@@ -161,7 +161,7 @@ function hasMeasurements(variants: ProductDetail["variants"]) {
  * delivery costs and how they can pay. From the store settings, so it never
  * promises what checkout won't do.
  */
-async function DeliveryFacts() {
+async function DeliveryFacts({ countryOfOrigin }: { countryOfOrigin: string }) {
   const s = await getCheckoutSettings();
   const delivery =
     s.shippingFlatMinor === 0
@@ -174,6 +174,7 @@ async function DeliveryFacts() {
     delivery,
     s.codEnabled ? "Pay online, or cash on delivery" : "Pay online: UPI, cards or net banking",
     `Return or exchange within ${POLICY_TERMS.returnWindow}`,
+    `Made in ${countryOfOrigin}`,
   ];
   return (
     <ul className="mt-8 grid gap-2.5 border-y border-taupe/40 py-5 text-sm sm:grid-cols-2 sm:gap-x-6 md:grid-cols-1 lg:grid-cols-2">
@@ -270,6 +271,7 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
             pieceNumber: product.pieceNumber,
             description: describe(product).text,
             material: product.material,
+            countryOfOrigin: product.countryOfOrigin,
             category: category?.name ?? null,
             images: product.images.map((i) => ({ url: i.url, color: i.color })),
             variants: product.variants.map((v) => ({ sku: v.sku, size: v.size, color: v.color, priceMinor: v.priceMinor, condition: v.condition, available: v.onHand })),
@@ -362,7 +364,7 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
               <HeartButton productId={product.id} name={title} variant="inline" />
             </div>
 
-            <DeliveryFacts />
+            <DeliveryFacts countryOfOrigin={product.countryOfOrigin} />
 
             <div className="mt-10">
               <details className="fold" open>

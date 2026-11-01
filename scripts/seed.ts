@@ -171,7 +171,7 @@ async function main() {
         .insert(products)
         .values({
           name: s.name,
-          slug: slugify(`${s.pieceName} ${s.name}`),
+          slug: slugify(`sample ${s.pieceName} ${s.name}`),
           pieceNumber: n,
           pieceName: s.pieceName,
           story: s.story,

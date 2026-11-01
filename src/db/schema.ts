@@ -301,6 +301,8 @@ export const products = pgTable(
     material: varchar("material", { length: 160 }),
     fit: varchar("fit", { length: 160 }),
     careInstructions: text("care_instructions"),
+    /** Shown on the piece page, as the Consumer Protection (E-Commerce) Rules 2020 ask. */
+    countryOfOrigin: varchar("country_of_origin", { length: 60 }).notNull().default("India"),
     isFeatured: boolean("is_featured").notNull().default(false),
     /** The style's number in the house's sequence: "Nº 07". Unique, never reused. */
     pieceNumber: integer("piece_number").unique(),

@@ -253,6 +253,7 @@ export async function getProductBySlug(slug: string) {
       material: products.material,
       fit: products.fit,
       careInstructions: products.careInstructions,
+      countryOfOrigin: products.countryOfOrigin,
       sourceType: products.sourceType,
       pieceNumber: products.pieceNumber,
       pieceName: products.pieceName,

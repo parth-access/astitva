@@ -58,6 +58,14 @@ describe.skipIf(!hasDb)("piece editor writes", () => {
     await db.$client.end();
   });
 
+  it("keeps the country of origin it's given, and says India when left blank", async () => {
+    const madeAbroad = await savePiece(db, input({ pieceNumber: "1", countryOfOrigin: "Nepal", ...grid }), { actorId });
+    const blank = await savePiece(db, input({ pieceNumber: "2", pieceName: "Saanjh", countryOfOrigin: " ", ...grid }), { actorId });
+    const origin = async (id: string) => (await db.select().from(products).where(eq(products.id, id)))[0]!.countryOfOrigin;
+    expect(await origin(madeAbroad)).toBe("Nepal");
+    expect(await origin(blank)).toBe("India");
+  });
+
   it("makes a variant per filled cell, with its stock recorded as receipts", async () => {
     const id = await savePiece(db, input({ pieceNumber: "1", ...grid }), { actorId });
     expect(await active(id)).toEqual(["Ink/M:3", "Sage/L:1", "Sage/M:2"]);

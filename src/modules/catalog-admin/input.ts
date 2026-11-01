@@ -75,6 +75,7 @@ const pieceSchema = z
     description: longText,
     material: optionalText(160),
     fit: optionalText(160),
+    countryOfOrigin: optionalText(60),
     careInstructions: optionalText(1000),
     seoTitle: optionalText(160),
     seoDescription: optionalText(320),

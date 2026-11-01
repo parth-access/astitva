@@ -1,0 +1,1 @@
+ALTER TABLE "products" ADD COLUMN "country_of_origin" varchar(60) DEFAULT 'India' NOT NULL;

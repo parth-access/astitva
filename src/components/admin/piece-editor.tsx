@@ -146,6 +146,7 @@ export function PieceEditor({ productId, initial, options, locked }: Props) {
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="Material" name="material" defaultValue={v("material")} error={e("material")} placeholder="Linen blend" />
           <Field label="Fit" name="fit" defaultValue={v("fit")} error={e("fit")} placeholder="Relaxed, ties at the waist" />
+          <Field label="Country of origin" name="countryOfOrigin" defaultValue={v("countryOfOrigin") || "India"} error={e("countryOfOrigin")} placeholder="India" />
         </div>
         <Field
           label="Care"

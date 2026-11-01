@@ -56,6 +56,7 @@ function productValues(input: PieceInput) {
     description: input.description ?? "",
     material: input.material,
     fit: input.fit,
+    countryOfOrigin: input.countryOfOrigin ?? "India",
     careInstructions: input.careInstructions,
     seoTitle: input.seoTitle,
     seoDescription: input.seoDescription,

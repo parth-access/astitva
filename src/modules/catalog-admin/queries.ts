@@ -143,6 +143,7 @@ export function pieceFormValues(piece: PieceForEdit): Record<string, string> {
     description: p.description,
     material: p.material ?? "",
     fit: p.fit ?? "",
+    countryOfOrigin: p.countryOfOrigin,
     careInstructions: p.careInstructions ?? "",
     seoTitle: p.seoTitle ?? "",
     seoDescription: p.seoDescription ?? "",

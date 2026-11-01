@@ -21,7 +21,7 @@ Legend: ✅ have it · ⚠️ partly · ❌ missing.
 | "Back in stock" sign-up | ✅ |
 | **Delivery check by pincode on the piece page** ("Delivers to 131001 by Fri, COD available") | ❌ only checked at checkout. **Should** |
 | Return/exchange summary next to the buy button ("7-day exchange") | ❌ policies are drafts. **Must** (once Krishna decides) |
-| **Country of origin** for each product (Consumer Protection (E-Commerce) Rules 2020) | ❌ **Must**: one field, "Made in India" by default |
+| **Country of origin** for each product (Consumer Protection (E-Commerce) Rules 2020) | ✅ one field on each piece, shown with the delivery facts; "India" by default, so Krishna confirms it for each piece |
 | Seller's legal name, address, contact and a **grievance officer** (name, contact; acknowledge within 48 h, resolve within a month) | ❌ footer has `TODO(launch)`. **Must** |
 | No fake urgency ("only 2 left!" unless true), no pre-ticked add-ons (CCPA dark-pattern guidelines 2023) | ✅ nothing like that exists. Keep it that way |
 

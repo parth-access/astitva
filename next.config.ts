@@ -19,6 +19,10 @@ const nextConfig: NextConfig = {
     // Pieces used to live at /products/<slug>.
     return [
       { source: "/products/:slug", destination: "/pieces/:slug", permanent: true },
+      // The first three pieces kept the sample products' addresses until migration 0021.
+      { source: "/pieces/neem-linen-wrap-dress/:rest*", destination: "/pieces/the-muse-knit/:rest*", permanent: true },
+      { source: "/pieces/saanjh-knit-co-ord-set/:rest*", destination: "/pieces/the-cloud-comfort/:rest*", permanent: true },
+      { source: "/pieces/kahwa-tailored-blazer/:rest*", destination: "/pieces/the-good-mood-club/:rest*", permanent: true },
       // Chapters and the archive were retired: the home page is the lookbook.
       { source: "/chapters/:slug", destination: "/", permanent: true },
       { source: "/archive", destination: "/", permanent: true },

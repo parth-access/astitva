@@ -126,6 +126,7 @@ export type LdPiece = {
   pieceNumber: number | null;
   description: string;
   material: string | null;
+  countryOfOrigin: string;
   category: string | null;
   images: { url: string; color: string | null }[];
   variants: {
@@ -207,6 +208,7 @@ export function productLd(p: LdPiece): Ld {
   const base = {
     brand: { "@type": "Brand", name: BRAND },
     ...(p.material ? { material: p.material } : {}),
+    countryOfOrigin: { "@type": "Country", name: p.countryOfOrigin },
     ...(p.category ? { category: p.category } : {}),
   };
 
