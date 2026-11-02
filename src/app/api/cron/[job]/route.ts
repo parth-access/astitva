@@ -12,7 +12,7 @@ const JOBS: JobName[] = ["frequent", "daily"];
 
 /**
  * Scheduled housekeeping:
- *   POST /api/cron/frequent   every 15 minutes, from netlify/functions/cron-frequent.mts
+ *   POST /api/cron/frequent   from the database's own schedule, checked every 15 minutes (scripts/schedule-housekeeping.ts)
  *   POST /api/cron/daily      once a day, from .github/workflows/scheduled.yml (also keeps the free Supabase project awake)
  */
 export async function POST(request: Request, { params }: RouteContext<"/api/cron/[job]">) {

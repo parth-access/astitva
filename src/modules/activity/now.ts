@@ -4,8 +4,8 @@ import { auditLogs } from "@/db/schema";
 
 /** A bag touched this recently counts as someone shopping. */
 const ACTIVE_BAG_MINUTES = 60;
-/** The frequent job runs every 15 minutes: this long without one means it has stopped. */
-export const JOB_LATE_MINUTES = 45;
+/** The database calls the frequent job when there's work, and at least every 3 hours: this long without one means it has stopped. */
+export const JOB_LATE_MINUTES = 240;
 
 export type LiveNow = {
   checkouts: { id: string; orderNumber: string; contactName: string; totalMinor: number; holdEndsAt: Date | null }[];

@@ -1,9 +1,9 @@
 /**
- * Housekeeping, run on a schedule (/api/cron/<job>, called by GitHub Actions).
+ * Housekeeping, run on a schedule (/api/cron/<job>; see the route for who calls it).
  * Correctness never depends on these running: holds expire by time, emails
  * are also sent straight after each request. They keep things tidy and retry.
  *
- *   frequent (every 15 min): close abandoned online checkouts, mark lapsed holds, settle refunds Razorpay never
+ *   frequent (when needed):  close abandoned online checkouts, mark lapsed holds, settle refunds Razorpay never
  *                            answered, back-in-stock alerts, send/retry emails
  *   daily:                   clear expired bags, old limit counters and used alerts; the call itself keeps Supabase awake
  */

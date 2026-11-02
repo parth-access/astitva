@@ -70,7 +70,7 @@ Short records of choices that differ from, or add to, the revised PRD. Newest fi
 - **A second payment for a paid order** (two windows, both paid) is recorded as a `payment.extra` event and flagged for a refund from Razorpay's dashboard, once, instead of failing and leaving Razorpay retrying the webhook.
 - **Renaming a colour moves its photos with it.**
 - **Queued emails carry an idempotency key** (`outbox-<row id>`): Resend sends nothing new for a repeat within 24 hours, so a retry after a timeout isn't a second email.
-- **The 15-minute job runs from Netlify** (`netlify/functions/cron-frequent.mts`, a scheduled function on the production deploy): GitHub ran it 1–6 hours apart. GitHub keeps the daily job and manual runs.
+- **The 15-minute job runs from Netlify** (`netlify/functions/cron-frequent.mts`, a scheduled function on the production deploy): GitHub ran it 1–6 hours apart. GitHub keeps the daily job and manual runs. Replaced on 2026-11-02, see "The frequent job is called from the database".
 
 ## 2026-10-23 — You might also like
 
@@ -376,3 +376,12 @@ Short records of choices that differ from, or add to, the revised PRD. Newest fi
 - Each launch piece is one of one: one product, one variant, `on_hand = 1`. The model supports multiple sizes and quantities if not.
 - COD is off by default (`store_settings.cod_enabled = false`) until the COD policy is decided.
 - Policy pages are drafts and say so on the page.
+
+## 2026-11-02 — The frequent job is called from the database
+
+Netlify's free plan bills functions by the second, and the job ran 96 times a day even with nothing to do, waking the site each time. Credits were running out before the month did.
+
+- **`pg_cron` in Supabase asks first, Netlify runs only when needed.** `private.housekeeping_has_work()` (migration 0023) has one line for each step of the job. If none is true the site isn't called. The job itself stays in the app, so it keeps its email, Razorpay and stock code and can refresh the catalogue cache.
+- **At least every 3 hours regardless,** so anything the check misses still gets done and the admin can see the schedule is alive (`JOB_LATE_MINUTES` warns after 4).
+- **The schedule isn't a migration:** `pg_cron`, `pg_net` and Vault exist on Supabase, not on local or CI Postgres. `npm run jobs:schedule` sets it up, and only the check is covered by tests. The secret is kept in Vault.
+- **A new step in the job needs a new line in the check.** Without one, that step can wait up to 3 hours.

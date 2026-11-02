@@ -1,7 +1,7 @@
 name: Scheduled jobs
 
 # Calls the site's housekeeping (src/app/api/cron/[job]/route.ts): the daily job, and either job by hand.
-# The 15-minute job runs from Netlify (netlify/functions/cron-frequent.mts): GitHub ran it hours apart.
+# The frequent job runs from the database (scripts/schedule-housekeeping.ts): GitHub ran it hours apart.
 # Needs: SITE_URL (e.g. https://astitva.store; a repository variable or a secret) and secret CRON_SECRET
 # (the same value as the site's CRON_SECRET). Until both exist, runs skip quietly.
 #
