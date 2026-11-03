@@ -39,6 +39,12 @@ export function paiseToRupeesText(paise: Paise): string {
   return rest === 0 ? String(rupees) : `${rupees}.${String(rest).padStart(2, "0")}`;
 }
 
+/** Paise as a two-decimal string, for search and product data: 349900 → "3499.00". */
+export function paiseToDecimal(paise: Paise): string {
+  assertNonNegativePaise(paise);
+  return `${Math.floor(paise / 100)}.${String(paise % 100).padStart(2, "0")}`;
+}
+
 const wholeRupees = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",

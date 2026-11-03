@@ -9,6 +9,7 @@
  */
 import type { Metadata } from "next";
 import { formatPieceNumber } from "./format";
+import { paiseToDecimal as price } from "./money";
 
 export const BRAND = "Astitva";
 export const TAGLINE = "Your true form";
@@ -57,11 +58,6 @@ export function pageMeta(opts: {
 
 /** What every page's share card says about the site. */
 export const OPEN_GRAPH = { siteName: BRAND, type: "website", locale: "en_IN" } as const;
-
-/** Paise to the decimal string schema.org expects ("3499.00"). */
-function price(paise: number): string {
-  return `${Math.floor(paise / 100)}.${String(paise % 100).padStart(2, "0")}`;
-}
 
 type Ld = Record<string, unknown>;
 

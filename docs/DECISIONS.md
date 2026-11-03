@@ -2,6 +2,16 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-11-04 — A product feed for Google Merchant Center
+
+**Decision:** Merchant Center reads `/feeds/google-products.xml` on a schedule, instead of products typed in by hand. Hand-added listings had one entry per piece, lacked what Google requires for clothing (description, colour, size, gender, age group), and would drift from the site's prices and stock.
+
+- **One item per colour and size**, grouped by piece (`item_group_id`), with its own SKU, price, sale price, live stock, photos and delivery charge. Delivery follows the store settings, so a new charge reaches Google without editing Merchant Center's shipping cost. Delivery times stay in Merchant Center.
+- **Gender and age group are fixed** as female and adult: Astitva is womenswear. The category is Google's general "Clothing"; `product_type` carries the shop's own category.
+- **Left out:** a piece with no photo (the share card has text on it, which Google rejects). While ordering is closed the feed is empty, as with product data on the pages: nothing can be bought.
+- **Titles:** a piece name in capitals becomes title case in the feed only, because Google flags titles in capitals.
+- **Public:** it holds only what the pages show, read through the storefront's queries. Built per request, because stock is live.
+
 ## 2026-11-02 — Pages served from the CDN
 
 **Why:** every shop page ran server code on every visit (partial prerendering answers `no-store`), about 400–490ms before the first byte even on an open connection, against about 100ms for a file Netlify already holds. Netlify's functions run in Ohio by default and the database is in Tokyo.
