@@ -5,6 +5,7 @@ import { formatPieceNumber } from "@/lib/format";
 import { inkOn, normaliseTone } from "@/lib/tone";
 import { garmentKind, SketchPlate } from "@/components/lookbook/sketch-plate";
 import { FadingPhoto } from "./fading-photo";
+import { firstPaint } from "@/lib/first-paint";
 
 type Props = {
   /** Shared-element name so the plate morphs into the piece page hero. Must be unique on the page. */
@@ -85,7 +86,7 @@ export function Plate({
           // A new photo (another colour) fades in over the last instead of leaving the arch bare while it loads.
           <FadingPhoto src={src} alt={alt} sizes={sizes} priority={priority} className={imageClass} />
         ) : (
-          <Image src={src} alt={alt} fill sizes={sizes} priority={priority} className={imageClass} />
+          <Image src={src} alt={alt} fill sizes={sizes} {...firstPaint(priority)} className={imageClass} />
         )
       ) : (
         <div className={`plate-art absolute inset-0 ${ink === "light" ? "text-ivory" : "text-espresso"}`} role="img" aria-label={alt}>

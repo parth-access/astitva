@@ -4,6 +4,7 @@ import Image, { getImageProps } from "next/image";
 import { useState } from "react";
 import { preload } from "react-dom";
 import { cloudinaryUrl, isCloudinaryUrl } from "@/lib/cloudinary-url";
+import { firstPaint } from "@/lib/first-paint";
 
 const loader = ({ src, width, quality }: { src: string; width: number; quality?: number }) => cloudinaryUrl(src, { width, quality });
 
@@ -45,7 +46,7 @@ export function FadingPhoto({ src, alt, sizes, priority, className = "" }: { src
             loader={loader}
             fill
             sizes={sizes}
-            priority={priority && i === 0}
+            {...firstPaint(priority && i === 0)}
             className={`${className} transition-opacity duration-500 ease-out ${l.shown ? "opacity-100" : "opacity-0"}`}
             onLoad={() => show(l.src)}
             // A photo that fails to load still replaces the old one: better the arch's colour than the wrong colour's photo.

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState, ViewTransition, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import { cloudinaryUrl } from "@/lib/cloudinary-url";
 import type { RailGarment } from "@/lib/rail";
+import { firstPaint } from "@/lib/first-paint";
 
 const loader = ({ src, width, quality }: { src: string; width: number; quality?: number }) => cloudinaryUrl(src, { width, quality });
 const RAIL_SIZES = "(min-width: 768px) 34vw, 52vw";
@@ -139,7 +140,7 @@ export function ClothingRail({
               width={g.front.width ?? 900}
               height={g.front.height ?? 1200}
               sizes={RAIL_SIZES}
-              priority={front}
+              {...firstPaint(front)}
               draggable={false}
               className="rail-garment"
               // The front garment is what flies into the bag.
@@ -267,7 +268,6 @@ export function HangerTurn({ slug, label, garment }: { slug: string; label: stri
       width={photo.width ?? 900}
       height={photo.height ?? 1200}
       sizes={CLOSE_SIZES}
-      priority={i === 0}
       draggable={false}
       className={`hanger-face ${extra}`}
       data-bag-source={i === 0 ? "" : undefined}

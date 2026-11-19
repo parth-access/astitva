@@ -8,6 +8,7 @@ import { pieceTransitionName, Plate } from "@/components/brand/plate";
 import type { PieceCard, PieceColour } from "@/modules/catalog/queries";
 import { HeartButton } from "./saved/saved-context";
 import { SwatchPicker } from "./swatch-picker";
+import { firstPaint } from "@/lib/first-paint";
 
 const CARD_SIZES = "(min-width: 1024px) 30vw, 46vw";
 
@@ -49,7 +50,7 @@ export function ShopCard({ piece, priority, caption }: { piece: PieceCard; prior
               category={piece.categorySlug}
               muted={piece.onHand <= 0}
               sizes={CARD_SIZES}
-              priority={priority}
+              {...firstPaint(priority)}
             />
           </div>
         </div>
