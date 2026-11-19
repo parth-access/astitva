@@ -8,7 +8,7 @@
  * left out: Google needs a real photo, and the share card has text on it.
  */
 import { paiseToDecimal, type Paise } from "@/lib/money";
-import { BRAND, TAGLINE, absolute } from "@/lib/seo";
+import { BRAND, TAGLINE, absolute, productGroupId } from "@/lib/seo";
 
 /** Google's "Apparel & Accessories > Clothing". */
 const GOOGLE_CATEGORY_CLOTHING = 1604;
@@ -18,6 +18,7 @@ const MAX_EXTRA_IMAGES = 10;
 
 export type FeedPiece = {
   slug: string;
+  pieceNumber: number | null;
   name: string;
   pieceName: string | null;
   description: string;
@@ -88,7 +89,7 @@ function item(piece: FeedPiece, v: FeedPiece["variants"][number], settings: Feed
   return [
     "    <item>\n",
     field("id", v.sku),
-    field("item_group_id", piece.slug),
+    field("item_group_id", productGroupId(piece)),
     `      <title>${xml(title)}</title>\n`,
     `      <description>${xml(description)}</description>\n`,
     `      <link>${xml(absolute(v.color ? `${path}?colour=${encodeURIComponent(v.color)}` : path))}</link>\n`,

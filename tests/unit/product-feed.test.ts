@@ -3,6 +3,7 @@ import { productFeed, type FeedPiece } from "../../src/modules/catalog/product-f
 
 const piece: FeedPiece = {
   slug: "the-muse-top",
+  pieceNumber: 7,
   name: "Women's Square-Neck Top",
   pieceName: "THE MUSE TOP",
   description: "A top <soft> & easy.",

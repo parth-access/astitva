@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { whatsappNumber } from "../../src/lib/india";
 import { parseSettingsForm } from "../../src/modules/catalog-admin/settings";
-import { breadcrumbLd, faqLd, itemListLd, ldJson, organizationLd, pageMeta, productLd, websiteLd, type LdPiece } from "../../src/lib/seo";
+import { breadcrumbLd, faqLd, itemListLd, ldJson, organizationLd, pageMeta, productGroupId, productLd, websiteLd, type LdPiece } from "../../src/lib/seo";
 
 const neem: LdPiece = {
   slug: "neem-linen-wrap-dress",
@@ -24,6 +24,16 @@ const neem: LdPiece = {
 };
 
 describe("structured data", () => {
+  it("keeps the product group ID within Google's 50 characters", () => {
+    expect(productGroupId({ slug: "the-muse-top", pieceNumber: 7 })).toBe("the-muse-top");
+    const long = "womens-crochet-knit-winter-sweater-the-crochet-sweater";
+    expect(productGroupId({ slug: long, pieceNumber: 5 })).toBe("AST-05");
+    expect(productGroupId({ slug: long, pieceNumber: null })).toHaveLength(50);
+    const ld = productLd({ ...neem, slug: long }) as Record<string, any>;
+    expect(ld.productGroupID).toBe("AST-01");
+    expect(ld.hasVariant[0].inProductGroupWithID).toBe("AST-01");
+  });
+
   it("describes a style as a group of colour and size variants, each with its price and stock", () => {
     const ld = productLd(neem) as Record<string, any>;
     expect(ld.countryOfOrigin).toEqual({ "@type": "Country", name: "India" });

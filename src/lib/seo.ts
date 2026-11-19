@@ -158,6 +158,19 @@ const CONDITION: Record<string, string> = {
  * it is a plain Product. Only published while ordering is open: before that
  * nothing can be bought, and offers would say otherwise.
  */
+/** Google takes a product group ID of up to 50 characters. */
+const MAX_GROUP_ID = 50;
+
+/**
+ * The ID tying a piece's colours and sizes together, the same on its page
+ * and in the Merchant feed. The slug while it fits; a longer one becomes
+ * the piece's number (AST-05, as its SKUs begin), which is unique and short.
+ */
+export function productGroupId(p: { slug: string; pieceNumber: number | null }): string {
+  if (p.slug.length <= MAX_GROUP_ID) return p.slug;
+  return p.pieceNumber ? `AST-${String(p.pieceNumber).padStart(2, "0")}` : p.slug.slice(0, MAX_GROUP_ID);
+}
+
 export function productLd(p: LdPiece): Ld {
   const title = [p.pieceNumber ? formatPieceNumber(p.pieceNumber) : null, p.pieceName ? `${p.pieceName}, ${p.name.toLowerCase()}` : p.name].filter(Boolean).join(" ");
   const url = absolute(`/pieces/${p.slug}`);
@@ -236,7 +249,7 @@ export function productLd(p: LdPiece): Ld {
     name: title,
     description: p.description,
     url,
-    productGroupID: p.slug,
+    productGroupID: productGroupId(p),
     variesBy,
     ...base,
     hasVariant: p.variants.map((v) => ({
@@ -248,7 +261,7 @@ export function productLd(p: LdPiece): Ld {
       image: imageFor(v.color),
       ...(v.color ? { color: v.color } : {}),
       ...(v.size ? { size: v.size } : {}),
-      inProductGroupWithID: p.slug,
+      inProductGroupWithID: productGroupId(p),
       offers: offer(v),
     })),
   };
