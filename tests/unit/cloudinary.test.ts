@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cloudinaryUrl, isCloudinaryUrl, spinFrameUrls } from "@/lib/cloudinary-url";
-import { CHAPTER_FOLDER, cloudinarySignature, PIECE_FOLDER, publicIdFromUrl, signUpload, SPIN_FOLDER, verifyUpload } from "@/modules/media/cloudinary";
+import { CHAPTER_FOLDER, cloudinarySignature, cutOutUrl, makeCutOut, PIECE_FOLDER, RAIL_FOLDER, publicIdFromUrl, signUpload, SPIN_FOLDER, verifyUpload } from "@/modules/media/cloudinary";
 
 const account = { cloudName: "demo", apiKey: "123", apiSecret: "shh" };
 const photo = "https://res.cloudinary.com/demo/image/upload/v1712/astitva/pieces/abc123.jpg";
@@ -98,6 +98,43 @@ describe("cloudinary", () => {
       expect(frames[1]).toContain("/so_2.8p,");
       expect(frames[35]).toContain("/so_97.2p,");
       expect(spinFrameUrls(photo, { width: 800 })).toEqual([]);
+    });
+  });
+
+  describe("cut-outs for the clothing rail", () => {
+    const shot = "https://res.cloudinary.com/demo/image/upload/v1795/astitva/rail/hanger1.jpg";
+    afterEach(() => vi.unstubAllGlobals());
+
+    it("asks for the upload with its background removed, as a PNG", () => {
+      expect(cutOutUrl(shot, account)).toBe("https://res.cloudinary.com/demo/image/upload/e_background_removal/f_png/v1795/astitva/rail/hanger1.png");
+      expect(cutOutUrl("https://example.com/v1/x.jpg", account)).toBeNull();
+    });
+
+    it("waits while Cloudinary works, then saves the cut-out as a photo of its own", async () => {
+      const calls: [string, RequestInit | undefined][] = [];
+      let made = false;
+      vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+        calls.push([url, init]);
+        if (init?.method === "HEAD") return new Response(null, { status: made ? 200 : 423 });
+        return Response.json({ secure_url: "https://res.cloudinary.com/demo/image/upload/v1796/astitva/rail/cut1.png", width: 1792, height: 2400 });
+      });
+
+      expect(await makeCutOut(shot, account)).toEqual({ state: "working" });
+      made = true;
+      expect(await makeCutOut(shot, account)).toEqual({ state: "ready", url: "https://res.cloudinary.com/demo/image/upload/v1796/astitva/rail/cut1.png", width: 1792, height: 2400 });
+
+      const [url, init] = calls.at(-1)!;
+      expect(url).toBe("https://api.cloudinary.com/v1_1/demo/image/upload");
+      const body = init!.body as URLSearchParams;
+      expect(body.get("file")).toBe(cutOutUrl(shot, account));
+      expect(body.get("folder")).toBe(RAIL_FOLDER);
+      expect(body.get("signature")).toBe(cloudinarySignature({ folder: RAIL_FOLDER, timestamp: body.get("timestamp")! }, account.apiSecret));
+    });
+
+    it("reports a failure instead of waiting for ever", async () => {
+      vi.stubGlobal("fetch", async () => new Response(null, { status: 400 }));
+      expect((await makeCutOut(shot, account)).state).toBe("failed");
+      expect((await makeCutOut("https://example.com/x.jpg", account)).state).toBe("failed");
     });
   });
 });

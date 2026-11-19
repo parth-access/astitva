@@ -37,7 +37,9 @@ export const PIECE_FOLDER = "astitva/pieces";
 export const CHAPTER_FOLDER = "astitva/chapters";
 /** Videos of pieces turning round (the piece page's 360° view). */
 export const SPIN_FOLDER = "astitva/spins";
-export type PhotoFolder = typeof PIECE_FOLDER | typeof CHAPTER_FOLDER;
+/** Hanger shots for the clothing rail: the uploads, and their cut-outs beside them. */
+export const RAIL_FOLDER = "astitva/rail";
+export type PhotoFolder = typeof PIECE_FOLDER | typeof CHAPTER_FOLDER | typeof RAIL_FOLDER;
 export type UploadFolder = PhotoFolder | typeof SPIN_FOLDER;
 type Resource = "image" | "video";
 const resourceOf = (folder: UploadFolder): Resource => (folder === SPIN_FOLDER ? "video" : "image");
@@ -109,6 +111,45 @@ export function verifyUpload(receipt: UploadReceipt, folder: UploadFolder, accou
 export function publicIdFromUrl(url: string, account = cloudinaryAccount(), resource: Resource = "image"): string | null {
   const m = new RegExp(`^https://res\\.cloudinary\\.com/${account.cloudName}/${resource}/upload/(?:[^/]+/)*?v\\d+/(.+)\\.[a-z0-9]+$`, "i").exec(url);
   return m?.[1] ?? null;
+}
+
+/* Cut-outs for the clothing rail ------------------------------------- */
+
+/**
+ * The upload with its background removed, as a transparent PNG. Cloudinary
+ * makes it on the first request (answering 423 until it's done, usually
+ * within seconds), then keeps it. Null for anything that isn't one of our photos.
+ */
+export function cutOutUrl(sourceUrl: string, account = cloudinaryAccount()): string | null {
+  const m = new RegExp(`^https://res\\.cloudinary\\.com/${account.cloudName}/image/upload/(v\\d+)/(.+)\\.[a-z0-9]+$`, "i").exec(sourceUrl);
+  if (!m) return null;
+  return `https://res.cloudinary.com/${account.cloudName}/image/upload/e_background_removal/f_png/${m[1]}/${m[2]}.png`;
+}
+
+export type CutOut = { state: "working" } | { state: "failed"; reason: string } | { state: "ready"; url: string; width: number | null; height: number | null };
+
+/**
+ * Asks for the cut-out and, once Cloudinary has made it, saves it as an
+ * image of its own. Removing a background costs far more than resizing, and
+ * every new size of a derived image would remove it again; a saved cut-out
+ * is resized like any photo. Each call is short (no waiting), so the admin
+ * page calls again every few seconds until it's ready.
+ */
+export async function makeCutOut(sourceUrl: string, account = cloudinaryAccount()): Promise<CutOut> {
+  const derived = cutOutUrl(sourceUrl, account);
+  if (!derived) return { state: "failed", reason: "That isn't one of our photos." };
+  const probe = await fetch(derived, { method: "HEAD", cache: "no-store" });
+  if (probe.status === 423) return { state: "working" };
+  if (!probe.ok) return { state: "failed", reason: `Cloudinary couldn't remove the background (${probe.status}).` };
+
+  const params = { folder: RAIL_FOLDER, timestamp: String(Math.floor(Date.now() / 1000)) };
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${account.cloudName}/image/upload`, {
+    method: "POST",
+    body: new URLSearchParams({ ...params, file: derived, api_key: account.apiKey, signature: cloudinarySignature(params, account.apiSecret) }),
+  });
+  const reply = (await res.json()) as { secure_url?: string; width?: number; height?: number; error?: { message?: string } };
+  if (!res.ok || !reply.secure_url) return { state: "failed", reason: reply.error?.message ?? `Saving the cut-out failed (${res.status}).` };
+  return { state: "ready", url: reply.secure_url, width: reply.width ?? null, height: reply.height ?? null };
 }
 
 /** Deletes a photo (or video) from Cloudinary. Best effort: a leftover file costs a little storage, nothing more. */
