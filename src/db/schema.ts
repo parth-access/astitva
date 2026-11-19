@@ -33,6 +33,7 @@ import {
 } from "drizzle-orm/pg-core";
 import type { PhotoEdit } from "@/lib/photo-edit";
 import type { PhotoAngle } from "@/lib/photo-turn";
+import type { RailSide } from "@/lib/rail";
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 const updatedAt = () =>
@@ -467,6 +468,37 @@ export const productImages = pgTable(
   (t) => [
     index("product_images_product_idx").on(t.productId, t.sortOrder),
     check("product_images_angle", sql`${t.angle} is null or ${t.angle} in ('front', 'side', 'back', 'other_side')`),
+  ],
+).enableRLS();
+
+/**
+ * A colour on its hanger, background removed, for the clothing rail on the
+ * piece page (swipe to change colour, tap to look closer, drag to turn it
+ * round). Kept apart from product_images so a cut-out never lands in the
+ * gallery, the product feed, share cards or emails. One front and at most
+ * one back per colour.
+ */
+export const railPhotos = pgTable(
+  "rail_photos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    /** Matches product_variants.color; null for a piece that comes in one unnamed colour. */
+    color: varchar("color", { length: 48 }),
+    side: varchar("side", { length: 5 }).$type<RailSide>().notNull(),
+    /** The upload as it came, background and all. */
+    sourceUrl: text("source_url").notNull(),
+    /** The cut-out (transparent PNG) the site shows; null while Cloudinary is still removing the background. */
+    url: text("url"),
+    width: integer("width"),
+    height: integer("height"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("rail_photos_colour_side_uq").on(t.productId, sql`coalesce(${t.color}, '')`, t.side),
+    check("rail_photos_side", sql`${t.side} in ('front', 'back')`),
   ],
 ).enableRLS();
 
