@@ -7,14 +7,14 @@ import { SavedProvider } from "@/components/storefront/saved/saved-context";
 import { SiteFooter } from "@/components/storefront/site-footer";
 import { SiteHeader } from "@/components/storefront/site-header";
 import { VisitorSeed } from "@/components/storefront/visitor-seed";
-import { getStorefront } from "@/modules/catalog/queries";
+import { getConcierge, getStorefront } from "@/modules/catalog/queries";
 import { getCheckoutSettings } from "@/modules/checkout/queries";
 
 /** While ordering is closed (store settings), every page says so at the top. */
 const PREVIEW_NOTICE = "Preview. Ordering opens soon.";
 
 export default async function StoreLayout({ children }: LayoutProps<"/">) {
-  const [{ orderingOpen }, pricing] = await Promise.all([getStorefront(), getCheckoutSettings()]);
+  const [{ orderingOpen }, pricing, { profileLinks }] = await Promise.all([getStorefront(), getCheckoutSettings(), getConcierge()]);
   return (
     <BagProvider enabled={orderingOpen} pricing={pricing}>
       <SavedProvider>
@@ -31,7 +31,7 @@ export default async function StoreLayout({ children }: LayoutProps<"/">) {
         <main id="main" className="flex-1">
           {children}
         </main>
-        <SiteFooter />
+        <SiteFooter profiles={profileLinks} />
         <BagDrawer />
         {/* The bag and hearts depend on the visitor's cookies, so the browser asks for them after the page. */}
         <Suspense fallback={null}>

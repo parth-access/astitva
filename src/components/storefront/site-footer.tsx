@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { ACROSS } from "@/lib/transition-types";
 import { POLICY_PAGES } from "@/content/policies";
+import { profileLabel } from "@/lib/profiles";
 import { AnalyticsChoiceLink } from "./analytics";
 
-export function SiteFooter() {
+export function SiteFooter({ profiles }: { profiles: string[] }) {
   return (
     <footer className="mt-32 border-t border-taupe/30 print:hidden">
       <div className="mx-auto grid max-w-6xl gap-12 px-4 pb-10 pt-16 sm:px-8 md:grid-cols-12">
@@ -12,6 +13,18 @@ export function SiteFooter() {
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-espresso-soft">
             A few styles, chosen by hand, in the colours we couldn&apos;t choose between.
           </p>
+          {profiles.length ? (
+            // rel="me": these profiles are the brand's own (Lookbook & settings, "Profiles elsewhere").
+            <ul aria-label="Astitva elsewhere" className="mt-5 space-y-2 text-sm">
+              {profiles.map((href) => (
+                <li key={href}>
+                  <a className="link" href={href} rel="me noopener" target="_blank">
+                    {profileLabel(href)}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
         <nav aria-label="The house" className="md:col-span-2 md:col-start-7">
           <h2 className="font-sans text-sm font-semibold">The house</h2>

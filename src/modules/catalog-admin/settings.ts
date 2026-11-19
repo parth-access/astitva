@@ -4,6 +4,7 @@ import type { Db } from "@/db/create";
 import { auditLogs, products, storeSettings } from "@/db/schema";
 import { CONTENTS_PLACES } from "@/modules/catalog/contents";
 import { whatsappNumber } from "@/lib/india";
+import { cleanProfileLink } from "@/lib/profiles";
 import { rupeesToPaise } from "@/lib/money";
 import { formValues, type FieldErrors } from "./input";
 
@@ -43,7 +44,8 @@ const settingsSchema = z.object({
     z
       .array(z.url({ protocol: /^https$/, message: "Each link starting https://, one per line." }).max(300, "That link is too long."))
       .max(8, "Up to 8 links.")
-      .transform((links) => [...new Set(links)]),
+      // Links shared from an app carry tracking (?utm_source=…, ?igsh=…): keep the profile itself.
+      .transform((links) => [...new Set(links.map(cleanProfileLink))]),
   ),
   shippingFlatMinor: rupees("Shipping"),
   freeShippingThresholdMinor: z.preprocess(blank, rupees("Free shipping from").nullable()),
