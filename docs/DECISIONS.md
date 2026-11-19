@@ -2,6 +2,18 @@
 
 Short records of choices that differ from, or add to, the revised PRD. Newest first.
 
+## 2026-11-19 — The colours on a clothing rail
+
+**Decision:** A piece page can open on a clothing rail instead of its photo row: each colour hangs on the rail as a cut-out on its hanger. Swiping it (or dragging, tapping a hanger behind, or the arrow keys) changes the colour, and the swatches move it too. Tapping the front garment lifts it off the rail into the row, first in line before the photos; with a shot of its back it can be dragged round. Adding to the bag flies that garment into the bag in the header. Tested first as a prototype with the Crochet Sweater.
+
+- **Its own table** (`rail_photos`, migration 0024): a front and an optional back per colour, the upload and its cut-out. Not `product_images`, so a cut-out never reaches the gallery, the product feed, share cards or emails.
+- **All or nothing:** the rail shows once every colour has its front (`railGarments` in `src/lib/rail.ts`); until then the page is as before. A rail missing a colour would offer fewer colours than the piece has.
+- **No invented backs:** without a shot of the back, the garment doesn't turn. A mirrored front would show buyers something the garment isn't (the photo turn mirrors only a side, which is the same garment from the other side).
+- **Background removal once:** Cloudinary removes the background on the first request (answering 423 while it works, usually under 15 seconds), and the result is then uploaded as an image of its own. Every new size of a derived image would remove the background again, at many times the cost of a resize. No request waits on it: the admin page asks every few seconds (`finishRailAction`), so Netlify's function time limit doesn't matter.
+- **Admin:** "On the rail" on a piece's page, a front and back slot per colour. Replacing or removing deletes the old files; a renamed colour keeps its shots; both changes are in the piece's history. Shots line up on the rail only if every colour is made the same way: same hanger, size, angle, light and framing (for AI-made shots, all colours in one chat).
+- **Laid out before any script runs:** positions are in the stage's own width (container units, `cqw`), so the HTML is right from the CDN.
+- **Bag flight:** the image to fly is whichever cut-out is marked `data-bag-source` and mostly on screen; without one, the dot of the colour flies from the button as before. The bag never waits on a flight for more than a second (a hidden tab pauses animations).
+
 ## 2026-11-04 — A product feed for Google Merchant Center
 
 **Decision:** Merchant Center reads `/feeds/google-products.xml` on a schedule, instead of products typed in by hand. Hand-added listings had one entry per piece, lacked what Google requires for clothing (description, colour, size, gender, age group), and would drift from the site's prices and stock.
