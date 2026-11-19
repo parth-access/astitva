@@ -4,6 +4,7 @@ import { ActivityList } from "@/components/admin/activity-list";
 import { PieceEditor } from "@/components/admin/piece-editor";
 import { StatusPanel } from "@/components/admin/piece-panels";
 import { PhotosPanel } from "@/components/admin/photos-panel";
+import { RailPanel } from "@/components/admin/rail-panel";
 import { SpinPanel } from "@/components/admin/spin-panel";
 import { Card, Notice, PageHeader } from "@/components/admin/ui";
 import { formatPieceNumber } from "@/lib/format";
@@ -11,6 +12,7 @@ import { db } from "@/db/client";
 import { listActivity } from "@/modules/activity/feed";
 import { waitingByVariant } from "@/modules/alerts/service";
 import { requireAdmin } from "@/modules/auth/auth";
+import { listRailPhotos } from "@/modules/catalog-admin/rail";
 import { getEditorOptions, getPieceForEdit, getPublishProblems, pieceFormValues, pieceGrid } from "@/modules/catalog-admin/queries";
 
 export const metadata: Metadata = { title: "Edit piece" };
@@ -22,7 +24,13 @@ export default async function EditPiecePage({ params, searchParams }: PageProps<
   const { id } = await params;
   const { created, saved } = await searchParams;
   if (!UUID.test(id)) notFound();
-  const [piece, options, problems, { rows: history }] = await Promise.all([getPieceForEdit(id), getEditorOptions(), getPublishProblems(id), listActivity(db, { productId: id, limit: 100 })]);
+  const [piece, options, problems, { rows: history }, rail] = await Promise.all([
+    getPieceForEdit(id),
+    getEditorOptions(),
+    getPublishProblems(id),
+    listActivity(db, { productId: id, limit: 100 }),
+    listRailPhotos(db, id),
+  ]);
   if (!piece) notFound();
   const { product, photos } = piece;
   const { colours } = pieceGrid(piece);
@@ -64,6 +72,7 @@ export default async function EditPiecePage({ params, searchParams }: PageProps<
             pieceLabel={product.pieceName ?? product.name}
             colours={colours.flatMap((c) => (c.name ? [{ name: c.name, hex: c.hex }] : []))}
           />
+          <RailPanel productId={product.id} colours={colours.map((c) => ({ name: c.name, hex: c.hex }))} photos={rail} />
           <SpinPanel productId={product.id} video={product.spinVideoUrl} pieceLabel={product.pieceName ?? product.name} tone={product.tone} />
           <PieceEditor
             key={product.updatedAt.toISOString()}

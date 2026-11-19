@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { and, eq, inArray, max, sql } from "drizzle-orm";
 import type { Db, Tx } from "@/db/create";
-import { auditLogs, productCategories, productImages, productVariants, products } from "@/db/schema";
+import { auditLogs, productCategories, productImages, productVariants, products, railPhotos } from "@/db/schema";
 import { InsufficientStockError } from "@/modules/inventory/errors";
 import { adjustStock } from "@/modules/inventory/service";
 import { productMachine, type ProductStatus } from "@/modules/orders/machines";
@@ -109,6 +109,10 @@ export async function savePiece(db: Db, input: PieceInput, ctx: { productId?: st
             .update(productImages)
             .set({ color: c.name })
             .where(and(eq(productImages.productId, productId), eq(productImages.color, c.was)));
+          await tx
+            .update(railPhotos)
+            .set({ color: c.name })
+            .where(and(eq(railPhotos.productId, productId), eq(railPhotos.color, c.was)));
         }
       }
       for (const s of input.sizes) {

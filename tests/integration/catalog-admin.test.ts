@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { and, asc, eq } from "drizzle-orm";
-import { auditLogs, inventoryMovements, productImages, productVariants, products, storeSettings, users } from "../../src/db/schema";
+import { auditLogs, inventoryMovements, productImages, productVariants, products, railPhotos, storeSettings, users } from "../../src/db/schema";
 import { parseSettingsForm, saveSettings } from "../../src/modules/catalog-admin/settings";
 import { parsePieceForm, type PieceInput } from "../../src/modules/catalog-admin/input";
 import { nextPieceNumber, PieceRuleError, savePiece, setPieceStatus } from "../../src/modules/catalog-admin/service";
@@ -105,7 +105,7 @@ describe.skipIf(!hasDb)("piece editor writes", () => {
     expect((await variantsOf(id)).filter((v) => v.color === "Moss" && v.size === "L")).toHaveLength(1);
   });
 
-  it("a renamed colour keeps its photos", async () => {
+  it("a renamed colour keeps its photos and its hanger shots", async () => {
     const id = await savePiece(db, input({ pieceNumber: "1", ...grid }), { actorId });
     const url = (n: number) => `https://res.cloudinary.com/demo/image/upload/v1/astitva/pieces/p${n}.jpg`;
     await db.insert(productImages).values([
@@ -113,9 +113,15 @@ describe.skipIf(!hasDb)("piece editor writes", () => {
       { productId: id, url: url(2), color: "Ink", sortOrder: 1 },
       { productId: id, url: url(3), color: null, sortOrder: 2 },
     ]);
+    await db.insert(railPhotos).values([
+      { productId: id, color: "Sage", side: "front", sourceUrl: url(4) },
+      { productId: id, color: "Ink", side: "front", sourceUrl: url(5) },
+    ]);
     await savePiece(db, input({ pieceNumber: "1", ...grid, "c.0.name": "Moss", "c.0.was": "Sage", "c.1.was": "Ink", "s.0.was": "M", "s.1.was": "L" }), { productId: id, actorId });
     const photos = await db.select({ url: productImages.url, color: productImages.color }).from(productImages).where(eq(productImages.productId, id)).orderBy(asc(productImages.sortOrder));
     expect(photos.map((p) => p.color)).toEqual(["Moss", "Ink", null]);
+    const hung = await db.select({ url: railPhotos.sourceUrl, color: railPhotos.color }).from(railPhotos).where(eq(railPhotos.productId, id));
+    expect(Object.fromEntries(hung.map((h) => [h.url, h.color]))).toEqual({ [url(4)]: "Moss", [url(5)]: "Ink" });
   });
 
   it("a sale while the editor is open isn't undone by saving it", async () => {

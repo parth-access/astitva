@@ -13,12 +13,17 @@ import { formValues, parsePieceForm, type FieldErrors } from "@/modules/catalog-
 import { addPhoto, movePhoto, removePhoto, setPhotoAlt, setPhotoAngle, setPhotoColour, setPhotoEdit } from "@/modules/catalog-admin/photos";
 import { PieceRuleError, savePiece, setPieceStatus } from "@/modules/catalog-admin/service";
 import { setSpinVideo } from "@/modules/catalog-admin/spin";
+import { finishRailPhoto, getRailPhoto, removeRailPhoto, setRailPhoto } from "@/modules/catalog-admin/rail";
+import { RAIL_SIDES } from "@/lib/rail";
 import { notifyRestockedSoon } from "@/modules/alerts/soon";
 import { CATALOG_TAG } from "@/modules/catalog/queries";
 import { requireAdmin } from "@/modules/auth/auth";
 import {
   destroyPhoto,
+  cutOutUrl,
+  makeCutOut,
   PIECE_FOLDER,
+  RAIL_FOLDER,
   publicIdFromUrl,
   signUpload,
   SPIN_FOLDER,
@@ -172,4 +177,82 @@ async function changeSpin(productId: string, url: string | null, actorId: string
   if (publicId) after(() => destroyPhoto(publicId, undefined, "video"));
   updateTag(CATALOG_TAG);
   return { ok: true };
+}
+
+/* Hanger shots for the clothing rail --------------------------------- */
+
+const railTarget = z.object({ productId: z.uuid(), colour: z.string().max(48).nullable(), side: z.enum(RAIL_SIDES) });
+
+/** A signature for one browser upload of a hanger shot. */
+export async function signRailUploadAction(productId: string): Promise<SignedUpload> {
+  await requireAdmin();
+  if (!z.uuid().safeParse(productId).success) throw new Error("Unknown piece.");
+  return signUpload(RAIL_FOLDER);
+}
+
+/**
+ * Records an uploaded hanger shot as a colour's front or back (replacing the
+ * one before) and asks Cloudinary to start removing its background. The
+ * page then calls finishRailAction until the cut-out is ready.
+ */
+export async function attachRailAction(
+  target: z.infer<typeof railTarget>,
+  receipt: UploadReceipt,
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const { user } = await requireAdmin();
+  const t = railTarget.safeParse(target);
+  if (!t.success) return { ok: false, error: "Unknown piece or colour." };
+  const photo = verifyUpload(receipt, RAIL_FOLDER);
+  if (!photo) return { ok: false, error: "That upload couldn't be confirmed. Try again." };
+  let saved;
+  try {
+    saved = await setRailPhoto(db, t.data.productId, { colour: t.data.colour, side: t.data.side, sourceUrl: photo.url }, user.id);
+  } catch (err) {
+    if (err instanceof PieceRuleError) return { ok: false, error: Object.values(err.errors)[0]! };
+    throw err;
+  }
+  deleteFiles(saved.replaced);
+  // The colour's old shot has gone from the page; the new one appears once cut out.
+  updateTag(CATALOG_TAG);
+  // Only ask for it (Cloudinary starts work on the first request); finishRailAction saves it.
+  const cut = cutOutUrl(photo.url);
+  if (cut) after(() => fetch(cut, { method: "HEAD" }).then(() => undefined, () => undefined));
+  return { ok: true, id: saved.id };
+}
+
+export type RailProgress = { state: "working" } | { state: "ready" } | { state: "failed"; error: string };
+
+/** One short check on a hanger shot's cut-out; saves it once Cloudinary has made it. */
+export async function finishRailAction(productId: string, photoId: string): Promise<RailProgress> {
+  await requireAdmin();
+  if (!z.uuid().safeParse(productId).success || !z.uuid().safeParse(photoId).success) return { state: "failed", error: "Unknown hanger shot." };
+  const row = await getRailPhoto(db, productId, photoId);
+  if (!row) return { state: "failed", error: "That hanger shot isn't on this piece any more." };
+  if (row.url) return { state: "ready" };
+  const cut = await makeCutOut(row.sourceUrl);
+  if (cut.state === "working") return cut;
+  if (cut.state === "failed") return { state: "failed", error: cut.reason };
+  // Replaced or removed while Cloudinary worked: this cut-out belongs to nothing.
+  if (!(await finishRailPhoto(db, productId, photoId, cut))) deleteFiles([cut.url]);
+  else updateTag(CATALOG_TAG);
+  return { state: "ready" };
+}
+
+export async function removeRailAction(productId: string, photoId: string): Promise<PhotoResult> {
+  const { user } = await requireAdmin();
+  if (!z.uuid().safeParse(productId).success || !z.uuid().safeParse(photoId).success) return { ok: false, error: "Unknown hanger shot." };
+  try {
+    deleteFiles(await removeRailPhoto(db, productId, photoId, user.id));
+  } catch (err) {
+    if (err instanceof PieceRuleError) return { ok: false, error: Object.values(err.errors)[0]! };
+    throw err;
+  }
+  updateTag(CATALOG_TAG);
+  return { ok: true };
+}
+
+/** Deletes our files from Cloudinary after the response is sent. */
+function deleteFiles(urls: string[]) {
+  const ids = urls.flatMap((u) => publicIdFromUrl(u) ?? []);
+  if (ids.length) after(() => Promise.all(ids.map((id) => destroyPhoto(id))));
 }

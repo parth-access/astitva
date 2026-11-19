@@ -82,6 +82,8 @@ const AUDIT: Record<string, [string, ActivityTone?]> = {
   "piece.photo_angle": ["Photo's angle changed"],
   "piece.spin_added": ["Turntable video added"],
   "piece.spin_removed": ["Turntable video removed"],
+  "piece.rail_added": ["Hanger shot added"],
+  "piece.rail_removed": ["Hanger shot removed"],
   "piece.saved": ["Piece saved to an account"],
   "settings.updated": ["Lookbook and settings changed"],
   "discount.created": ["Discount code created"],

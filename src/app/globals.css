@@ -973,6 +973,18 @@ dialog.sheet::backdrop {
   }
 }
 
+/* Admin: a checkerboard behind a cut-out shows what was removed. */
+.rail-checker {
+  background-color: #fff;
+  background-image:
+    linear-gradient(45deg, #e9e2d8 25%, transparent 25%, transparent 75%, #e9e2d8 75%),
+    linear-gradient(45deg, #e9e2d8 25%, transparent 25%, transparent 75%, #e9e2d8 75%);
+  background-position:
+    0 0,
+    8px 8px;
+  background-size: 16px 16px;
+}
+
 /* Full screen photos, on the colour's own ground. */
 dialog.photo-viewer {
   width: 100vw;
