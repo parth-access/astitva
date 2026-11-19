@@ -142,6 +142,8 @@ export function ClothingRail({
               priority={front}
               draggable={false}
               className="rail-garment"
+              // The front garment is what flies into the bag.
+              data-bag-source={front ? "" : undefined}
             />
           );
           return (

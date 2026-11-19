@@ -59,14 +59,82 @@ export function useBag(): BagApi {
 
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/** The bag in the header that's on screen (phones and wide screens have their own), or null. */
+function bagTarget() {
+  return [...document.querySelectorAll<HTMLElement>("[data-bag-target]")].find((el) => el.offsetParent !== null) ?? null;
+}
+
 /**
- * A dot of the chosen colour arcs from the button to the bag in the header.
- * Resolves when it lands (at once with reduced motion or no visible bag).
+ * The garment cut-out the buyer is looking at (marked data-bag-source: the
+ * rail's front garment, or the face of the turned garment towards them),
+ * if one is mostly on screen; the largest if there are several.
+ */
+function garmentOnScreen(): HTMLImageElement | null {
+  let best: HTMLImageElement | null = null;
+  let bestArea = 0;
+  for (const img of document.querySelectorAll<HTMLImageElement>("img[data-bag-source]")) {
+    if (!img.complete || !img.naturalWidth) continue;
+    const r = img.getBoundingClientRect();
+    const w = Math.min(r.right, window.innerWidth) - Math.max(r.left, 0);
+    const h = Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0);
+    if (w > 0 && h > 0 && w * h > Math.max(bestArea, 0.5 * r.width * r.height)) {
+      best = img;
+      bestArea = w * h;
+    }
+  }
+  return best;
+}
+
+/** A hidden tab pauses animations; the bag never waits on one longer than this. */
+const FLIGHT_LIMIT_MS = 1000;
+const landed = (anim: Animation, el: Element) =>
+  Promise.race([anim.finished.catch(() => undefined), new Promise((r) => window.setTimeout(r, FLIGHT_LIMIT_MS))]).then(() => el.remove());
+
+/**
+ * Something arcs into the bag in the header: a copy of the garment the
+ * buyer is looking at, when there is one, else a dot of the chosen colour
+ * from the button. Resolves when it lands (at once with reduced motion or
+ * no visible bag).
  */
 function flyToBag(from: Element, colour: string | null): Promise<void> {
   if (reducedMotion()) return Promise.resolve();
-  const target = [...document.querySelectorAll<HTMLElement>("[data-bag-target]")].find((el) => el.offsetParent !== null);
+  const target = bagTarget();
   if (!target) return Promise.resolve();
+  const garment = garmentOnScreen();
+  return garment ? flyGarment(garment, target) : flyDot(from, target, colour);
+}
+
+/** The garment lifts a little, then arcs up into the bag, shrinking and tilting, and fades only as it drops in. */
+function flyGarment(img: HTMLImageElement, target: HTMLElement): Promise<void> {
+  const a = img.getBoundingClientRect();
+  const b = target.getBoundingClientRect();
+  const copy = document.createElement("img");
+  copy.className = "bag-flyer-garment";
+  copy.src = img.currentSrc || img.src;
+  copy.alt = "";
+  copy.setAttribute("aria-hidden", "true");
+  Object.assign(copy.style, { left: `${a.left}px`, top: `${a.top}px`, width: `${a.width}px`, height: `${a.height}px` });
+  document.body.append(copy);
+
+  const dx = b.left + b.width / 2 - (a.left + a.width / 2);
+  const dy = b.top + b.height / 2 - (a.top + a.height / 2);
+  const end = Math.min(0.2, 26 / a.height);
+  const lift = Math.min(-60, dy * 0.25);
+  const flight = copy.animate(
+    [
+      { transform: "translate(0, 0) scale(1) rotate(0deg)" },
+      { transform: "translate(0, -14px) scale(1.03) rotate(0deg)", offset: 0.12 },
+      { transform: `translate(${dx * 0.45}px, ${dy * 0.3 + lift}px) scale(0.42) rotate(-7deg)`, offset: 0.55 },
+      { transform: `translate(${dx}px, ${dy}px) scale(${end}) rotate(-12deg)` },
+    ],
+    { duration: 820, easing: "cubic-bezier(0.45, 0, 0.2, 1)" },
+  );
+  copy.animate([{ opacity: 1 }, { opacity: 1, offset: 0.85 }, { opacity: 0 }], { duration: 820, fill: "forwards" });
+  return landed(flight, copy);
+}
+
+/** A dot of the chosen colour arcs from the button to the bag. */
+function flyDot(from: Element, target: HTMLElement, colour: string | null): Promise<void> {
   const a = from.getBoundingClientRect();
   const b = target.getBoundingClientRect();
   const ax = a.left + a.width / 2;
@@ -92,10 +160,7 @@ function flyToBag(from: Element, colour: string | null): Promise<void> {
     ],
     { duration: 760, easing: "cubic-bezier(0.45, 0, 0.25, 1)" },
   );
-  return anim.finished.then(
-    () => dot.remove(),
-    () => dot.remove(),
-  );
+  return landed(anim, dot);
 }
 
 export function BagProvider({ enabled, pricing, children }: { enabled: boolean; pricing: PricingSettings; children: ReactNode }) {
