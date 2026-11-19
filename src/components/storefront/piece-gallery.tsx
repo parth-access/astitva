@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import { preloadPhoto } from "@/components/brand/fading-photo";
 import { pieceTransitionName, Plate } from "@/components/brand/plate";
 import { useSelection } from "./piece-selection";
 import { turnFrames, type PhotoAngle } from "@/lib/photo-turn";
+import type { RailGarment } from "@/lib/rail";
+import { ClothingRail, HangerTurn } from "./clothing-rail";
+import { cloudinaryUrl } from "@/lib/cloudinary-url";
 import { PhotoViewer } from "./photo-viewer";
 import { SpinViewer } from "./spin-viewer";
 import { TurnViewer } from "./turn-viewer";
@@ -23,6 +26,10 @@ export type GalleryImage = { url: string; alt: string; color: string | null; ang
  * colour's first photo crossfades over the last (the plate keeps its place),
  * and the row goes back to the start. With a turning video, or front, side
  * and back photos, a button swaps the row for a drag-to-turn view.
+ *
+ * With every colour on its hanger (the rail), the page opens on the rail
+ * instead: swiping it changes the colour, and tapping the garment lifts it
+ * off into the row, first in line and ready to turn round, before the photos.
  */
 export function PieceGallery({
   slug,
@@ -34,6 +41,7 @@ export function PieceGallery({
   category,
   images,
   spinVideo,
+  rail,
 }: {
   slug: string;
   title: string;
@@ -45,13 +53,20 @@ export function PieceGallery({
   images: GalleryImage[];
   /** A video of the piece turning round once, or null. */
   spinVideo: string | null;
+  /** Every colour on its hanger, or null for no rail (lib/rail). */
+  rail: RailGarment[] | null;
 }) {
   const [turning, setTurning] = useState(false);
   const [index, setIndex] = useState(0);
   // The photo opened full screen, and the copies of each already on screen (read when it's tapped).
   const [viewing, setViewing] = useState<{ at: number; copies: (string | undefined)[] } | null>(null);
   const track = useRef<HTMLUListElement>(null);
-  const { colours, colour } = useSelection();
+  const { colours, colour, setColour } = useSelection();
+  // On the rail, or looking closer (the row of photos).
+  const [onRail, setOnRail] = useState(rail !== null);
+  const hanger = rail?.find((g) => g.colour === colour) ?? null;
+  // The hanger goes first in the row; photo i is slide i + lead.
+  const lead = hanger ? 1 : 0;
   const chosen = colours.find((c) => c.name === colour);
   const own = images.filter((i) => i.color === colour);
   const shared = images.filter((i) => i.color === null);
@@ -100,7 +115,7 @@ export function PieceGallery({
   }
 
   function open(at: number) {
-    const slides = [...(track.current?.children ?? [])];
+    const slides = [...(track.current?.children ?? [])].slice(lead);
     setViewing({ at, copies: slides.map((li) => li.querySelector<HTMLImageElement>("img:last-of-type")?.currentSrc || undefined) });
   }
 
@@ -110,6 +125,29 @@ export function PieceGallery({
     if (!el || !slide) return;
     el.scrollTo({ left: slide.offsetLeft - (el.clientWidth - slide.offsetWidth) / 2, behavior: "smooth" });
     setIndex(i);
+  }
+
+  if (rail && onRail) {
+    return (
+      <div className="fade-in">
+        <ClothingRail
+          slug={slug}
+          label={label}
+          garments={rail}
+          colour={colour}
+          onPick={setColour}
+          onOpen={() => startTransition(() => setOnRail(false))}
+        />
+        <div className="mt-2 flex items-center justify-between gap-4 px-[10%] text-sm md:px-0">
+          <span className="tabular-nums text-espresso-soft">
+            {rail.length > 1 ? `${String(rail.findIndex((g) => g.colour === colour) + 1).padStart(2, "0")} / ${String(rail.length).padStart(2, "0")}` : null}
+          </span>
+          <button type="button" className="link" onClick={() => startTransition(() => setOnRail(false))}>
+            {shown.length ? "Look closer and see the photos" : "Look closer"}
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (turning && (spinVideo || frames)) {
@@ -131,8 +169,8 @@ export function PieceGallery({
     );
   }
 
-  // No photograph yet: the sketch, alone.
-  if (shown.length === 0) {
+  // No photograph yet (and no hanger): the sketch, alone.
+  if (shown.length === 0 && !hanger) {
     return (
       <div className="fade-in mx-auto w-[84%] md:w-full">
         <Plate
@@ -151,7 +189,8 @@ export function PieceGallery({
     );
   }
 
-  const many = shown.length > 1;
+  const total = shown.length + lead;
+  const many = total > 1;
   return (
     <div className="relative">
       <ul
@@ -160,17 +199,22 @@ export function PieceGallery({
         className={`gallery-track flex snap-x snap-mandatory gap-3 overflow-x-auto ${many ? "px-[10%] md:px-0" : "px-[8%] md:px-0"}`}
         aria-label={`Photos of ${label}`}
       >
+        {hanger ? (
+          <li className={`shrink-0 snap-center ${many ? "w-[80%]" : "w-[84%]"} md:w-full`}>
+            <HangerTurn key={hanger.colour ?? ""} slug={slug} label={label} garment={hanger} />
+          </li>
+        ) : null}
         {shown.map((img, i) => (
           // Keyed by place, not photo: the plate stays put and a new colour's photo crossfades into it.
           <li key={i} className={`shrink-0 snap-center ${many ? "w-[80%]" : "w-[84%]"} md:w-full`}>
             <button type="button" className="block w-full cursor-zoom-in" onClick={() => open(i)} aria-label={`Enlarge photo ${i + 1} of ${shown.length}`}>
               <Plate
-                transitionName={i === 0 ? pieceTransitionName(slug) : undefined}
+                transitionName={i === 0 && !hanger ? pieceTransitionName(slug) : undefined}
                 src={img.url}
                 alt={img.alt || (i === 0 ? label : `${label}, view ${i + 1}`)}
                 tone={tint}
                 sizes={SLIDE_SIZES}
-                priority={i === 0}
+                priority={i === 0 && !hanger}
               />
             </button>
           </li>
@@ -183,7 +227,7 @@ export function PieceGallery({
           <button type="button" className="gallery-arrow left-3" onClick={() => goTo(Math.max(0, index - 1))} disabled={index === 0} aria-label="Previous photo">
             ←
           </button>
-          <button type="button" className="gallery-arrow right-3" onClick={() => goTo(Math.min(shown.length - 1, index + 1))} disabled={index === shown.length - 1} aria-label="Next photo">
+          <button type="button" className="gallery-arrow right-3" onClick={() => goTo(Math.min(total - 1, index + 1))} disabled={index === total - 1} aria-label="Next photo">
             →
           </button>
         </>
@@ -192,9 +236,17 @@ export function PieceGallery({
       <div className="mt-4 flex items-center justify-between gap-4 px-[10%] md:px-0">
         {many ? (
           <ol className="flex gap-2" aria-label="Choose a photo">
+            {hanger ? (
+              <li>
+                <button type="button" className="gallery-thumb hanger-thumb" aria-current={index === 0 ? "true" : undefined} onClick={() => goTo(0)} aria-label="On its hanger">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- a 56px thumbnail of the cut-out, from Cloudinary at that size */}
+                  <img src={cloudinaryUrl(hanger.front.url, { width: 112 })} alt="" className="aspect-[4/5] w-full object-contain" />
+                </button>
+              </li>
+            ) : null}
             {shown.map((img, i) => (
               <li key={img.url}>
-                <button type="button" className="gallery-thumb" aria-current={i === index ? "true" : undefined} onClick={() => goTo(i)} aria-label={`Photo ${i + 1}`}>
+                <button type="button" className="gallery-thumb" aria-current={i + lead === index ? "true" : undefined} onClick={() => goTo(i + lead)} aria-label={`Photo ${i + 1}`}>
                   <Plate src={img.url} alt="" tone={tint} sizes="56px" />
                 </button>
               </li>
@@ -206,8 +258,13 @@ export function PieceGallery({
         <div className="flex shrink-0 flex-col items-end gap-1 text-sm">
           {many ? (
             <span className="tabular-nums text-espresso-soft" aria-live="polite">
-              {index + 1} / {shown.length}
+              {index + 1} / {total}
             </span>
+          ) : null}
+          {rail ? (
+            <button type="button" className="link" onClick={() => startTransition(() => setOnRail(true))}>
+              Back to the rail
+            </button>
           ) : null}
           {canTurn ? (
             <button type="button" className="link" onClick={() => setTurning(true)}>
@@ -228,7 +285,7 @@ export function PieceGallery({
           tone={tint}
           onClose={(at) => {
             setViewing(null);
-            goTo(at);
+            goTo(at + lead);
           }}
         />
       ) : null}

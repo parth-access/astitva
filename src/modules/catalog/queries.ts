@@ -6,6 +6,7 @@ import {
   categories,
   productCategories,
   productImages,
+  railPhotos,
   productVariants,
   products,
   storeSettings,
@@ -13,6 +14,7 @@ import {
 import type { Measurements } from "@/db/schema";
 import { whatsappNumber } from "@/lib/india";
 import { compareSizes } from "@/lib/sizes";
+import type { RailPhoto } from "@/lib/rail";
 import { pickRelated } from "./related";
 
 /**
@@ -269,7 +271,7 @@ export async function getProductBySlug(slug: string) {
     .where(and(eq(products.slug, slug), eq(products.status, "active")));
   if (!product) return null;
 
-  const [variants, images] = await Promise.all([
+  const [variants, images, rail] = await Promise.all([
     db
       .select({
         id: productVariants.id,
@@ -298,6 +300,11 @@ export async function getProductBySlug(slug: string) {
       .from(productImages)
       .where(eq(productImages.productId, product.id))
       .orderBy(asc(productImages.sortOrder)),
+    // Hanger shots whose background has been removed; one still being cut out isn't hung yet.
+    db
+      .select({ color: railPhotos.color, side: railPhotos.side, url: railPhotos.url, width: railPhotos.width, height: railPhotos.height })
+      .from(railPhotos)
+      .where(and(eq(railPhotos.productId, product.id), isNotNull(railPhotos.url))),
   ]);
 
   return {
@@ -309,6 +316,7 @@ export async function getProductBySlug(slug: string) {
       .map(({ v }) => v)
       .map((v) => ({ ...v, measurements: (v.measurements ?? null) as Measurements | null })),
     images,
+    rail: rail.map((r) => ({ ...r, url: r.url! })) satisfies RailPhoto[],
   };
 }
 

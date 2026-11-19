@@ -65,7 +65,7 @@ export function RailPanel({ productId, colours, photos }: { productId: string; c
         </p>
         <p>
           For shots that line up on the rail, make every colour in one go (one chat, if you use an image tool): the same hanger, size, angle, light and framing,
-          the whole garment in view, upright, on a plain background. A back is optional; without one, turning the garment shows its front mirrored.
+          the whole garment in view, upright, on a plain background. A back is optional: with one, buyers can turn the garment round to see it.
         </p>
       </div>
     </section>

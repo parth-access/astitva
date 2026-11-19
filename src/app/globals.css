@@ -973,6 +973,184 @@ dialog.sheet::backdrop {
   }
 }
 
+/* The clothing rail (components/storefront/clothing-rail.tsx). Positions
+   are in the stage's own width (cqw), set inline per garment. */
+.rail-stage {
+  position: relative;
+  container-type: inline-size;
+  aspect-ratio: 1 / 1.05;
+  perspective: 1400px;
+  overflow: hidden;
+  touch-action: pan-y;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.rail-stage.is-dragging {
+  cursor: grabbing;
+}
+.rail-bar {
+  position: absolute;
+  left: 4%;
+  right: -10%;
+  top: 6.2%;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--color-espresso);
+  opacity: 0.75;
+  transform: rotate(-3.2deg);
+  transform-origin: 0 50%;
+}
+.rail-hang {
+  position: absolute;
+  left: 8%;
+  top: 3%;
+  width: 56%;
+  transform-origin: 50% 4.5%;
+  transform-style: preserve-3d;
+  transition:
+    transform 750ms cubic-bezier(0.2, 0.75, 0.2, 1),
+    opacity 500ms,
+    filter 500ms;
+}
+.rail-stage.is-dragging .rail-hang {
+  transition: none;
+}
+.rail-hang:focus-visible {
+  outline: none;
+}
+.rail-hang:focus-visible .rail-garment {
+  outline: 1px dashed var(--color-espresso-soft);
+  outline-offset: 4px;
+}
+.rail-swing {
+  display: block;
+  transform-origin: 50% 4.5%;
+}
+.rail-swing.is-swinging {
+  animation: rail-swing 1.6s cubic-bezier(0.3, 0.6, 0.3, 1);
+}
+@keyframes rail-swing {
+  0% { transform: rotate(7deg); }
+  28% { transform: rotate(-4deg); }
+  55% { transform: rotate(2deg); }
+  80% { transform: rotate(-0.6deg); }
+  100% { transform: rotate(0); }
+}
+.rail-garment {
+  display: block;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  filter: drop-shadow(0 18px 18px rgb(52 37 30 / 0.14));
+}
+.rail-hint {
+  position: absolute;
+  left: 36%;
+  bottom: 4%;
+  z-index: 60;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  border: 1px solid rgb(163 146 130 / 0.5);
+  border-radius: 999px;
+  background: var(--color-paper);
+  color: var(--color-espresso-soft);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  pointer-events: none;
+}
+
+/* The garment close up, to turn round. */
+@property --lit {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
+.hanger-turn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 5;
+  perspective: 1600px;
+  background: var(--color-paper);
+}
+.hanger-tilt {
+  width: 78%;
+  transform-style: preserve-3d;
+  transform-origin: 50% 4%;
+  transition: transform 600ms cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.hanger-spin {
+  position: relative;
+  transform-style: preserve-3d;
+  --lit: 1;
+}
+.hanger-spin.is-turnable {
+  cursor: grab;
+  touch-action: pan-y;
+}
+.hanger-spin.is-grabbed {
+  cursor: grabbing;
+}
+.hanger-spin.is-settling {
+  transition:
+    transform 750ms cubic-bezier(0.2, 0.9, 0.25, 1.08),
+    --lit 750ms;
+}
+.hanger-spin:focus-visible {
+  outline: 1px dashed var(--color-espresso-soft);
+  outline-offset: 6px;
+}
+.hanger-face {
+  display: block;
+  width: 100%;
+  height: auto;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  user-select: none;
+  -webkit-user-drag: none;
+  /* On each face, not the turning layer: a filter there would flatten the 3D. */
+  filter: brightness(var(--lit)) drop-shadow(0 18px 18px rgb(52 37 30 / 0.14));
+}
+.hanger-face.is-rear {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  object-fit: contain;
+  transform: rotateY(180deg);
+}
+.hanger-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 8px;
+  border: 1px solid rgb(163 146 130 / 0.5);
+  border-radius: 999px;
+  background: rgb(253 250 245 / 0.9);
+  color: var(--color-espresso-soft);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+.hanger-hint:hover {
+  color: var(--color-espresso);
+}
+@media (prefers-reduced-motion: reduce) {
+  .rail-hang {
+    transition: opacity 200ms;
+  }
+  .rail-swing.is-swinging {
+    animation: none;
+  }
+  .hanger-tilt,
+  .hanger-spin.is-settling {
+    transition: none;
+  }
+}
+
 /* Admin: a checkerboard behind a cut-out shows what was removed. */
 .rail-checker {
   background-color: #fff;

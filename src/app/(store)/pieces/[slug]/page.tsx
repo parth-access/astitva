@@ -19,6 +19,7 @@ import { formatPieceNumber } from "@/lib/format";
 import { formatINR } from "@/lib/money";
 import { gaItem, gaRupees } from "@/lib/analytics";
 import { cloudinaryUrl } from "@/lib/cloudinary-url";
+import { railGarments } from "@/lib/rail";
 import { breadcrumbLd, pageMeta, productLd } from "@/lib/seo";
 import { JsonLd } from "@/components/brand/json-ld";
 import { OptionsSkeleton, PieceSkeleton } from "@/components/lookbook/skeletons";
@@ -290,6 +291,7 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
               category={product.categorySlug}
               images={product.images.map((i) => ({ url: i.url, alt: i.alt, color: i.color, angle: i.angle }))}
               spinVideo={product.spinVideoUrl}
+              rail={railGarments(colours, product.rail)}
             />
           </div>
 
