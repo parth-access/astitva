@@ -1,25 +1,36 @@
 import type { Metadata } from "next";
-import { pageMeta } from "@/lib/seo";
 import { TextPage } from "@/components/storefront/text-page";
+import { paragraphs } from "@/lib/format";
+import { pageMeta } from "@/lib/seo";
+import { getAbout, getConcierge } from "@/modules/catalog/queries";
+import { profileLabel } from "@/lib/profiles";
 
 export const metadata: Metadata = pageMeta({
   title: "About",
-  description: "Astitva means existence: being yourself. The story of the brand, and how its pieces are chosen.",
+  description: "Astitva means existence: being yourself. A few women's styles chosen by hand, in the colours we couldn't choose between, sold online across India.",
   path: "/about",
 });
 
-// TODO(brand): replace with Krishna's own story before launch.
-export default function AboutPage() {
+export default async function AboutPage() {
+  const [about, concierge] = await Promise.all([getAbout(), getConcierge()]);
   return (
-    <TextPage title="About Astitva" intro={<p className="font-accent text-2xl italic">Your true form</p>}>
-      <p>
-        Astitva is a Sanskrit word for existence: the simple fact of being yourself. The brand began with a small
-        collection of pieces chosen by hand, each one picked because it felt like someone, not like everyone.
-      </p>
-      <p>
-        We would rather offer a few styles, in the colours we couldn&apos;t choose between, than a rail of everything.
-        In time, Astitva will also make clothing of its own.
-      </p>
+    <TextPage title="About Astitva" intro={about.intro ? <p className="font-accent text-2xl italic">{about.intro}</p> : undefined}>
+      {paragraphs(about.body).map((p) => (
+        <p key={p}>{p}</p>
+      ))}
+      {concierge.profileLinks.length ? (
+        <p>
+          {concierge.profileLinks.map((href, i) => (
+            <span key={href}>
+              {i ? " · " : "Follow along on "}
+              <a className="link" href={href} rel="me noopener" target="_blank">
+                {profileLabel(href)}
+              </a>
+            </span>
+          ))}
+          .
+        </p>
+      ) : null}
     </TextPage>
   );
 }

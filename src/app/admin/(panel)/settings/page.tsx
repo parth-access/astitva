@@ -7,6 +7,7 @@ import { requireAdmin } from "@/modules/auth/auth";
 import { formatPieceNumber } from "@/lib/format";
 import { publishedPieces, settingsRow } from "@/modules/catalog-admin/settings";
 import { CONTENTS_PLACES } from "@/modules/catalog/contents";
+import { ABOUT_DEFAULT } from "@/content/about";
 
 export const metadata: Metadata = { title: "Lookbook & settings" };
 
@@ -19,6 +20,9 @@ export default async function SettingsPage({ searchParams }: PageProps<"/admin/s
     lookbookSubtitle: s?.lookbookSubtitle ?? "",
     note: s?.note ?? "",
     noteSignature: s?.noteSignature ?? "",
+    // Until she saves her own, the box starts with the words the page shows.
+    aboutIntro: s?.aboutBody ? (s.aboutIntro ?? "") : (s?.aboutIntro ?? ABOUT_DEFAULT.intro),
+    aboutBody: s?.aboutBody || ABOUT_DEFAULT.body,
     orderingOpen: s?.orderingOpen ? "on" : "",
     supportWhatsapp: s?.supportWhatsapp ?? "",
     conciergeName: s?.conciergeName ?? "",

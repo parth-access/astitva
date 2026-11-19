@@ -534,6 +534,9 @@ export const storeSettings = pgTable(
     /** Krishna's note on the home page. Blank lines separate paragraphs. */
     note: text("note").notNull().default(""),
     noteSignature: varchar("note_signature", { length: 60 }),
+    /** The About page: a line under the title, and the story. Blank lines separate paragraphs. Empty shows the default copy. */
+    aboutIntro: varchar("about_intro", { length: 200 }),
+    aboutBody: text("about_body").notNull().default(""),
     /** The pieces on the home page's Contents page, in order (up to 3). Empty places are filled at random. */
     contentsPicks: uuid("contents_picks").array().notNull().default(sql`'{}'::uuid[]`),
     updatedAt: updatedAt(),

@@ -15,6 +15,7 @@ import type { Measurements } from "@/db/schema";
 import { whatsappNumber } from "@/lib/india";
 import { compareSizes } from "@/lib/sizes";
 import type { RailPhoto } from "@/lib/rail";
+import { ABOUT_DEFAULT } from "@/content/about";
 import { pickRelated } from "./related";
 
 /**
@@ -367,6 +368,16 @@ export async function getConcierge() {
     .where(eq(storeSettings.id, 1));
   // A number saved without its country code: "9812345678" → "919812345678".
   return row ? { ...row, whatsapp: whatsappNumber(row.whatsapp) } : { whatsapp: null, name: null, email: null, profileLinks: [] };
+}
+
+/** The About page's words; the default copy until Krishna saves her own. */
+export async function getAbout() {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(SETTINGS_TAG);
+
+  const [row] = await db.select({ intro: storeSettings.aboutIntro, body: storeSettings.aboutBody }).from(storeSettings).where(eq(storeSettings.id, 1));
+  return row?.body.trim() ? { intro: row.intro, body: row.body } : ABOUT_DEFAULT;
 }
 
 /** The home page lookbook's words, and whether customers can order yet. */

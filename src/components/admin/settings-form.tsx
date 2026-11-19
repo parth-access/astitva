@@ -116,6 +116,14 @@ export function SettingsForm({ initial, pieces }: { initial: Record<string, stri
         ) : null}
       </Section>
 
+      <Section title="The About page" intro="Who Astitva is, in your words. Search engines read this page to learn what the shop is. A blank line starts a new paragraph.">
+        <Field label="One line under the title" name="aboutIntro" defaultValue={v("aboutIntro")} maxLength={200} error={e("aboutIntro")} />
+        <TextArea label="The story" name="aboutBody" rows={14} defaultValue={v("aboutBody")} error={e("aboutBody")} hint="Clear it to go back to the default words." />
+        <Link href="/about" target="_blank" className="link text-sm">
+          See the About page
+        </Link>
+      </Section>
+
       <Section title="How buyers reach you" intro="Shown on the contact page, in every email, and behind “Ask us about the fit” on every piece.">
         <div className="grid gap-5 sm:grid-cols-2">
           <Field

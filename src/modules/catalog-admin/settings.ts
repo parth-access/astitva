@@ -32,6 +32,8 @@ const settingsSchema = z.object({
   lookbookSubtitle: text(200),
   note: z.preprocess((v) => (typeof v === "string" ? v.replace(/\r\n/g, "\n").trim() : ""), z.string().max(20_000)),
   noteSignature: text(60),
+  aboutIntro: text(200),
+  aboutBody: z.preprocess((v) => (typeof v === "string" ? v.replace(/\r\n/g, "\n").trim() : ""), z.string().max(20_000)),
   orderingOpen: z.boolean(),
   supportWhatsapp: z.preprocess(
     (v) => (typeof v === "string" ? v.replace(/[\s+()-]/g, "") || null : v),
