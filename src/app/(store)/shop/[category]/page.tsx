@@ -9,6 +9,7 @@ import { formatINR } from "@/lib/money";
 import { breadcrumbLd, itemListLd, pageMeta } from "@/lib/seo";
 import { listCategories, listPieces } from "@/modules/catalog/queries";
 import { atLeastOne } from "@/lib/static-params";
+import { CATEGORY_INTROS } from "@/content/categories";
 
 export async function generateStaticParams() {
   return atLeastOne("category", (await listCategories()).map((c) => c.slug));
@@ -67,8 +68,11 @@ async function CategoryView({ params, searchParams }: PageProps<"/shop/[category
           ...(pieces.length ? [itemListLd(category.name, pieces.map((p) => pieceHref(p.slug)))] : []),
         ]}
       />
-      <p className="caption text-xl">The shop</p>
-      <h1 className="mb-10 mt-1 text-6xl italic md:text-7xl">{category.name}</h1>
+      <header className="mb-10">
+        <p className="caption text-xl">The shop</p>
+        <h1 className="mt-1 text-6xl italic md:text-7xl">{category.name}</h1>
+        {CATEGORY_INTROS[category.slug] ? <p className="mt-4 max-w-xl text-espresso-soft">{CATEGORY_INTROS[category.slug]}</p> : null}
+      </header>
       <Catalogue category={category.slug} sort={sortFrom(query.sort)} />
     </>
   );
