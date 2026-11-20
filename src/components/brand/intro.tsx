@@ -6,7 +6,10 @@ import { EARRING_PIVOT, MASCOT_GROUND, MASCOT_PARTS, MASCOT_VIEWBOX, SKETCH_PATH
  *
  * How it stays out of the way
  * - `INTRO_BOOT` (in <head>) decides before first paint whether to play: only
- *   on a visitor's first visit to the storefront, or with `?intro` for previews.
+ *   on the home page, on a visitor's first visit, or with `?intro` for previews.
+ *   A first visit that lands on a piece or the shop (from search, an ad, a
+ *   shared link) goes straight to it: the intro there was the page's largest
+ *   paint, and the slowest thing on it.
  *   If storage is unavailable it does not play. Without JavaScript it never shows.
  * - The page renders underneath at the same time; the intro never delays it.
  * - `INTRO_TIMELINE` runs right after this markup, without waiting for React:
@@ -19,7 +22,7 @@ import { EARRING_PIVOT, MASCOT_GROUND, MASCOT_PARTS, MASCOT_VIEWBOX, SKETCH_PATH
 const STORAGE_KEY = "astitva:intro";
 
 /** Runs in <head>. Keep it tiny and dependency-free. */
-export const INTRO_BOOT = `(function(){try{var p=location.pathname;if(/^\\/(admin|checkout|orders|api)(\\/|$)/.test(p))return;var f=/[?&]intro(=|&|$)/.test(location.search);if(f||!localStorage.getItem("${STORAGE_KEY}"))document.documentElement.setAttribute("data-intro","play")}catch(e){}})();`;
+export const INTRO_BOOT = `(function(){try{var f=/[?&]intro(=|&|$)/.test(location.search);if(f||(location.pathname==="/"&&!localStorage.getItem("${STORAGE_KEY}")))document.documentElement.setAttribute("data-intro","play")}catch(e){}})();`;
 
 const INTRO_TIMELINE = `(function(){
 var root=document.documentElement,el=document.getElementById("astitva-intro");
