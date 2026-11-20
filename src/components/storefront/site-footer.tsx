@@ -33,6 +33,9 @@ export function SiteFooter({ profiles }: { profiles: string[] }) {
               <Link className="link" transitionTypes={ACROSS} href="/about">About</Link>
             </li>
             <li>
+              <Link className="link" transitionTypes={ACROSS} href="/guides">Styling guides</Link>
+            </li>
+            <li>
               <Link className="link" transitionTypes={ACROSS} href="/contact">Contact</Link>
             </li>
           </ul>

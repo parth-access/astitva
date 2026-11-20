@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { GUIDES } from "@/content/guides";
 import { POLICY_PAGES } from "@/content/policies";
 import { cloudinaryUrl } from "@/lib/cloudinary-url";
 import { env } from "@/lib/env";
@@ -20,6 +21,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       // The photo when there is one, otherwise the piece's share card.
       images: [p.imageUrl ? cloudinaryUrl(p.imageUrl, { width: 1600 }) : `${base}/pieces/${p.slug}/share.png`],
     })),
+    { url: `${base}/guides`, changeFrequency: "monthly", priority: 0.6 },
+    ...GUIDES.map((g) => ({ url: `${base}/guides/${g.slug}`, lastModified: g.published, changeFrequency: "monthly" as const, priority: 0.6 })),
     ...["about", "contact", "faq", "size-guide"].map((path) => ({ url: `${base}/${path}`, changeFrequency: "monthly" as const, priority: 0.4 })),
     // Draft policies are kept out of search until they're final.
     ...POLICY_PAGES.filter((p) => p.status === "final").map((p) => ({ url: `${base}/policies/${p.slug}`, changeFrequency: "yearly" as const, priority: 0.2 })),

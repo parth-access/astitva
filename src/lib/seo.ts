@@ -97,6 +97,23 @@ export function websiteLd(): Ld {
   };
 }
 
+/** A styling guide: written by the shop, about its own pieces. */
+export function articleLd(a: { title: string; description: string; path: string; published: string; image?: string | null }): Ld {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: a.title,
+    description: a.description,
+    url: absolute(a.path),
+    mainEntityOfPage: absolute(a.path),
+    datePublished: a.published,
+    inLanguage: "en-IN",
+    author: { "@id": `${siteUrl()}/#organization` },
+    publisher: { "@id": `${siteUrl()}/#organization` },
+    ...(a.image ? { image: [a.image] } : {}),
+  };
+}
+
 export function breadcrumbLd(trail: { name: string; path: string }[]): Ld {
   return {
     "@context": "https://schema.org",
