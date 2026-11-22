@@ -41,6 +41,8 @@ export type PieceColour = {
   available: number;
   imageUrl: string | null;
   imageAlt: string | null;
+  /** The colour's next photo (often the back), shown when a shopper points at the card. */
+  hoverUrl: string | null;
 };
 
 export type PieceCard = {
@@ -175,8 +177,11 @@ async function coloursOf(productIds: string[]): Promise<Map<string, PieceColour[
     const list = out.get(v.productId) ?? [];
     let c = list.find((x) => x.name === v.color);
     if (!c) {
-      const photo = images.find((i) => i.productId === v.productId && i.color === v.color) ?? images.find((i) => i.productId === v.productId && !i.color);
-      c = { name: v.color, hex: v.hex, available: 0, imageUrl: photo?.url ?? null, imageAlt: photo?.alt || null };
+      // The colour's own photos first, then those that count for every colour.
+      const own = images.filter((i) => i.productId === v.productId && i.color === v.color);
+      const shared = images.filter((i) => i.productId === v.productId && !i.color);
+      const [photo, next] = own.length ? [own[0], own[1] ?? shared[0]] : [shared[0], shared[1]];
+      c = { name: v.color, hex: v.hex, available: 0, imageUrl: photo?.url ?? null, imageAlt: photo?.alt || null, hoverUrl: next?.url ?? null };
       list.push(c);
     }
     c.available += Math.max(0, v.onHand);

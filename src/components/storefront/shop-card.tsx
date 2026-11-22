@@ -1,10 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { pieceHref } from "@/components/brand/piece-caption";
 import { preloadPhoto } from "@/components/brand/fading-photo";
 import { SLIDE_SIZES } from "./piece-gallery";
+import { cloudinaryUrl, isCloudinaryUrl } from "@/lib/cloudinary-url";
 import { pieceTransitionName, Plate } from "@/components/brand/plate";
 import type { PieceCard, PieceColour } from "@/modules/catalog/queries";
 import { HeartButton } from "./saved/saved-context";
@@ -26,6 +28,9 @@ export function ShopCard({ piece, priority, caption }: { piece: PieceCard; prior
   const [preview, setPreview] = useState<string | null | undefined>(undefined);
   const shown = piece.colours.find((c) => c.name === (preview === undefined ? colour : preview)) ?? piece.colours[0];
   const photo = shown?.imageUrl ?? piece.imageUrl;
+  // The colour's second photo, fetched only once someone points at the card.
+  const [pointed, setPointed] = useState(false);
+  const hover = photo && shown?.hoverUrl && isCloudinaryUrl(shown.hoverUrl) ? shown.hoverUrl : null;
   const href = `${pieceHref(piece.slug)}${colour ? `?colour=${encodeURIComponent(colour)}` : ""}`;
   const title = piece.pieceName ?? piece.name;
   // A finger or pointer on a swatch starts its photo downloading, so choosing it shows at once.
@@ -40,9 +45,12 @@ export function ShopCard({ piece, priority, caption }: { piece: PieceCard; prior
         href={href}
         transitionTypes={["nav-forward"]}
         // Pointing at a piece starts its page's main photo, at the size that page shows it, so it is there on arrival.
-        onPointerEnter={() => preloadPhoto(photo, SLIDE_SIZES)}
+        onPointerEnter={(e) => {
+          preloadPhoto(photo, SLIDE_SIZES);
+          if (e.pointerType === "mouse") setPointed(true);
+        }}
         onFocus={() => preloadPhoto(photo, SLIDE_SIZES)} aria-label={`${title}, ${piece.name}${colour ? `, in ${colour}` : ""}`} className="block">
-        <div className="transition-transform duration-500 ease-[cubic-bezier(0.22,0.61,0.36,1)] group-hover:-translate-y-1">
+        <div className="relative transition-transform duration-500 ease-[cubic-bezier(0.22,0.61,0.36,1)] group-hover:-translate-y-1">
           {/* Photo to photo crossfades inside the plate; only a change to or from the sketch remounts. */}
           <div key={photo ? "photo" : "sketch"} className={photo ? "fade-in" : undefined}>
             <Plate
@@ -58,6 +66,7 @@ export function ShopCard({ piece, priority, caption }: { piece: PieceCard; prior
               priority={priority}
             />
           </div>
+          {pointed && hover ? <HoverPhoto key={hover} src={hover} /> : null}
         </div>
       </Link>
       {/* Beside the link, not in it: a heart doesn't open the piece. */}
@@ -68,6 +77,26 @@ export function ShopCard({ piece, priority, caption }: { piece: PieceCard; prior
         </div>
       ) : null}
       <div className="mt-4">{caption}</div>
+    </div>
+  );
+}
+
+const hoverLoader = ({ src, width, quality }: { src: string; width: number; quality?: number }) => cloudinaryUrl(src, { width, quality });
+
+/** The second photo, over the first while the card is pointed at. It fades in once loaded, never half-drawn. */
+function HoverPhoto({ src }: { src: string }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <div aria-hidden className="arch pointer-events-none absolute inset-0 bg-transparent">
+      <Image
+        src={src}
+        alt=""
+        loader={hoverLoader}
+        fill
+        sizes={CARD_SIZES}
+        onLoad={() => setLoaded(true)}
+        className={`object-cover opacity-0 transition-opacity duration-500 ease-out ${loaded ? "group-hover:opacity-100" : ""}`}
+      />
     </div>
   );
 }
