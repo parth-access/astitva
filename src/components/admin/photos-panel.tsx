@@ -2,13 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { attachPhotoAction, changePhotoAction, signPhotoUploadAction } from "@/app/admin/(panel)/pieces/actions";
+import { changePhotoAction } from "@/app/admin/(panel)/pieces/actions";
 import { cloudinaryUrl } from "@/lib/cloudinary-url";
 import type { PhotoEdit } from "@/lib/photo-edit";
 import { ANGLE_LABEL, PHOTO_ANGLES, turnFrames, type PhotoAngle } from "@/lib/photo-turn";
 import { PhotoEditor } from "./photo-editor";
 import { cardClass, FormError } from "./ui";
-import { IMAGE_ACCEPT, uploadToCloudinary } from "./upload";
+import { IMAGE_ACCEPT } from "./upload";
+import { uploadPhotos } from "./upload-photos";
 
 export type PanelPhoto = {
   id: string;
@@ -29,8 +30,8 @@ type Group = { name: string | null; hex: string | null; gone?: boolean; photos: 
  * show when that colour is chosen on the site (its first is its main photo),
  * and photos of every colour follow them, or stand in until a colour has its
  * own. Upload into a section (straight to Cloudinary) and the photos belong
- * to that colour; the editor then opens for each new photo in turn to crop,
- * turn and mirror it. Describe, reorder, move to another colour, remove.
+ * to that colour. A single new photo opens in the editor to crop, turn and
+ * mirror it; a batch is offered for editing one by one. Describe, reorder, move to another colour, remove.
  * Marking a colour's front, side and back photos lets buyers turn it round on
  * the piece page. The very first photo is the piece's cover.
  */
@@ -54,6 +55,8 @@ export function PhotosPanel({
   // New uploads waiting to be edited, first one open; or one existing photo being edited.
   const [queue, setQueue] = useState<{ photos: PanelPhoto[]; total: number } | null>(null);
   const [editing, setEditing] = useState<{ photo: PanelPhoto; label: string } | null>(null);
+  // A batch just uploaded, offered for editing rather than opened.
+  const [waiting, setWaiting] = useState<PanelPhoto[] | null>(null);
   const busy = pending || uploading !== null;
 
   const byColour = colours.length > 1;
@@ -73,22 +76,13 @@ export function PhotosPanel({
 
   async function uploadAll(files: File[], colour: string | null) {
     setError(null);
-    const problems: string[] = [];
-    const added: PanelPhoto[] = [];
-    for (const [i, file] of files.entries()) {
-      setUploading({ into: colour ?? "", progress: files.length > 1 ? `Uploading ${i + 1} of ${files.length}…` : "Uploading…" });
-      try {
-        const reply = await uploadToCloudinary(file, () => signPhotoUploadAction(productId));
-        const saved = await attachPhotoAction(productId, reply, colour);
-        if (!saved.ok) throw new Error(saved.error);
-        added.push(saved.photo);
-      } catch (err) {
-        problems.push(err instanceof Error ? err.message : `${file.name}: upload failed`);
-      }
-    }
+    const into = colour ?? "";
+    const { added, problems } = await uploadPhotos(productId, files, colour, (progress) => setUploading({ into, progress }));
     setUploading(null);
     if (problems.length) setError(problems.join(" "));
-    if (added.length) setQueue({ photos: added, total: added.length });
+    // One new photo opens in the editor; a batch waits until asked, so many photos aren't a long queue.
+    if (added.length === 1) setQueue({ photos: added, total: 1 });
+    else if (added.length) setWaiting(added);
     startTransition(() => router.refresh());
   }
 
@@ -124,6 +118,25 @@ export function PhotosPanel({
       </div>
 
       <FormError message={error} />
+
+      {waiting && !queue && !editing ? (
+        <div className="flex flex-wrap items-center gap-3 bg-sand/60 px-4 py-3 text-sm">
+          <span>{waiting.length} photos added.</span>
+          <button
+            type="button"
+            className="btn-outline min-h-9 px-3"
+            onClick={() => {
+              setQueue({ photos: waiting, total: waiting.length });
+              setWaiting(null);
+            }}
+          >
+            Crop or straighten them one by one
+          </button>
+          <button type="button" className="text-espresso-soft underline" onClick={() => setWaiting(null)}>
+            They&apos;re fine as they are
+          </button>
+        </div>
+      ) : null}
 
       {fresh ? (
         <PhotoEditor
