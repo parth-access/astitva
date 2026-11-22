@@ -51,7 +51,7 @@ export async function Catalogue({ category }: { category?: string }) {
           return n > 1 ? `, in ${n} colours` : "";
         })()}
       </p>
-      {active && active.styles === 0 ? <ComingSoon name={active.name} slug={active.slug} /> : <ProductGrid pieces={items} priorityCount={2} sortable />}
+      {active && active.styles === 0 ? <ComingSoon name={active.name} slug={active.slug} /> : <ProductGrid pieces={items} priorityCount={2} sortable breaks />}
     </>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore, type MouseEvent, type ReactNode } from "react";
+import { GridRows } from "./grid-rows";
 import { PRODUCT_SORTS, shopHref, sortCards, sortFrom, type ProductSort, type SortKeys } from "@/lib/shop-sort";
 
 /**
@@ -60,14 +61,8 @@ export function SortLinks({ category }: { category?: string }) {
 
 export type SortableCard = { id: string; keys: SortKeys; card: ReactNode };
 
-/** The grid's cards, in the order the address asks for. */
-export function SortedGrid({ cards, className }: { cards: SortableCard[]; className: string }) {
+/** The grid's cards, in the order the address asks for. The breaks stay where they are. */
+export function SortedGrid({ cards, breaks }: { cards: SortableCard[]; breaks: ReactNode[] }) {
   const sort = useShopSort();
-  return (
-    <ul className={className}>
-      {sortCards(cards, sort).map((c) => (
-        <li key={c.id}>{c.card}</li>
-      ))}
-    </ul>
-  );
+  return <GridRows cards={sortCards(cards, sort)} breaks={breaks} />;
 }
