@@ -4,7 +4,7 @@ import { Reveal } from "@/components/brand/reveal";
 import { JsonLd } from "@/components/brand/json-ld";
 import { pieceHref } from "@/components/brand/piece-caption";
 import { GridSkeleton } from "@/components/lookbook/skeletons";
-import { Catalogue, shopHref, sortFrom } from "@/components/storefront/shop-catalogue";
+import { Catalogue, shopHref } from "@/components/storefront/shop-catalogue";
 import { formatINR } from "@/lib/money";
 import { breadcrumbLd, itemListLd, pageMeta } from "@/lib/seo";
 import { listCategories, listPieces } from "@/modules/catalog/queries";
@@ -51,8 +51,8 @@ export async function generateMetadata({ params }: PageProps<"/shop/[category]">
   return pageMeta({ title, description, path: canonical });
 }
 
-async function CategoryView({ params, searchParams }: PageProps<"/shop/[category]">) {
-  const [{ category: slug }, query] = await Promise.all([params, searchParams]);
+async function CategoryView({ params }: Pick<PageProps<"/shop/[category]">, "params">) {
+  const { category: slug } = await params;
   const category = await categoryFor(slug);
   if (!category) notFound();
   const pieces = category.styles ? await listPieces({ categorySlug: category.slug }) : [];
@@ -73,7 +73,7 @@ async function CategoryView({ params, searchParams }: PageProps<"/shop/[category
         <h1 className="mt-1 text-6xl italic md:text-7xl">{category.name}</h1>
         {CATEGORY_INTROS[category.slug] ? <p className="mt-4 max-w-xl text-espresso-soft">{CATEGORY_INTROS[category.slug]}</p> : null}
       </header>
-      <Catalogue category={category.slug} sort={sortFrom(query.sort)} />
+      <Catalogue category={category.slug} />
     </>
   );
 }
@@ -82,7 +82,7 @@ export default function CategoryPage(props: PageProps<"/shop/[category]">) {
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-8">
       <Reveal fallback={<GridSkeleton />}>
-        <CategoryView {...props} />
+        <CategoryView params={props.params} />
       </Reveal>
     </div>
   );

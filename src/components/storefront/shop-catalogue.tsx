@@ -1,26 +1,21 @@
 import Link from "next/link";
 import { garmentKind, SketchPlate } from "@/components/lookbook/sketch-plate";
 import { ACROSS } from "@/lib/transition-types";
-import { listCategories, listPieces, PRODUCT_SORTS, type ProductSort } from "@/modules/catalog/queries";
+import { shopHref } from "@/lib/shop-sort";
+import { listCategories, listPieces } from "@/modules/catalog/queries";
 import { ProductGrid } from "./product-grid";
+import { SortLinks } from "./shop-sort";
 
-function first(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
+export { shopHref, sortFrom } from "@/lib/shop-sort";
 
-/** A category has its own page (/shop/dresses); sorting is a view of it. */
-export function shopHref(category: string | undefined, sort: ProductSort = "sequence") {
-  return `/shop${category ? `/${encodeURIComponent(category)}` : ""}${sort !== "sequence" ? `?sort=${sort}` : ""}`;
-}
-
-export function sortFrom(value: string | string[] | undefined): ProductSort {
-  const raw = first(value);
-  return raw && raw in PRODUCT_SORTS ? (raw as ProductSort) : "sequence";
-}
-
-/** The shop's grid, for everything or one category (already checked to exist), with the category and sort links above. */
-export async function Catalogue({ category, sort }: { category?: string; sort: ProductSort }) {
-  const [cats, items] = await Promise.all([listCategories(), listPieces({ categorySlug: category, sort })]);
+/**
+ * The shop's grid, for everything or one category (already checked to exist),
+ * with the category and sort links above. Always built in Krishna's order;
+ * the browser re-sorts it (shop-sort.tsx), so the page is the same for every
+ * visitor and can be cached.
+ */
+export async function Catalogue({ category }: { category?: string }) {
+  const [cats, items] = await Promise.all([listCategories(), listPieces({ categorySlug: category })]);
   const active = cats.find((c) => c.slug === category);
 
   return (
@@ -29,14 +24,14 @@ export async function Catalogue({ category, sort }: { category?: string; sort: P
         <nav aria-label="Categories">
           <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
             <li>
-              <Link href={shopHref(undefined, sort)} aria-current={!active ? "page" : undefined} className={!active ? "text-burgundy underline underline-offset-4" : "link no-underline hover:underline"}>
+              <Link href={shopHref(undefined)} aria-current={!active ? "page" : undefined} className={!active ? "text-burgundy underline underline-offset-4" : "link no-underline hover:underline"}>
                 Everything
               </Link>
             </li>
             {cats.map((c) => (
               <li key={c.id}>
                 <Link
-                  href={shopHref(c.slug, sort)}
+                  href={shopHref(c.slug)}
                   aria-current={active?.id === c.id ? "page" : undefined}
                   className={active?.id === c.id ? "text-burgundy underline underline-offset-4" : "link no-underline hover:underline"}
                 >
@@ -47,22 +42,7 @@ export async function Catalogue({ category, sort }: { category?: string; sort: P
             ))}
           </ul>
         </nav>
-        <nav aria-label="Sort" className="flex items-center gap-3 text-sm">
-          <span className="text-espresso-soft">Sort</span>
-          <ul className="flex gap-4">
-            {(Object.keys(PRODUCT_SORTS) as ProductSort[]).map((s) => (
-              <li key={s}>
-                <Link
-                  href={shopHref(active?.slug, s)}
-                  aria-current={s === sort ? "true" : undefined}
-                  className={s === sort ? "text-burgundy underline underline-offset-4" : "link no-underline hover:underline"}
-                >
-                  {PRODUCT_SORTS[s]}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <SortLinks category={active?.slug} />
       </div>
       <p className={`mb-10 mt-6 text-sm text-espresso-soft ${active && active.styles === 0 ? "sr-only" : ""}`} aria-live="polite">
         {items.length === 1 ? "One style" : `${items.length} styles`}
@@ -71,7 +51,7 @@ export async function Catalogue({ category, sort }: { category?: string; sort: P
           return n > 1 ? `, in ${n} colours` : "";
         })()}
       </p>
-      {active && active.styles === 0 ? <ComingSoon name={active.name} slug={active.slug} /> : <ProductGrid pieces={items} priorityCount={2} />}
+      {active && active.styles === 0 ? <ComingSoon name={active.name} slug={active.slug} /> : <ProductGrid pieces={items} priorityCount={2} sortable />}
     </>
   );
 }

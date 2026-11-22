@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Reveal } from "@/components/brand/reveal";
 import { GridSkeleton } from "@/components/lookbook/skeletons";
-import { Catalogue, sortFrom } from "@/components/storefront/shop-catalogue";
+import { Catalogue } from "@/components/storefront/shop-catalogue";
 import { pageMeta } from "@/lib/seo";
 
 export const metadata: Metadata = pageMeta({
@@ -11,17 +11,13 @@ export const metadata: Metadata = pageMeta({
   path: "/shop",
 });
 
-async function Everything({ searchParams }: Pick<PageProps<"/shop">, "searchParams">) {
-  return <Catalogue sort={sortFrom((await searchParams).sort)} />;
-}
-
-export default function ShopPage(props: PageProps<"/shop">) {
+export default function ShopPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-8">
       <p className="caption text-xl">Every style, every colour</p>
       <h1 className="mb-10 mt-1 text-6xl italic md:text-7xl">The shop</h1>
       <Reveal fallback={<GridSkeleton />}>
-        <Everything searchParams={props.searchParams} />
+        <Catalogue />
       </Reveal>
     </div>
   );

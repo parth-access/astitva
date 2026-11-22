@@ -14,6 +14,7 @@ import {
 import type { Measurements } from "@/db/schema";
 import { whatsappNumber } from "@/lib/india";
 import { compareSizes } from "@/lib/sizes";
+import type { ProductSort } from "@/lib/shop-sort";
 import type { RailPhoto } from "@/lib/rail";
 import { ABOUT_DEFAULT } from "@/content/about";
 import { pickRelated } from "./related";
@@ -29,13 +30,7 @@ import { pickRelated } from "./related";
 
 export const CATALOG_TAG = "catalog";
 
-export type ProductSort = "sequence" | "newest" | "price_asc" | "price_desc";
-export const PRODUCT_SORTS: Record<ProductSort, string> = {
-  sequence: "In order",
-  newest: "Newest",
-  price_asc: "Price, low to high",
-  price_desc: "Price, high to low",
-};
+export { PRODUCT_SORTS, type ProductSort } from "@/lib/shop-sort";
 
 /** One colour of a style, as the storefront offers it. */
 export type PieceColour = {
@@ -68,6 +63,8 @@ export type PieceCard = {
   colours: PieceColour[];
   /** Last edit, for the sitemap. */
   updatedAt: Date;
+  /** When it first went on sale, for "Newest". */
+  publishedAt: Date | null;
 };
 
 const minPrice = sql<number>`min(${productVariants.priceMinor})::bigint`;
@@ -109,6 +106,7 @@ export async function listPieces(
       onHand: sql<number>`sum(${productVariants.onHand})::int`,
       variantCount: sql<number>`count(${productVariants.id})::int`,
       updatedAt: products.updatedAt,
+      publishedAt: products.publishedAt,
     })
     .from(products)
     .innerJoin(productVariants, and(eq(productVariants.productId, products.id), eq(productVariants.isActive, true)))
