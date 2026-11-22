@@ -39,9 +39,17 @@ export default async function PiecesPage() {
         title="Pieces"
         subtitle={`${pieces.length} ${pieces.length === 1 ? "piece" : "pieces"}, in house order.`}
         actions={
-          <Link href="/admin/pieces/new" transitionTypes={FORWARD} className="btn-primary">
-            Add a piece
-          </Link>
+          <>
+            <Link href="/admin/pieces/photos" transitionTypes={FORWARD} className="btn-outline">
+              Add photos from folders
+            </Link>
+            <Link href="/admin/pieces/import" transitionTypes={FORWARD} className="btn-outline">
+              Import from a sheet
+            </Link>
+            <Link href="/admin/pieces/new" transitionTypes={FORWARD} className="btn-primary">
+              Add a piece
+            </Link>
+          </>
         }
       />
 
