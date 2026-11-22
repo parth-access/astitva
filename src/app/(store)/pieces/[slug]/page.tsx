@@ -177,7 +177,7 @@ async function YouMightAlsoLike({ productId, categorySlug }: { productId: string
       </h2>
       <ul className="mt-10 grid grid-cols-2 gap-x-4 gap-y-12 sm:gap-x-8 lg:grid-cols-4">
         {pieces.map((p) => (
-          <li key={p.id}>
+          <li key={p.id} className="rise">
             <ShopCard piece={p} caption={<PieceCaption piece={p} size="grid" showStory={false} />} />
           </li>
         ))}
@@ -280,7 +280,8 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
           }}
         />
         <article className="mx-auto grid max-w-6xl gap-8 px-4 pb-28 pt-6 sm:px-8 md:grid-cols-12 md:gap-8 md:pb-0 md:pt-10">
-          <div className="-mx-4 sm:-mx-8 md:col-span-7 md:mx-0">
+          {/* Both columns stick: whichever is shorter (usually the photos) stays in view while the other scrolls past it. */}
+          <div className="-mx-4 sm:-mx-8 md:sticky md:top-8 md:col-span-7 md:mx-0 md:self-start">
             <PieceGallery
               slug={product.slug}
               title={title}
@@ -447,7 +448,7 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
         </article>
 
         {product.stylingNote ? (
-          <section aria-label="How to wear it" className="mx-auto mt-28 max-w-3xl px-4 text-center sm:px-8 md:mt-40">
+          <section aria-label="How to wear it" className="rise mx-auto mt-28 max-w-3xl px-4 text-center sm:px-8 md:mt-40">
             <p className="caption text-xl">How we&apos;d wear it</p>
             <blockquote className="mt-4 font-display text-3xl italic leading-snug md:text-4xl">{product.stylingNote}</blockquote>
             <p className="mt-6 font-accent text-2xl italic">Team Astitva</p>

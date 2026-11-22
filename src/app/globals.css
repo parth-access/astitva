@@ -541,8 +541,7 @@ html[data-intro] .intro.is-skipped {
 
 .lookbook {
   background-color: var(--color-ivory);
-  /* Uncoated paper: a faint, even tooth. */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .3 0 0 0 0 .22 0 0 0 0 .16 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E");
+  /* Its paper tooth is the site-wide one (body::after below). */
 }
 
 .lookbook-title {
@@ -1499,5 +1498,64 @@ html[data-intro="leaving"] .consent {
 @media (prefers-reduced-motion: reduce) {
   .consent {
     animation: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Paper, everywhere: the lookbook's uncoated tooth laid over the whole */
+/* site, so the ivory reads as paper rather than a flat screen colour.  */
+/* One fixed layer: painted once, never repainted as the page scrolls.  */
+/* ------------------------------------------------------------------ */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .3 0 0 0 0 .22 0 0 0 0 .16 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E");
+}
+@media print {
+  body::after {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Rising in: cards and spreads lift and fade in as they scroll into    */
+/* view, driven by the scroll itself (no script). Columns start a beat  */
+/* apart, so a row arrives left to right. Browsers without scroll-      */
+/* driven animations, and anyone who asks for less motion, see them     */
+/* still. Uses transform, so it never fights the grid's `translate`.    */
+/* ------------------------------------------------------------------ */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .rise {
+      animation: rise-in linear both;
+      animation-timeline: view();
+      animation-range: entry 5% entry 70%;
+    }
+    @media (min-width: 1024px) {
+      .rise-grid > .rise:nth-child(3n + 2) {
+        animation-range: entry 12% entry 80%;
+      }
+      .rise-grid > .rise:nth-child(3n) {
+        animation-range: entry 19% entry 90%;
+      }
+    }
+    @media (max-width: 1023px) {
+      .rise-grid > .rise:nth-child(2n) {
+        animation-range: entry 12% entry 80%;
+      }
+    }
+  }
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(2.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
