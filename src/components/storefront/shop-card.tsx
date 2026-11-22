@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { pieceHref } from "@/components/brand/piece-caption";
 import { preloadPhoto } from "@/components/brand/fading-photo";
+import { SLIDE_SIZES } from "./piece-gallery";
 import { pieceTransitionName, Plate } from "@/components/brand/plate";
 import type { PieceCard, PieceColour } from "@/modules/catalog/queries";
 import { HeartButton } from "./saved/saved-context";
 import { SwatchPicker } from "./swatch-picker";
-import { firstPaint } from "@/lib/first-paint";
 
 const CARD_SIZES = "(min-width: 1024px) 30vw, 46vw";
 
@@ -36,7 +36,12 @@ export function ShopCard({ piece, priority, caption }: { piece: PieceCard; prior
 
   return (
     <div className="group relative">
-      <Link href={href} transitionTypes={["nav-forward"]} aria-label={`${title}, ${piece.name}${colour ? `, in ${colour}` : ""}`} className="block">
+      <Link
+        href={href}
+        transitionTypes={["nav-forward"]}
+        // Pointing at a piece starts its page's main photo, at the size that page shows it, so it is there on arrival.
+        onPointerEnter={() => preloadPhoto(photo, SLIDE_SIZES)}
+        onFocus={() => preloadPhoto(photo, SLIDE_SIZES)} aria-label={`${title}, ${piece.name}${colour ? `, in ${colour}` : ""}`} className="block">
         <div className="transition-transform duration-500 ease-[cubic-bezier(0.22,0.61,0.36,1)] group-hover:-translate-y-1">
           {/* Photo to photo crossfades inside the plate; only a change to or from the sketch remounts. */}
           <div key={photo ? "photo" : "sketch"} className={photo ? "fade-in" : undefined}>
@@ -50,7 +55,7 @@ export function ShopCard({ piece, priority, caption }: { piece: PieceCard; prior
               category={piece.categorySlug}
               muted={piece.onHand <= 0}
               sizes={CARD_SIZES}
-              {...firstPaint(priority)}
+              priority={priority}
             />
           </div>
         </div>

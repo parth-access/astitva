@@ -3,7 +3,7 @@
 import Image, { getImageProps } from "next/image";
 import { useState } from "react";
 import { preload } from "react-dom";
-import { cloudinaryUrl, isCloudinaryUrl } from "@/lib/cloudinary-url";
+import { blurPreviewUrl, cloudinaryUrl, isCloudinaryUrl } from "@/lib/cloudinary-url";
 import { firstPaint } from "@/lib/first-paint";
 
 const loader = ({ src, width, quality }: { src: string; width: number; quality?: number }) => cloudinaryUrl(src, { width, quality });
@@ -18,8 +18,11 @@ type Layer = { src: string; alt: string; shown: boolean };
  * bare colour while the next photo downloads.
  */
 export function FadingPhoto({ src, alt, sizes, priority, className = "" }: { src: string; alt: string; sizes: string; priority?: boolean; className?: string }) {
-  // The first photo is shown at once: it is in the page's HTML and the browser paints it as it arrives.
-  const [layers, setLayers] = useState<Layer[]>([{ src, alt, shown: true }]);
+  // The page's main photo is shown at once: the browser paints it as it arrives, and nothing waits on a fade.
+  // Others fade in over their blurred copy once they have loaded, instead of drawing in from the top.
+  const [layers, setLayers] = useState<Layer[]>([{ src, alt, shown: !!priority }]);
+  // The blurred copy of the photo first shown: it only shows while that one loads.
+  const [blur] = useState(() => blurPreviewUrl(src));
   const top = layers[layers.length - 1]!;
   if (top.src !== src) {
     // A new photo: keep the last one fully shown underneath it, drop any still loading.
@@ -35,6 +38,10 @@ export function FadingPhoto({ src, alt, sizes, priority, className = "" }: { src
 
   return (
     <>
+      {blur && !priority ? (
+        // Slightly larger than the arch, so the blur's soft edges fall outside it.
+        <span aria-hidden className="absolute inset-0 scale-110 bg-cover bg-center blur-lg" style={{ backgroundImage: `url("${blur}")` }} />
+      ) : null}
       {layers.map((l, i) => {
         const isTop = i === layers.length - 1;
         return (

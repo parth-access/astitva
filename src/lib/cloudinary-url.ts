@@ -37,6 +37,15 @@ export function withTransformation(src: string, transformation: string): string 
   return `${m[1]}${m[2]}${transformation}/${m[3]}`;
 }
 
+/**
+ * A tiny, blurred copy of the photo (well under 1 KB) to show while the
+ * real one loads, so the arch holds a soft version of the garment instead
+ * of a flat colour. Non-Cloudinary addresses give null.
+ */
+export function blurPreviewUrl(src: string): string | null {
+  return isCloudinaryUrl(src) ? withTransformation(src, "f_auto,q_auto:low,c_limit,w_40,e_blur:300") : null;
+}
+
 const VIDEO = /^(https:\/\/res\.cloudinary\.com\/[^/]+\/video\/upload\/)(v\d+\/.+)\.[a-z0-9]+$/i;
 
 /** How many stills a turning video is cut into: one every 10°. */

@@ -12,7 +12,7 @@ import { PhotoViewer } from "./photo-viewer";
 import { SpinViewer } from "./spin-viewer";
 import { TurnViewer } from "./turn-viewer";
 
-const SLIDE_SIZES = "(min-width: 768px) 56vw, 80vw";
+export const SLIDE_SIZES = "(min-width: 768px) 56vw, 80vw";
 
 export type GalleryImage = { url: string; alt: string; color: string | null; angle: PhotoAngle | null };
 
