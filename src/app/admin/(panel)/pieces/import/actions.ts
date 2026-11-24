@@ -50,7 +50,14 @@ async function readSheet(form: FormData): Promise<{ ok: true; pieces: (SheetPiec
     byName.set(c.name.toLowerCase(), c.id);
     byName.set(c.slug, c.id);
   }
-  const pieces = sheetPieces(rows, byName);
+  // The same piece twice in one sheet: only the first is added; the second would fail on its web address.
+  const seen = new Set<string>();
+  const pieces = sheetPieces(rows, byName).map((p) => {
+    const marks = [p.slug, p.input?.pieceName?.toLowerCase()].filter((m): m is string => !!m);
+    const twice = marks.some((m) => seen.has(m));
+    marks.forEach((m) => seen.add(m));
+    return twice ? { ...p, input: null, problems: [...p.problems, "The same piece is on an earlier row of this sheet."] } : p;
+  });
 
   // Already on the site: the same web address, or the same piece name.
   const slugs = pieces.map((p) => p.slug).filter(Boolean);

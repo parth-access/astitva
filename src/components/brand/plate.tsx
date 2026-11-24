@@ -14,7 +14,7 @@ import { firstPaint } from "@/lib/first-paint";
  * stays light (dark pieces get even less of their colour), or the garment
  * and the model would darken with it.
  */
-const groundOf = (tone: string | null) => mixTone(tone, "#f4ecdf", luminance(normaliseTone(tone)) < 0.08 ? 0.06 : 0.14);
+export const groundOf = (tone: string | null) => mixTone(tone, "#f4ecdf", luminance(normaliseTone(tone)) < 0.08 ? 0.06 : 0.14);
 
 type Props = {
   /** Shared-element name so the plate morphs into the piece page hero. Must be unique on the page. */

@@ -7,7 +7,7 @@ import { pieceHref } from "@/components/brand/piece-caption";
 import { preloadPhoto } from "@/components/brand/fading-photo";
 import { SLIDE_SIZES } from "./piece-gallery";
 import { cloudinaryUrl, isCloudinaryUrl } from "@/lib/cloudinary-url";
-import { pieceTransitionName, Plate } from "@/components/brand/plate";
+import { groundOf, pieceTransitionName, Plate } from "@/components/brand/plate";
 import type { PieceCard, PieceColour } from "@/modules/catalog/queries";
 import { HeartButton } from "./saved/saved-context";
 import { SwatchPicker } from "./swatch-picker";
@@ -66,7 +66,7 @@ export function ShopCard({ piece, priority, caption }: { piece: PieceCard; prior
               priority={priority}
             />
           </div>
-          {pointed && hover ? <HoverPhoto key={hover} src={hover} /> : null}
+          {pointed && hover ? <HoverPhoto key={hover} src={hover} tone={shown?.hex ?? piece.tone} /> : null}
         </div>
       </Link>
       {/* Beside the link, not in it: a heart doesn't open the piece. */}
@@ -83,20 +83,20 @@ export function ShopCard({ piece, priority, caption }: { piece: PieceCard; prior
 
 const hoverLoader = ({ src, width, quality }: { src: string; width: number; quality?: number }) => cloudinaryUrl(src, { width, quality });
 
-/** The second photo, over the first while the card is pointed at. It fades in once loaded, never half-drawn. */
-function HoverPhoto({ src }: { src: string }) {
+/**
+ * The second photo, over the first while the card is pointed at. It fades in
+ * once loaded, never half-drawn, laid on the same paper as the plate (see
+ * Plate) so its studio backdrop doesn't show as a white box.
+ */
+function HoverPhoto({ src, tone }: { src: string; tone: string | null }) {
   const [loaded, setLoaded] = useState(false);
   return (
-    <div aria-hidden className="arch pointer-events-none absolute inset-0 bg-transparent">
-      <Image
-        src={src}
-        alt=""
-        loader={hoverLoader}
-        fill
-        sizes={CARD_SIZES}
-        onLoad={() => setLoaded(true)}
-        className={`object-cover opacity-0 transition-opacity duration-500 ease-out ${loaded ? "group-hover:opacity-100" : ""}`}
-      />
+    <div
+      aria-hidden
+      className={`arch pointer-events-none absolute inset-0 isolate opacity-0 transition-opacity duration-500 ease-out ${loaded ? "group-hover:opacity-100" : ""}`}
+      style={{ backgroundColor: groundOf(tone) }}
+    >
+      <Image src={src} alt="" loader={hoverLoader} fill sizes={CARD_SIZES} onLoad={() => setLoaded(true)} className="object-cover mix-blend-multiply" />
     </div>
   );
 }

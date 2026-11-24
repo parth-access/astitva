@@ -174,5 +174,11 @@ export function readXlsx(file: Buffer, prefer?: string): string[][] {
     }
     rows[r] = Array.from(cells, (v) => v ?? "");
   }
-  return Array.from(rows, (r) => r ?? []);
+  // Rows are placed by number, so a formatted but empty row far down (Excel can write row 1048576)
+  // would leave a million gaps: stop at the last row that has text.
+  let last = rows.length - 1;
+  while (last >= 0 && !rows[last]?.some(Boolean)) last--;
+  const out: string[][] = [];
+  for (let i = 0; i <= last; i++) out.push(rows[i] ?? []);
+  return out;
 }

@@ -32,11 +32,12 @@ const KEEP_H = 3000;
  * A phone photo made no bigger than the site keeps, before it is sent: a
  * 4000 px, 5 MB photo becomes about 2400 px and under 1 MB, so most of the
  * wait (sending the file) goes. Cloudinary would shrink it anyway, after
- * receiving all of it. PNGs (perhaps transparent) and photos the browser
+ * receiving all of it. PNG, WebP and GIF (perhaps transparent) and photos the browser
  * can't read (HEIC outside Safari) go as they are.
  */
 export async function shrinkPhoto(file: File): Promise<File> {
-  if (file.type === "image/png" || typeof createImageBitmap !== "function") return file;
+  // A JPEG has no transparency: PNG, WebP and GIF may, so they go as they are.
+  if (["image/png", "image/webp", "image/gif"].includes(file.type) || typeof createImageBitmap !== "function") return file;
   let bitmap: ImageBitmap;
   try {
     bitmap = await createImageBitmap(file); // turned upright from the photo's own orientation

@@ -9,6 +9,8 @@ import { crc32, deflateRawSync, inflateRawSync } from "node:zlib";
 export type ZipEntry = { name: string; data?: Buffer };
 
 const MAX_ENTRY = 50 * 1024 * 1024;
+/** All the files together, unpacked: a spreadsheet is far smaller. */
+const MAX_TOTAL = 80 * 1024 * 1024;
 
 /** The files in a zip by name. Folders are left out. */
 export function readZip(zip: Buffer): Map<string, Buffer> {
@@ -24,6 +26,7 @@ export function readZip(zip: Buffer): Map<string, Buffer> {
   const count = zip.readUInt16LE(end + 10);
   let at = zip.readUInt32LE(end + 16);
   const files = new Map<string, Buffer>();
+  let total = 0;
   for (let n = 0; n < count; n++) {
     if (zip.readUInt32LE(at) !== 0x02014b50) throw new Error("This file is damaged.");
     const method = zip.readUInt16LE(at + 10);
@@ -35,12 +38,13 @@ export function readZip(zip: Buffer): Map<string, Buffer> {
     const name = zip.toString("utf8", at + 46, at + 46 + nameLength);
     at += 46 + skip;
     if (name.endsWith("/")) continue;
-    if (packed === 0xffffffff || size > MAX_ENTRY) throw new Error("This file is too big to read.");
+    total += size;
+    if (packed === 0xffffffff || size > MAX_ENTRY || total > MAX_TOTAL) throw new Error("This file is too big to read.");
     if (zip.readUInt32LE(local) !== 0x04034b50) throw new Error("This file is damaged.");
     const start = local + 30 + zip.readUInt16LE(local + 26) + zip.readUInt16LE(local + 28);
     const raw = zip.subarray(start, start + packed);
     if (method === 0) files.set(name, Buffer.from(raw));
-    else if (method === 8) files.set(name, inflateRawSync(raw, { maxOutputLength: MAX_ENTRY }));
+    else if (method === 8) files.set(name, inflateRawSync(raw, { maxOutputLength: Math.min(MAX_ENTRY, MAX_TOTAL - total + size) }));
     else throw new Error("This file uses a kind of compression we can't read.");
   }
   return files;
