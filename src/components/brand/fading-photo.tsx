@@ -39,8 +39,13 @@ export function FadingPhoto({ src, alt, sizes, priority, className = "" }: { src
   return (
     <>
       {blur && !priority ? (
-        // Slightly larger than the arch, so the blur's soft edges fall outside it.
-        <span aria-hidden className="absolute inset-0 scale-110 bg-cover bg-center blur-lg" style={{ backgroundImage: `url("${blur}")` }} />
+        // Slightly larger than the arch, so the blur's soft edges fall outside it. It fades once a photo is in:
+        // photos laid on with multiply would otherwise darken over their own blurred copy.
+        <span
+          aria-hidden
+          className={`absolute inset-0 scale-110 bg-cover bg-center blur-lg transition-opacity duration-500 ${layers.some((l) => l.shown) ? "opacity-0" : ""}`}
+          style={{ backgroundImage: `url("${blur}")` }}
+        />
       ) : null}
       {layers.map((l, i) => {
         const isTop = i === layers.length - 1;

@@ -26,3 +26,15 @@ export function luminance(hex: string): number {
 export function inkOn(tone: string): "light" | "dark" {
   return luminance(tone) < 0.18 ? "light" : "dark";
 }
+
+/** `amount` of `tone` mixed into `ground` (both "#rrggbb"), e.g. a colour's faint wash on paper. */
+export function mixTone(tone: string | null | undefined, ground: string, amount: number): string {
+  const a = normaliseTone(tone).slice(1);
+  const b = normaliseTone(ground).slice(1);
+  return `#${[0, 2, 4]
+    .map((i) => {
+      const v = Math.round(parseInt(a.slice(i, i + 2), 16) * amount + parseInt(b.slice(i, i + 2), 16) * (1 - amount));
+      return v.toString(16).padStart(2, "0");
+    })
+    .join("")}`;
+}

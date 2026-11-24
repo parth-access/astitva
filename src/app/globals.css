@@ -1071,7 +1071,7 @@ dialog.sheet::backdrop {
   place-items: center;
   aspect-ratio: 4 / 5;
   perspective: 1600px;
-  background: var(--color-paper);
+  /* No box: the garment is cut out, so it hangs on the page as on the rail. */
 }
 .hanger-tilt {
   width: 78%;

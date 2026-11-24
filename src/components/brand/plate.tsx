@@ -2,10 +2,19 @@ import Image from "next/image";
 import { ViewTransition, type CSSProperties, type ReactNode } from "react";
 import { isCloudinaryUrl } from "@/lib/cloudinary-url";
 import { formatPieceNumber } from "@/lib/format";
-import { inkOn, normaliseTone } from "@/lib/tone";
+import { inkOn, luminance, mixTone, normaliseTone } from "@/lib/tone";
 import { garmentKind, SketchPlate } from "@/components/lookbook/sketch-plate";
 import { FadingPhoto } from "./fading-photo";
 import { firstPaint } from "@/lib/first-paint";
+
+/**
+ * The paper a photograph is laid on. The photos are shot on white or pale
+ * grey; multiplied onto this, that backdrop turns into the page's own warm
+ * paper, with a breath of the piece's colour, instead of a white box. It
+ * stays light (dark pieces get even less of their colour), or the garment
+ * and the model would darken with it.
+ */
+const groundOf = (tone: string | null) => mixTone(tone, "#f4ecdf", luminance(normaliseTone(tone)) < 0.08 ? 0.06 : 0.14);
 
 type Props = {
   /** Shared-element name so the plate morphs into the piece page hero. Must be unique on the page. */
@@ -59,6 +68,7 @@ export function Plate({
   className = "",
 }: Props) {
   const colour = normaliseTone(tone);
+  const photo = !!src && isCloudinaryUrl(src);
   const ink = inkOn(colour);
   const style = { aspectRatio: ratio, backgroundColor: colour } as CSSProperties;
   const imageClass = fit === "illustration" ? "object-contain object-bottom px-[6%] pt-[14%]" : "object-cover";
@@ -79,12 +89,12 @@ export function Plate({
       ) : null}
     </div>
   ) : (
-    <div className={`arch relative w-full ${muted ? "opacity-70 saturate-50" : ""} ${className}`} style={style}>
+    <div className={`arch relative w-full ${photo ? "isolate" : ""} ${muted ? "opacity-70 saturate-50" : ""} ${className}`} style={photo ? { ...style, backgroundColor: groundOf(tone) } : style}>
       {src ? (
         // Photos on Cloudinary are resized there; local art (the mascot) goes through next/image.
         isCloudinaryUrl(src) ? (
           // A new photo (another colour) fades in over the last instead of leaving the arch bare while it loads.
-          <FadingPhoto src={src} alt={alt} sizes={sizes} priority={priority} className={imageClass} />
+          <FadingPhoto src={src} alt={alt} sizes={sizes} priority={priority} className={`${imageClass} mix-blend-multiply`} />
         ) : (
           <Image src={src} alt={alt} fill sizes={sizes} {...firstPaint(priority)} className={imageClass} />
         )
