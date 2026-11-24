@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { photoFolderPiecesAction, type FolderPiece } from "@/app/admin/(panel)/pieces/import/actions";
 import { folderName, placePhotos } from "@/lib/photo-folders";
 import { cardClass, Chip, FormError, Notice } from "./ui";
-import { uploadPhotos } from "./upload-photos";
+import { uploadPhotoGroups } from "./upload-photos";
 
 type Section = { colour: string | null; folder: string | null; files: File[] };
 type Plan = { piece: FolderPiece; sections: Section[]; unknown: string[]; existing: number };
@@ -72,18 +72,16 @@ export function FolderPhotos() {
   async function send() {
     if (!plans) return;
     const todo = plans.filter((p) => chosen.has(p.piece.id));
-    const report: NonNullable<typeof done> = [];
-    for (const plan of todo) {
-      const title = `Nº ${plan.piece.number} ${plan.piece.title}`;
-      let added = 0;
-      const problems: string[] = [];
-      for (const s of plan.sections) {
-        const r = await uploadPhotos(plan.piece.id, s.files, s.colour, (p) => setProgress(`${title}${s.colour ? `, ${s.colour}` : ""}: ${p}`));
-        added += r.added.length;
-        problems.push(...r.problems);
-      }
-      report.push({ title, added, problems });
-    }
+    // Every photo of every chosen piece through one set of uploads, then one save.
+    const groups = todo.flatMap((plan) => plan.sections.map((s) => ({ plan, group: { productId: plan.piece.id, colour: s.colour, files: s.files } })));
+    const results = await uploadPhotoGroups(
+      groups.map((g) => g.group),
+      setProgress,
+    );
+    const report: NonNullable<typeof done> = todo.map((plan) => {
+      const mine = results.filter((_, i) => groups[i]!.plan === plan);
+      return { title: `Nº ${plan.piece.number} ${plan.piece.title}`, added: mine.reduce((n, r) => n + r.added.length, 0), problems: mine.flatMap((r) => r.problems) };
+    });
     setProgress(null);
     setPlans(null);
     setDone(report);

@@ -87,27 +87,46 @@ export async function signPhotoUploadAction(productId: string): Promise<SignedUp
 
 export type PhotoResult = { ok: true } | { ok: false; error: string };
 
-/** Records an upload after checking Cloudinary's signed reply. Returns the new photo, so it can be edited straight away. */
-export async function attachPhotoAction(
-  productId: string,
-  receipt: UploadReceipt,
+const attachItem = z.object({
+  productId: z.uuid(),
+  /** Checked below against Cloudinary's signature, not trusted as sent. */
+  receipt: z.custom<UploadReceipt>((v) => typeof v === "object" && v !== null),
   /** The colour it's a photo of; null for every colour. */
-  colour: string | null = null,
-): Promise<{ ok: true; photo: PanelPhoto } | { ok: false; error: string }> {
+  colour: z.string().max(48).nullable(),
+});
+
+/**
+ * Records finished uploads, in the order given, after checking each
+ * Cloudinary reply. One call for a whole batch: actions from one tab run one
+ * by one, and each that changes the catalogue re-renders the page, so a call
+ * per photo made a long batch crawl. Returns the new photos, so they can be
+ * edited straight away, and a problem for each that couldn't be added.
+ */
+export async function attachPhotosAction(
+  items: z.input<typeof attachItem>[],
+): Promise<{ photos: (PanelPhoto & { productId: string; index: number })[]; problems: { index: number; error: string }[] }> {
   const { user } = await requireAdmin();
-  const photo = verifyUpload(receipt, PIECE_FOLDER);
-  if (!photo) return { ok: false, error: "That upload couldn't be confirmed. Try again." };
-  const c = z.string().max(48).nullable().safeParse(colour);
-  if (!c.success) return { ok: false, error: "Unknown colour." };
-  let row;
-  try {
-    row = await addPhoto(db, productId, photo, user.id, c.data);
-  } catch (err) {
-    if (err instanceof PieceRuleError) return { ok: false, error: Object.values(err.errors)[0]! };
-    throw err;
+  const list = z.array(attachItem).max(500).safeParse(items);
+  if (!list.success) return { photos: [], problems: items.map((_, index) => ({ index, error: "That upload couldn't be confirmed. Try again." })) };
+  const photos: (PanelPhoto & { productId: string; index: number })[] = [];
+  const problems: { index: number; error: string }[] = [];
+  for (const [index, item] of list.data.entries()) {
+    const photo = verifyUpload(item.receipt, PIECE_FOLDER);
+    if (!photo) {
+      problems.push({ index, error: "That upload couldn't be confirmed. Try again." });
+      continue;
+    }
+    try {
+      const row = await addPhoto(db, item.productId, photo, user.id, item.colour);
+      photos.push({ productId: item.productId, index, id: row.id, url: row.url, originalUrl: null, edit: null, altText: row.altText, color: row.color, angle: null });
+    } catch (err) {
+      // One failure mustn't lose the rest of the batch, nor the page refresh for those already added.
+      if (!(err instanceof PieceRuleError)) console.error("Photo couldn't be added", err);
+      problems.push({ index, error: err instanceof PieceRuleError ? Object.values(err.errors)[0]! : "It couldn't be saved. Try again." });
+    }
   }
-  updateTag(CATALOG_TAG);
-  return { ok: true, photo: { id: row.id, url: row.url, originalUrl: null, edit: null, altText: row.altText, color: row.color, angle: null } };
+  if (photos.length) updateTag(CATALOG_TAG);
+  return { photos, problems };
 }
 
 const photoChange = z.discriminatedUnion("kind", [
