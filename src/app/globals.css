@@ -631,6 +631,30 @@ html[data-intro] .intro.is-skipped {
   transform: translateY(-0.3em);
 }
 
+/* Text typed in the admin (components/brand/rich-text.tsx). */
+.rich-text > * + * {
+  margin-top: 0.9em;
+}
+.rich-text .rich-lead {
+  font-weight: 500;
+  color: var(--color-espresso);
+}
+.rich-text .rich-lead + ul {
+  margin-top: 0.4em;
+}
+.rich-text ul {
+  display: grid;
+  gap: 0.3em;
+  padding-left: 1.1em;
+  list-style: disc;
+}
+.rich-text li::marker {
+  color: var(--color-taupe);
+}
+.rich-text strong {
+  font-weight: 500;
+}
+
 .paper-plate {
   background-color: #f3ebdd;
   background-image:

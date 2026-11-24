@@ -28,6 +28,8 @@ import { pickRelated } from "./related";
  * Internal fields (supplier, acquisition cost, internal ref) are never selected here.
  */
 
+import { displayName } from "@/lib/format";
+
 export const CATALOG_TAG = "catalog";
 
 export { PRODUCT_SORTS, type ProductSort } from "@/lib/shop-sort";
@@ -138,6 +140,7 @@ export async function listPieces(
   return rows.map(
     (r): PieceCard => ({
       ...r,
+      pieceName: displayName(r.pieceName),
       priceMinor: Number(r.priceMinor),
       compareAtMinor: r.compareAtMinor === null ? null : Number(r.compareAtMinor),
       imageUrl: images.get(r.id)?.url ?? null,
@@ -313,6 +316,7 @@ export async function getProductBySlug(slug: string) {
 
   return {
     ...product,
+    pieceName: displayName(product.pieceName),
     // Colour order is the order they were added; sizes within a colour run small to large.
     variants: variants
       .map((v, i) => ({ v, i }))
@@ -350,7 +354,8 @@ export async function getAdjacentPieces(pieceNumber: number) {
       .orderBy(asc(products.pieceNumber))
       .limit(1),
   ]);
-  return { prev: prev[0] ?? null, next: next[0] ?? null };
+  const shown = (p: (typeof prev)[number] | undefined) => (p ? { ...p, pieceName: displayName(p.pieceName) } : null);
+  return { prev: shown(prev[0]), next: shown(next[0]) };
 }
 
 /* ------------------------------------------------------------------ */
@@ -458,6 +463,7 @@ export async function listLookbookPieces(): Promise<LookbookPiece[]> {
   const [images, colours] = await Promise.all([firstImages(ids), coloursOf(ids)]);
   return rows.map((r) => ({
     ...r,
+    pieceName: displayName(r.pieceName),
     priceMinor: Number(r.priceMinor),
     compareAtMinor: r.compareAtMinor === null ? null : Number(r.compareAtMinor),
     imageUrl: images.get(r.id)?.url ?? null,

@@ -42,6 +42,17 @@ export function paragraphs(text: string | null | undefined): string[] {
     .filter(Boolean);
 }
 
+/**
+ * A name typed all in capitals ("THE MUSE KNIT") as the storefront sets it:
+ * "The Muse Knit". Capitals in an italic display face read as shouting and
+ * set badly. Names typed in mixed case are left exactly as typed, and the
+ * stored name never changes.
+ */
+export function displayName<T extends string | null>(name: T): T {
+  if (!name || !/\p{Lu}/u.test(name) || name !== name.toUpperCase()) return name;
+  return name.toLowerCase().replace(/(^|[\s\-–(“"])(\p{L})/gu, (_, before: string, letter: string) => before + letter.toUpperCase()) as T;
+}
+
 /** First sentence, for captions. Falls back to a word-boundary cut. */
 export function firstSentence(text: string | null | undefined, max = 140): string | null {
   const t = (text ?? "").trim();

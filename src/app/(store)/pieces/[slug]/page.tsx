@@ -1,3 +1,4 @@
+import { RichText } from "@/components/brand/rich-text";
 import type { Metadata } from "next";
 import { Reveal } from "@/components/brand/reveal";
 import { PageTransition } from "@/components/brand/transitions";
@@ -332,7 +333,10 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
               <span className="text-xs text-espresso-soft">Inclusive of all taxes</span>
             </div>
 
-            {product.story ? <p className="caption mt-6 text-xl leading-snug">{product.story}</p> : null}
+            {product.story ? (
+              // A line or two reads as a caption at this size; a longer story steps down so it stays one.
+              <p className={`caption mt-6 ${product.story.length > 180 ? "text-lg leading-relaxed" : "text-xl leading-snug"}`}>{product.story}</p>
+            ) : null}
 
             {/* Live stock: never cached, read by the browser after the page has loaded. */}
             <LiveBuyPanel
@@ -360,7 +364,7 @@ async function PieceView({ params }: Pick<PageProps<"/pieces/[slug]">, "params">
               <details className="fold" open>
                 <summary>About this piece</summary>
                 <div className="fold-body">
-                  {product.description ? <p className="whitespace-pre-line text-sm leading-relaxed">{product.description}</p> : null}
+                  {product.description ? <RichText text={product.description} className="text-sm leading-relaxed" /> : null}
                   <dl className={`grid grid-cols-[auto_1fr] gap-x-6 gap-y-2.5 text-sm ${product.description ? "mt-5" : ""}`}>
                     {product.pieceNumber ? (
                       <>

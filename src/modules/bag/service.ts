@@ -13,6 +13,7 @@
  * Framework-free (takes a db handle) so tests can drive it directly.
  */
 import { createHash, randomBytes } from "node:crypto";
+import { displayName } from "@/lib/format";
 import { and, asc, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import type { Db, DbOrTx } from "@/db/create";
 import { cartItems, carts, productImages, productVariants, products, users } from "@/db/schema";
@@ -191,7 +192,7 @@ export async function readBag(db: DbOrTx, bagId: string): Promise<Bag> {
       variantId: r.variantId,
       slug: r.slug,
       name: r.name,
-      pieceName: r.pieceName,
+      pieceName: displayName(r.pieceName),
       pieceNumber: r.pieceNumber,
       categorySlug: r.categorySlug,
       colour: r.colour,

@@ -21,7 +21,7 @@ import {
   products,
   storeSettings,
 } from "@/db/schema";
-import { formatPieceNumber } from "@/lib/format";
+import { displayName, formatPieceNumber } from "@/lib/format";
 import { allocateDiscount } from "@/lib/money";
 import { claimCode, DiscountError, releaseCodeUse } from "@/modules/discounts/service";
 import { InsufficientStockError, VariantUnavailableError } from "@/modules/inventory/errors";
@@ -62,7 +62,7 @@ export type PlacedOrder = {
 
 /** The name an order line keeps for good: "Nº 01 Neem, linen wrap dress". */
 export function lineName(p: { pieceNumber: number | null; pieceName: string | null; name: string }): string {
-  const name = p.pieceName ? `${p.pieceName}, ${p.name.toLowerCase()}` : p.name;
+  const name = p.pieceName ? `${displayName(p.pieceName)}, ${p.name.toLowerCase()}` : p.name;
   return (p.pieceNumber ? `${formatPieceNumber(p.pieceNumber)} ${name}` : name).slice(0, 160);
 }
 
